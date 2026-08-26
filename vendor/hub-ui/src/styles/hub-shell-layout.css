@@ -1,0 +1,928 @@
+/* Hub app shell — P0004 p0008-globals parity */
+@import "./hub-directory-card-leading.css";
+
+:root,
+.theme-hub {
+  --hub-compact-scale: 0.9;
+  --hub-control-h: 31px;
+  --hub-metric-badge-h: 22px;
+  --hub-directory-card-icon-box-px: 22px;
+  --hub-directory-card-glyph-px: 14px;
+  /* Sidebar / footer chrome — rem scales with --hub-user-zoom-pct (default 90%). */
+  --hub-sidebar-chrome-size: 0.875rem;
+  --hub-header-chrome-font-size: 12px;
+  --hub-header-chrome-font-weight: 500;
+  --hub-sidebar-width: 15rem;
+  --app-tab-header-py: 0.75rem;
+  --app-tab-header-px: 1.5rem;
+  --app-tab-header-min-h: 2.75rem;
+  --app-tab-header-gap-below: 0.75rem;
+  --app-tab-header-sticky-h: var(--app-tab-header-min-h);
+  --hub-filter-pin-est-h: 6.75rem;
+  /* Small breathing room between sticky chrome and tab content (not inside sticky) */
+  --hub-chrome-content-gap: var(--app-tab-header-gap-below);
+  --hub-chrome-gap-below: var(--hub-chrome-content-gap);
+  --hub-chrome-sticky-est-h: calc(
+    var(--app-tab-header-min-h) + var(--hub-filter-pin-est-h) + var(--hub-chrome-content-gap)
+  );
+  /* Fixed analytics band heights — up to 8 KPI tiles per row */
+  --hub-kpi-strip-min-h: 4rem;
+  --hub-kpi-gap: 0.625rem;
+  --hub-kpi-pad-y: 0.75rem;
+  --hub-kpi-pad-x: 0.625rem;
+  --hub-kpi-inner-gap: 0.625rem;
+  /* Tile sticker (emoji + Lucide/brand). Independent of KPI caption size. */
+  --hub-kpi-sticker-size: 1.25rem;
+  --hub-kpi-icon: calc(var(--hub-kpi-sticker-size) + 1rem);
+  --hub-kpi-value-size: 1.1875rem;
+  --hub-chrome-micro-size: 0.625rem;
+  /* Section rule pill (Board / Customer / Order) — above KPI micro; scales with Hub zoom. */
+  --hub-section-rule-size: 0.8125rem;
+  --hub-kpi-label-size: var(--hub-chrome-micro-size);
+  --hub-kpi-hint-size: 0.75rem;
+  --hub-table-body-size: 12px;
+  --hub-table-body-line-height: 1.45;
+  --hub-analytics-caption-size: var(--hub-kpi-label-size);
+  --hub-inline-emoji-size: var(--hub-directory-header-glyph-px, 13px);
+  --hub-analytics-caption-emoji-size: var(--hub-inline-emoji-size);
+  --hub-chart-label-size: var(--hub-table-body-size);
+  /* Chart panel title = 80% of directory header (12px → 9.6px); keep 600 / --text. */
+  --hub-chart-panel-title-size: calc(var(--hub-table-header-size, 12px) * 0.8);
+  --hub-chart-caption-block: calc(var(--hub-chart-panel-title-size) * 1.25);
+  --hub-kpi-body-gap: 0.3125rem;
+  --hub-chart-bar-rows: 4;
+  --hub-chart-row-gap: 0.375rem;
+  --hub-chart-row-est-h: 1.5rem;
+  --hub-chart-card-pad-y: 1rem;
+  --hub-chart-card-min-h: calc(
+    var(--hub-chart-card-pad-y) * 2 + var(--hub-chart-caption-block) +
+      var(--hub-chart-bar-rows) * var(--hub-chart-row-est-h) +
+      (var(--hub-chart-bar-rows) - 1) * var(--hub-chart-row-gap)
+  );
+  --hub-charts-band-min-h: var(--hub-chart-card-min-h);
+  --hub-donut-size: 4rem;
+}
+
+.hub-chrome-type--micro {
+  font-size: var(--hub-chrome-micro-size);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Directory card metric strip value (Hours / Sales / Shifts) — table body tier, emphasised. */
+.hub-directory-card-metric-value {
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 600;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Directory card metadata — same readable tier as table td, muted by default. */
+.hub-directory-card-meta {
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--muted);
+}
+
+/* Directory card title — table header tier (12px / 600). */
+.hub-directory-card-title {
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.hub-chrome-type--section {
+  font-size: var(--hub-section-rule-size);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+}
+
+/* Sidebar brand / nav / footer — rem; 12.6px at Hub zoom 90%. */
+.hub-sidebar-chrome-type {
+  font-size: var(--hub-sidebar-chrome-size, 0.875rem);
+  font-family: var(--font-sans, Inter, system-ui, sans-serif);
+  line-height: 1.25;
+}
+
+.hub-analytics-caption {
+  font-size: var(--hub-analytics-caption-size);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+/* Chart panel titles (STATUS / PRIORITY…) — 80% of 12px title type.
+ * Title emoji matches legend-row glyphs (`--hub-chart-label-size`), not the smaller title type. */
+.hub-chart-panel-title,
+.hub-chart-card:not(.hub-chart-card--hero) .hub-analytics-caption {
+  --hub-inline-emoji-size: var(--hub-chart-label-size, 12px);
+  --hub-analytics-caption-emoji-size: var(--hub-chart-label-size, 12px);
+  font-size: var(--hub-chart-panel-title-size, 9.6px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+/* Directory / Kanban card surface — rest = former hover indigo ring; hover glows more. */
+.hub-directory-card-surface {
+  border-color: rgb(99 102 241 / 0.4);
+}
+.hub-directory-card-surface:hover {
+  border-color: rgb(129 140 248 / 0.78);
+  /* Keep --panel. A 3% white fill replaced the surface and showed board --bg (black). */
+  background-color: var(--panel);
+  box-shadow:
+    0 0 0 1px rgb(99 102 241 / 0.32),
+    0 10px 28px rgb(99 102 241 / 0.28);
+}
+.hub-directory-card-surface.hub-directory-card--pinned {
+  border-color: rgb(251 191 36 / 0.4);
+}
+.hub-directory-card-surface.hub-directory-card--pinned:hover {
+  border-color: rgb(251 191 36 / 0.7);
+  box-shadow:
+    0 0 0 1px rgb(251 191 36 / 0.28),
+    0 8px 28px rgb(245 158 11 / 0.22);
+}
+
+/* Users panel cards — rest indigo ring; hover = emerald lift (distinct from grid glow). */
+.hub-directory-card-surface.hub-directory-card-surface--panel:hover {
+  border-color: rgb(16 185 129 / 0.55);
+  background-color: rgb(16 185 129 / 0.06);
+  box-shadow:
+    0 0 0 1px rgb(16 185 129 / 0.28),
+    0 10px 28px rgb(16 185 129 / 0.18);
+}
+
+.hub-app {
+  /* Modal SSOT — center Layout 2/3 in main column (P0005 Order/SKU/Service golden). */
+  --app-sidebar-width: var(--hub-sidebar-width, 0px);
+  display: flex;
+  width: 100%;
+  height: 100%;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+html.hub-embed .hub-app--embed,
+html.hub-embed.hub-app,
+html.hub-embed .hub-app {
+  width: 100%;
+  max-width: none;
+}
+
+html.hub-embed .hub-app > main,
+html.hub-embed .hub-main {
+  width: 100%;
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.hub-app > main,
+.hub-main {
+  position: relative;
+  z-index: 0;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 0 1.5rem 1.5rem;
+  scroll-padding-top: var(--hub-chrome-sticky-est-h);
+}
+
+.hub-main:has([data-search-pin][data-header-pin]) {
+  scroll-padding-top: var(--hub-chrome-sticky-est-h);
+}
+
+.hub-main:has([data-search-pin]):not(:has([data-header-pin])) {
+  scroll-padding-top: var(--hub-filter-pin-est-h);
+}
+
+.hub-main {
+  -webkit-overflow-scrolling: touch;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.hub-chrome-sticky {
+  isolation: isolate;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
+  background: var(--bg);
+}
+
+/* Small gap between stacked sticky chrome and tab body (flex gap — no content padding under sticky) */
+.hub-tab-chrome-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--hub-chrome-content-gap);
+}
+
+/* Flush header + search panel when stacked (no double gap between header and filter) */
+.hub-chrome-sticky > .app-tab-header {
+  padding-bottom: 0;
+  min-height: calc(var(--app-tab-header-min-h) - var(--app-tab-header-py));
+}
+
+/* Divider below filter — spacing to content is margin on .hub-tab-content-zone */
+.hub-chrome-sticky-divider {
+  flex-shrink: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.hub-filter-sticky {
+  isolation: isolate;
+}
+
+/* Tab content below chrome — P0004 HubListPage `relative z-0` */
+.hub-tab-content-zone {
+  position: relative;
+  z-index: 0;
+}
+
+.hub-tab-kpi-zone {
+  margin-top: var(--hub-chrome-content-gap);
+  gap: var(--hub-chrome-content-gap);
+  overflow: visible;
+}
+
+/* Reserve analytics band — real KPI tiles + chart cards; empty values stay blank (no grey pulse). */
+.hub-tab-kpi-zone--reserved {
+  position: relative;
+  min-height: calc(
+    var(--hub-kpi-strip-min-h) + var(--hub-chrome-content-gap) + var(--hub-charts-band-min-h)
+  );
+}
+
+.hub-kpi-strip--reserve-frames .hub-kpi-tile__value:empty {
+  display: block;
+  min-height: 1.15em;
+}
+
+.hub-tab-kpi-zone--reserved .hub-kpi-strip--reserve-frames,
+.hub-tab-kpi-zone--reserved .hub-charts-band--reserve-frames {
+  pointer-events: none;
+}
+
+.hub-directory-empty {
+  border-radius: 0.75rem;
+  border: 1px dashed rgb(255 255 255 / 0.15);
+  background: rgb(255 255 255 / 0.02);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.hub-directory-empty__mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: max-content;
+  margin: 0 auto 0.65rem;
+}
+
+.hub-directory-empty__icon,
+.hub-directory-empty__beam,
+.hub-directory-empty__beam-host {
+  grid-area: 1 / 1;
+  display: block;
+}
+
+.hub-directory-empty__beam-host {
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.hub-directory-empty__mark--busy .hub-directory-empty__icon {
+  opacity: 0.42;
+}
+
+.hub-directory-empty__beam {
+  z-index: 1;
+  pointer-events: none;
+  fill: none;
+  stroke: none;
+}
+
+.hub-directory-empty__beam :is(path, circle, line, polyline, polygon, rect, ellipse) {
+  fill: none !important;
+  stroke: color-mix(in srgb, currentColor 18%, white);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* pathLength=100 on the glyph: one 2-unit dot, one outline lap in 3s. */
+  stroke-dasharray: 2 98;
+  animation: hub-directory-empty-beam 3s linear infinite;
+  filter:
+    drop-shadow(0 0 1.5px #fff)
+    drop-shadow(0 0 5px color-mix(in srgb, currentColor 85%, white));
+}
+
+@keyframes hub-directory-empty-beam {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-directory-empty__beam {
+    display: none;
+  }
+
+  .hub-directory-empty__mark--busy .hub-directory-empty__icon {
+    opacity: 0.85;
+  }
+}
+
+/* Stacked chrome: flex gap on .hub-tab-chrome-stack handles spacing (incl. System tab panels) */
+.hub-tab-chrome-stack .hub-tab-content-zone .hub-tab-kpi-zone {
+  margin-top: 0;
+}
+
+.hub-tab-body-zone {
+  /* spacing between children: use Tailwind space-y-3 on the element */
+}
+
+.hub-tab-body-zone--split {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.hub-screen-body {
+  min-height: 0;
+}
+
+.hub-kpi-block {
+  margin-top: var(--hub-chrome-gap-below);
+}
+
+/*
+ * Analytics band slot grid (KPI + Charts) — golden Hub.
+ * 1–3 visible: fixed 4-column grid → ¼ slot each (3 → 3/4 row, no stretch).
+ * 4–8 visible (KPI) / 4 visible (Charts): columns = visible count → full row.
+ */
+.hub-kpi-strip {
+  display: grid;
+  width: 100%;
+  min-height: var(--hub-kpi-strip-min-h);
+  align-items: stretch;
+  gap: var(--hub-kpi-gap);
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  /* Caption-adjacent filter emoji inherit KPI micro caption; tile sticker stays 1.125rem. */
+  --hub-inline-emoji-size: var(--hub-analytics-caption-size);
+  /* Room for hover ring-2 — tile must stay overflow:visible; pad strip so parents do not clip */
+  padding: 4px;
+  margin: -4px;
+  overflow: visible;
+}
+
+@media (min-width: 768px) {
+  .hub-kpi-strip[data-kpi-count="1"],
+  .hub-kpi-strip[data-kpi-count="2"],
+  .hub-kpi-strip[data-kpi-count="3"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .hub-kpi-strip[data-kpi-count="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .hub-kpi-strip[data-kpi-count="5"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .hub-kpi-strip[data-kpi-count="6"] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .hub-kpi-strip[data-kpi-count="7"] {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .hub-kpi-strip[data-kpi-count="8"] {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+
+.hub-kpi-strip[data-kpi-count="5"],
+.hub-kpi-strip[data-kpi-count="6"],
+.hub-kpi-strip[data-kpi-count="7"],
+.hub-kpi-strip[data-kpi-count="8"] {
+  --hub-kpi-value-size: 1.0625rem;
+  --hub-kpi-pad-x: 0.5rem;
+  --hub-kpi-gap: 0.5rem;
+  --hub-kpi-inner-gap: 0.5rem;
+}
+
+.hub-kpi-strip .hub-kpi-tile {
+  min-width: 0;
+  height: 100%;
+  min-height: var(--hub-kpi-strip-min-h);
+  padding: var(--hub-kpi-pad-y) var(--hub-kpi-pad-x);
+  box-sizing: border-box;
+}
+
+.hub-kpi-strip .hub-kpi-tile__inner {
+  gap: var(--hub-kpi-inner-gap);
+  height: 100%;
+  min-height: calc(var(--hub-kpi-strip-min-h) - 2 * var(--hub-kpi-pad-y));
+  align-items: center;
+}
+
+.hub-kpi-strip .hub-kpi-tile__icon {
+  width: max(var(--hub-kpi-icon), calc(var(--hub-kpi-sticker-size) + 0.5rem));
+  height: max(var(--hub-kpi-icon), calc(var(--hub-kpi-sticker-size) + 0.5rem));
+  flex-shrink: 0;
+  align-self: center;
+  overflow: visible;
+  display: grid;
+  place-items: center;
+  place-content: center;
+}
+
+.hub-kpi-strip .hub-kpi-tile__emoji,
+.hub-kpi-strip .hub-kpi-tile__icon-svg {
+  width: var(--hub-kpi-sticker-size);
+  height: var(--hub-kpi-sticker-size);
+  font-size: var(--hub-kpi-sticker-size);
+  line-height: 1;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* Pictograph emoji ink sits high in Segoe's em-box — shrink inside the sticker square. */
+.hub-kpi-strip .hub-kpi-tile__emoji {
+  font-size: calc(var(--hub-kpi-sticker-size) * 0.84);
+  line-height: 1;
+}
+
+.hub-kpi-strip .hub-kpi-tile__status-dot {
+  box-sizing: border-box;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  display: block;
+  flex-shrink: 0;
+  place-self: center;
+  justify-self: center;
+  align-self: center;
+}
+
+.hub-kpi-strip .hub-kpi-tile__body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--hub-kpi-body-gap);
+}
+
+.hub-kpi-strip .hub-kpi-tile__label {
+  font-size: var(--hub-analytics-caption-size);
+  font-weight: 600;
+  line-height: 1.25;
+  min-height: 1.25em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-kpi-strip .hub-kpi-tile__value {
+  font-size: var(--hub-kpi-value-size);
+  line-height: 1.15;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-kpi-strip .hub-kpi-tile__value.hub-order-price-text {
+  font-size: var(--hub-kpi-value-size);
+  line-height: 1.15;
+}
+
+.hub-kpi-strip .hub-kpi-tile__hint {
+  font-size: var(--hub-kpi-hint-size);
+  line-height: 1.2;
+  margin-top: 0.0625rem;
+}
+
+/* Charts band — same slot rules as KPI (max 4); uses data-chart-count on hub-charts-band */
+.hub-charts-band {
+  display: grid;
+  width: 100%;
+  min-height: var(--hub-charts-band-min-h);
+  gap: 0.75rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .hub-charts-band[data-chart-count="1"],
+  .hub-charts-band[data-chart-count="2"],
+  .hub-charts-band[data-chart-count="3"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .hub-charts-band[data-chart-count="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.hub-chart-card {
+  box-sizing: border-box;
+  min-height: var(--hub-chart-card-min-h);
+  height: var(--hub-chart-card-min-h);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/** Hero time-series — full band row + auto height (inbox over time, analytics primary). */
+.hub-chart-card--hero {
+  height: auto;
+  min-height: 10.5rem;
+  overflow: visible;
+}
+
+@media (min-width: 768px) {
+  .hub-charts-band[data-chart-count="1"] > .hub-chart-card--hero,
+  .hub-charts-band[data-chart-count="2"] > .hub-chart-card--hero,
+  .hub-charts-band[data-chart-count="3"] > .hub-chart-card--hero,
+  .hub-charts-band[data-chart-count="4"] > .hub-chart-card--hero,
+  .hub-charts-band > .hub-charts-band__full {
+    grid-column: 1 / -1;
+  }
+}
+
+/** Chart + Log (or any full-row split) — same width/height as a hero chart; inner 8fr / 2fr. */
+.hub-charts-band > .hub-charts-band__full {
+  grid-column: 1 / -1;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 10.5rem;
+  height: auto;
+  align-self: stretch;
+}
+
+.hub-charts-split-8-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .hub-charts-split-8-2 {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 2fr);
+  }
+}
+
+.hub-charts-split-8-2__main {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.hub-charts-split-8-2__main > .hub-chart-card--hero {
+  min-height: 10.5rem;
+  height: 100%;
+}
+
+/** Log-only analytics band — no empty 8fr chart column. */
+.hub-charts-split-log-only {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
+  justify-items: end;
+}
+
+@media (min-width: 768px) {
+  .hub-charts-split-log-only {
+    grid-template-columns: minmax(0, 2fr);
+    justify-content: end;
+  }
+}
+
+.hub-log-rail--compact .hub-release-timeline-item {
+  gap: 0.35rem;
+}
+
+.hub-log-rail--compact .hub-release-timeline-rail {
+  padding-top: 0.35rem;
+}
+
+.hub-log-rail--compact .hub-release-timeline-card {
+  padding: 0.35rem 0.5rem;
+}
+
+.hub-log-rail--compact .hub-release-timeline-line {
+  min-height: 0.75rem;
+}
+
+.hub-chart-card--hero .hub-chart-card__body {
+  min-height: 6.5rem;
+  overflow: visible;
+}
+
+.hub-chart-card__body {
+  min-height: calc(
+    var(--hub-chart-bar-rows) * var(--hub-chart-row-est-h) +
+      (var(--hub-chart-bar-rows) - 1) * var(--hub-chart-row-gap)
+  );
+  flex: 1 1 auto;
+  overflow: visible;
+}
+
+/* Donut — same 3-col grid as hub-chart-row: label left, donut right-of-center, value at right edge */
+.hub-chart-card__body--donut {
+  display: grid;
+  min-height: calc(
+    var(--hub-chart-bar-rows) * var(--hub-chart-row-est-h) +
+      (var(--hub-chart-bar-rows) - 1) * var(--hub-chart-row-gap)
+  );
+  flex: 1 1 auto;
+  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr) 2.25rem;
+  column-gap: 0.5rem;
+  row-gap: 0.375rem;
+  align-items: center;
+  overflow: visible;
+}
+
+.hub-chart-card__body--donut .hub-chart-legend-label {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.hub-chart-card__body--donut .hub-chart-donut-value {
+  grid-column: 3;
+  text-align: right;
+}
+
+.hub-chart-card__body--donut .hub-chart-card__donut {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  justify-self: end;
+  align-self: center;
+  margin-right: 0.25rem;
+}
+
+.hub-chart-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr) 2.25rem;
+  align-items: center;
+  column-gap: 0.5rem;
+  row-gap: 0.125rem;
+}
+
+/* Entity rank — wider value column + badges without bar overlap */
+.hub-chart-row--rank {
+  grid-template-columns: minmax(5.5rem, 7.5rem) minmax(0, 1fr) minmax(5rem, auto);
+  align-items: start;
+  row-gap: 0.25rem;
+}
+
+.hub-chart-card__body--rank {
+  min-height: 0;
+  overflow: visible;
+}
+
+.hub-chart-row--rank .hub-chart-row__value {
+  min-width: 0;
+  grid-column: 3;
+}
+
+.hub-chart-legend-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--hub-inline-gap-comfort, 6px);
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--hub-chart-label-size);
+  font-weight: 400;
+  line-height: 1;
+  --hub-inline-emoji-size: var(--hub-chart-label-size, 12px);
+}
+
+.hub-chart-row__value {
+  text-align: right;
+  color: var(--text);
+  font-size: var(--hub-chart-label-size);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-chart-donut-value {
+  font-size: var(--hub-chart-label-size);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-chart-card__empty {
+  font-size: var(--hub-chart-label-size);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--muted);
+}
+
+.hub-chart-legend-label__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: var(--hub-table-body-line-height, 1.45);
+}
+
+.hub-chart-legend-label__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+  width: var(--hub-inline-emoji-size, var(--hub-chart-label-size, 12px));
+  height: var(--hub-inline-emoji-size, var(--hub-chart-label-size, 12px));
+  line-height: 0;
+}
+
+.hub-chart-legend-label__glyph--emoji {
+  line-height: 1;
+}
+
+.hub-chart-legend-label__glyph--dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  flex-shrink: 0;
+  align-self: center;
+  vertical-align: middle;
+  line-height: 0;
+}
+
+.hub-chart-card__donut {
+  width: var(--hub-donut-size);
+  height: var(--hub-donut-size);
+  max-width: var(--hub-donut-size);
+  max-height: var(--hub-donut-size);
+  flex-shrink: 0;
+}
+
+/* Dashboard pinned card — amber glow when pinned */
+@keyframes hub-directory-pin-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.28),
+      0 8px 28px rgba(245, 158, 11, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.45),
+      0 10px 32px rgba(245, 158, 11, 0.22);
+  }
+}
+
+.hub-directory-card--pinned {
+  animation: hub-directory-pin-glow 2.8s ease-in-out infinite;
+}
+
+.hub-directory-pin-mark {
+  fill: currentColor;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.55));
+}
+
+/* Directory search toolbar — unified Display panel (KPI · charts · filters · columns). */
+
+.hub-directory-display-panel {
+  display: flex;
+  width: min(18rem, 92vw);
+  max-height: min(70vh, 28rem);
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel, #0f1219);
+  padding: 0.5rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.hub-directory-display-panel__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.hub-directory-display-panel__section + .hub-directory-display-panel__section {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hub-directory-display-panel__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.hub-directory-display-panel__section-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted, #94a3b8);
+}
+
+.hub-directory-display-panel__section-body {
+  min-width: 0;
+}
+
+.hub-directory-display-panel__footer {
+  flex-shrink: 0;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hub-directory-display-panel__reset {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.45rem 0.65rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted, #94a3b8);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.hub-directory-display-panel__reset:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #e8eaef);
+}
+
+/* Sidebar tree subnav — grid rail+dot rows (override tool-specific nav button flex rules) */
+.hub-sidebar-subnav-button {
+  display: grid !important;
+  width: 100%;
+  height: 2rem;
+  min-height: 2rem;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: 1.25;
+}

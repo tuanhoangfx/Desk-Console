@@ -1,0 +1,9 @@
+/** Filter row-2 bulk rail — layout only; Tailwind `hidden` / `flex` owns visibility. */
+.hub-directory-bulk-rail {
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 0;
+}

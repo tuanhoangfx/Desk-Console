@@ -1,0 +1,76 @@
+/* Golden P0004 — compact controls inside hub-users-table directory cells */
+
+.hub-table-cell-btn {
+  display: inline-flex;
+  height: var(--hub-control-h);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-radius: 0.5rem;
+  padding: 0 0.625rem;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+  cursor: pointer;
+}
+
+.hub-table-cell-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hub-table-cell-btn--ghost {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgb(199 210 254);
+}
+
+.hub-table-cell-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(129, 140, 248, 0.28);
+}
+
+.hub-table-cell-btn--on {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgb(199 210 254);
+}
+
+.hub-table-cell-btn--on:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hub-table-cell-btn--off {
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.15);
+  color: rgb(209 250 229);
+}
+
+.hub-table-cell-btn--off:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.25);
+}
+
+.hub-users-col--id .hub-users-role-select,
+.hub-users-col--tools .hub-users-role-select,
+.hub-users-col--role .hub-users-role-select {
+  min-width: 5rem;
+  max-width: 9rem;
+  width: 100%;
+}
+
+.hub-users-table--directory td.hub-users-col--id,
+.hub-users-table--directory td.hub-users-col--tools,
+.hub-users-table--directory td.hub-users-col--role {
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.hub-table-cell-hint {
+  font-size: 9px;
+  line-height: 1.2;
+  color: rgba(199, 210, 254, 0.8);
+}

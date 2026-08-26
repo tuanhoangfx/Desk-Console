@@ -1,0 +1,133 @@
+/**
+ * OTP / TOTP code chip — P0020 Mail `# Code` column (locked: dark-glass-amber-glow).
+ * Pair: HUB_TWOFA_CODE_BADGE_CLASS in shell/hub-twofa-code-badge.ts
+ */
+
+.hub-twofa-code-badge,
+.twofa-code-badge {
+  display: inline-flex;
+  max-width: none;
+  align-items: center;
+  gap: var(--hub-inline-gap-comfort, 6px);
+  border-radius: 9999px;
+  border: 1px solid rgba(251, 191, 36, 0.16);
+  background: rgba(0, 0, 0, 0.34);
+  padding: 0.125rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  color: #f8fafc;
+  box-shadow:
+    0 0 14px rgba(251, 191, 36, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.12s ease;
+}
+
+.hub-twofa-code-badge--amber-fill,
+.twofa-code-badge--amber-fill {
+  border-color: rgb(251 191 36 / 0.55);
+  background: rgb(245 158 11 / 0.24);
+  color: rgb(255 251 235);
+  box-shadow: 0 0 10px rgb(251 191 36 / 0.2);
+}
+
+.hub-twofa-code-badge--violet,
+.twofa-code-badge--violet {
+  border-color: rgba(129, 140, 248, 0.42);
+  background: rgba(99, 102, 241, 0.16);
+  color: #e0e7ff;
+  box-shadow: none;
+}
+
+.hub-twofa-code-badge--cyan,
+.twofa-code-badge--cyan {
+  border-color: rgb(34 211 238 / 0.55);
+  background: rgb(6 182 212 / 0.22);
+  color: #ecfeff;
+  box-shadow: 0 0 10px rgb(34 211 238 / 0.18);
+}
+
+.hub-twofa-code-badge:hover,
+.twofa-code-badge:hover {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(0, 0, 0, 0.42);
+  box-shadow:
+    0 0 18px rgba(251, 191, 36, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.hub-twofa-code-badge--static,
+.twofa-code-badge--static {
+  cursor: default;
+  letter-spacing: 0;
+}
+
+.hub-twofa-code-badge--static:hover,
+.twofa-code-badge--static:hover {
+  border-color: rgba(251, 191, 36, 0.16);
+  background: rgba(0, 0, 0, 0.34);
+  box-shadow:
+    0 0 14px rgba(251, 191, 36, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* P0020 Time / period — yellow/cyan/rose countdown dot beside `{n}s`. */
+.hub-twofa-period-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.hub-twofa-period-label {
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text, #f8fafc);
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-twofa-period-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: background-color 0.45s ease, box-shadow 0.45s ease;
+}
+
+.hub-twofa-period-dot--fresh {
+  background: #22d3ee;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.45);
+}
+
+.hub-twofa-period-dot--warn {
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.4);
+}
+
+.hub-twofa-period-dot--urgent {
+  background: #fb7185;
+  box-shadow: 0 0 8px rgba(251, 113, 133, 0.5);
+  animation: hub-twofa-period-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes hub-twofa-period-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(0.88);
+  }
+}

@@ -1,0 +1,737 @@
+/* Directory tables — select chrome + layout skin. Bulk + read-only: rem tracks; wrap overflow-x. */
+@import "./hub-flash-border.css";
+
+/* Select column SSOT — 36px col + 16px hub-checkbox; applies when shell sets data-hub-directory-select */
+table.hub-users-table[data-hub-directory-select] col.hub-users-col--select,
+table.hub-users-table[data-hub-directory-select] th.hub-users-col--select,
+table.hub-users-table[data-hub-directory-select] td.hub-users-col--select {
+  width: 36px;
+  max-width: 36px;
+  min-width: 36px;
+  padding: 6px 4px;
+  box-sizing: border-box;
+  text-align: center;
+  vertical-align: middle;
+}
+
+table.hub-users-table[data-hub-directory-select] .hub-users-select-all,
+table.hub-users-table[data-hub-directory-select] .hub-users-select-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+  padding: 0;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+/* Legacy variant hooks — same geometry when data-hub-directory-select is present */
+table.hub-users-table.hub-users-table--directory col.hub-users-col--select,
+table.hub-users-table.hub-users-table--directory th.hub-users-col--select,
+table.hub-users-table.hub-users-table--directory td.hub-users-col--select,
+table.hub-users-table.hub-users-table--hub-tools col.hub-users-col--select,
+table.hub-users-table.hub-users-table--hub-tools th.hub-users-col--select,
+table.hub-users-table.hub-users-table--hub-tools td.hub-users-col--select,
+table.hub-users-table.hub-users-table--dashboard-screens col.hub-users-col--select,
+table.hub-users-table.hub-users-table--dashboard-screens th.hub-users-col--select,
+table.hub-users-table.hub-users-table--dashboard-screens td.hub-users-col--select,
+table.hub-users-table.hub-users-table--route-access-modal col.hub-users-col--select,
+table.hub-users-table.hub-users-table--route-access-modal th.hub-users-col--select,
+table.hub-users-table.hub-users-table--route-access-modal td.hub-users-col--select,
+table.hub-users-table.hub-users-table--route-access col.hub-users-col--select,
+table.hub-users-table.hub-users-table--route-access th.hub-users-col--select,
+table.hub-users-table.hub-users-table--route-access td.hub-users-col--select,
+table.hub-users-table.hub-users-table--twofa col.hub-users-col--select,
+table.hub-users-table.hub-users-table--twofa th.hub-users-col--select,
+table.hub-users-table.hub-users-table--twofa td.hub-users-col--select,
+table.hub-users-table.hub-users-table--users-credentials col.hub-users-col--select,
+table.hub-users-table.hub-users-table--users-credentials th.hub-users-col--select,
+table.hub-users-table.hub-users-table--users-credentials td.hub-users-col--select {
+  width: 36px;
+  max-width: 36px;
+  min-width: 36px;
+  padding: 6px 4px;
+  box-sizing: border-box;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/*
+ * Belt: rem-pinned sibling <col>s under table-layout:fixed can still stretch the select
+ * track (~46–49px) when every content col is rem-locked (Profile pivot). Prefer
+ * chrome-only rem in product colgroups; this keeps the checkbox SSOT rigid.
+ */
+table.hub-users-table[data-hub-directory-select] col.hub-users-col--select {
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+}
+
+table.hub-users-table.hub-users-table--directory {
+  min-width: 48rem;
+  --hub-table-body-size: 12px;
+  --hub-table-body-line-height: 1.45;
+  --hub-directory-glyph-label-gap: 5px;
+  --hub-directory-header-glyph-px: 13px;
+}
+
+/*
+ * Shared directory chrome rem — hub-directory-column-width-registry.ts
+ * Profile = browser 7.5rem · Usage = 8.75rem · Usage Expired = 12rem · Day Left = period 5rem.
+ */
+:root {
+  --hub-dir-col-profile: 7.5rem;
+  --hub-dir-col-usage: 8.75rem;
+  --hub-dir-col-usage-expired: 12rem;
+  --hub-dir-col-plan-left: 5rem;
+  --hub-dir-col-own: 5.5rem;
+  --hub-dir-col-status: 8.75rem;
+  --hub-dir-col-date: 6.25rem;
+  --hub-dir-col-password: 8rem;
+  --hub-dir-col-recover: 12.5rem;
+  --hub-dir-col-full-info: 7rem;
+  --hub-dir-col-plan-package: 26rem;
+}
+
+/* Directory body typography — status / sync / muted match 12px body (frame-table parity). */
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-status,
+table.hub-users-table[data-hub-directory-select] td .hub-users-status {
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--text);
+  text-transform: none;
+}
+
+table.hub-users-table[class*="hub-users-table--directory"] td.hub-users-cell-muted,
+table.hub-users-table[data-hub-directory-select] td.hub-users-cell-muted,
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-cell-muted,
+table.hub-users-table[data-hub-directory-select] td .hub-users-cell-muted {
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--muted);
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-cell-email,
+table.hub-users-table[data-hub-directory-select] td .hub-users-cell-email {
+  font-size: var(--hub-table-body-size, 12px);
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--muted);
+}
+
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-cell-sub,
+table.hub-users-table[data-hub-directory-select] td .hub-users-cell-sub {
+  font-size: var(--hub-table-body-size, 12px);
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--muted);
+}
+
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-role-badge,
+table.hub-users-table[data-hub-directory-select] td .hub-users-role-badge {
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 500;
+  line-height: var(--hub-table-body-line-height, 1.45);
+}
+
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-status-dot,
+table.hub-users-table[data-hub-directory-select] td .hub-users-status-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* Data columns — colgroup inline width is SSOT; neutralize legacy .hub-users-col--* % from hub-users-table.css */
+table.hub-users-table[data-hub-directory-select] th[class*="hub-users-col--"]:not(.hub-users-col--select),
+table.hub-users-table[data-hub-directory-select] td[class*="hub-users-col--"]:not(.hub-users-col--select),
+table.hub-users-table.hub-users-table--directory th[class*="hub-users-col--"]:not(.hub-users-col--select),
+table.hub-users-table.hub-users-table--directory td[class*="hub-users-col--"]:not(.hub-users-col--select) {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+
+.hub-directory-table-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.hub-directory-table-actions .hub-users-copy-badge {
+  max-width: 5.5rem;
+}
+
+/* Trailing actions column (posts table) — fixed width via colgroup trailingCols */
+table.hub-users-table--directory col.hub-users-col--actions,
+table.hub-users-table--directory .hub-users-col--actions {
+  width: 8.5rem;
+  min-width: 8.5rem;
+  max-width: 8.5rem;
+}
+
+.page-health-status--ok {
+  color: #6ee7b7;
+}
+
+.page-health-status--warn {
+  color: #fcd34d;
+}
+
+.page-health-status--error {
+  color: #fca5a5;
+}
+
+.page-health-status--muted {
+  color: var(--muted);
+}
+
+.hub-users-row.is-allowlisted {
+  box-shadow: inset 3px 0 0 rgba(34, 197, 94, 0.45);
+}
+
+.hub-users-row.is-allowlisted.is-selected {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* Bulk directory row states — scoped to checkbox tables (Hub/Users/Dashboard/Agent) */
+table.hub-users-table[data-hub-directory-select] .hub-users-row:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+table.hub-users-table[data-hub-directory-select] .hub-users-row.is-selected {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+table.hub-users-table[data-hub-directory-select] .hub-users-row.is-selected:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+table.hub-users-table[data-hub-directory-select] .hub-users-row.is-detail {
+  background: rgba(52, 211, 153, 0.08);
+  box-shadow: inset 3px 0 0 rgba(52, 211, 153, 0.5);
+  cursor: pointer;
+}
+
+table.hub-users-table[data-hub-directory-select] .hub-users-row.is-detail:hover {
+  background: rgba(52, 211, 153, 0.1);
+}
+
+/*
+ * Pad rows (`padBodyRowsToPageSize`) — default invisible.
+ * Keep height for a stable page frame; hide ghost grid (P0003 Profiles golden).
+ * Frozen lead cells keep sticky `left` but drop `--panel` fill so empty slots
+ * stay blank. Opt-in faint separators: `[data-partial-page-pad="visible"]`.
+ */
+table.hub-users-table tbody tr.hub-users-row--pad {
+  pointer-events: none;
+  user-select: none;
+  cursor: default;
+  background: transparent;
+  box-shadow: none;
+}
+
+table.hub-users-table tbody tr.hub-users-row--pad td {
+  border-color: transparent !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+table.hub-users-table[data-hub-directory-select] .hub-users-row.is-highlighted {
+  background: rgba(99, 102, 241, 0.07);
+  box-shadow: inset 3px 0 0 rgba(129, 140, 248, 0.45);
+}
+
+table.hub-users-table[data-hub-directory-select] .hub-users-row.is-highlighted:hover {
+  background: rgba(99, 102, 241, 0.09);
+}
+
+/* Modal read-only directory tables (Hub Details versions/links) */
+.hub-tool-detail-modal__content table.hub-users-table:not([data-hub-directory-select]) .hub-users-row:hover {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.hub-tool-detail-modal__content table.hub-users-table:not([data-hub-directory-select]) .hub-users-row.is-detail {
+  background: rgba(99, 102, 241, 0.07);
+  box-shadow: inset 3px 0 0 rgba(129, 140, 248, 0.45);
+}
+
+.hub-tool-detail-modal__content .hub-users-table-wrap.hub-modal-directory-table-wrap,
+.hub-tool-detail-modal__content .hub-modal-directory-section .hub-users-table-wrap {
+  background: var(--hub-directory-pane-surface, var(--panel));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  margin-bottom: 0;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.hub-tool-detail-modal__content .hub-modal-directory-section .hub-paginated-table-shell {
+  min-width: 0;
+}
+
+.hub-tool-detail-modal__content .hub-modal-directory-section .hub-table-pager {
+  margin-top: 8px;
+  padding: 0 4px 4px;
+}
+
+.hub-tool-detail-modal__content .hub-modal-directory-section .hub-users-table-wrap + .hub-table-pager,
+.hub-tool-detail-modal__content .hub-paginated-table-shell > .hub-table-pager {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: 8px;
+}
+
+.hub-tool-detail-modal__content table.hub-users-table:not([data-hub-directory-select]) thead th {
+  background: var(--hub-directory-thead-surface, var(--panel));
+  border-bottom: 1px solid var(--hub-directory-thead-border, rgba(255, 255, 255, 0.08));
+}
+
+.hub-tool-detail-modal__content table.hub-users-table:not([data-hub-directory-select]) td {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Directory metric / extension columns — unique colClass typography */
+.hub-users-col--metric-a,
+.hub-users-col--metric-b,
+.hub-users-col--metric-c,
+.hub-users-col--metric-d,
+.hub-users-col--metric-e,
+.hub-users-col--metric-f,
+.hub-users-col--metric-g,
+.hub-users-col--metric-h,
+.hub-users-col--metric-i,
+.hub-users-col--metric-j,
+.hub-users-col--metric-k,
+.hub-users-col--last-active,
+.hub-users-col--threads,
+.hub-users-col--groups,
+.hub-users-col--friends,
+.hub-users-col--gender {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.hub-users-col--metric-a,
+.hub-users-col--metric-b,
+.hub-users-col--metric-c,
+.hub-users-col--metric-d,
+.hub-users-col--metric-e,
+.hub-users-col--metric-f,
+.hub-users-col--metric-g,
+.hub-users-col--metric-h,
+.hub-users-col--metric-i,
+.hub-users-col--metric-j,
+.hub-users-col--metric-k,
+.hub-users-col--threads,
+.hub-users-col--groups,
+.hub-users-col--friends {
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-directory-avatar-img {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  object-fit: cover;
+  border: 1px solid rgba(129, 140, 248, 0.18);
+}
+
+/* Directory golden header — P0004 subtle thead + compact row; icons keep role colors (hub-users-table.css) */
+table.hub-users-table.hub-users-table--directory thead th,
+table.hub-users-table[data-hub-directory-select] thead th {
+  background: var(--hub-directory-thead-surface, var(--panel));
+  border-bottom: 1px solid var(--hub-directory-thead-border, rgba(255, 255, 255, 0.08));
+  box-shadow: none;
+}
+
+table.hub-users-table.hub-users-table--directory .hub-users-th-btn,
+table.hub-users-table[data-hub-directory-select] .hub-users-th-btn {
+  min-height: 28px;
+  padding: 2px 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+table.hub-users-table.hub-users-table--directory .hub-users-th-heading,
+table.hub-users-table[data-hub-directory-select] .hub-users-th-heading {
+  gap: var(--hub-directory-glyph-label-gap, 5px);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+table.hub-users-table.hub-users-table--directory .hub-users-th-label,
+table.hub-users-table[data-hub-directory-select] .hub-users-th-label {
+  gap: var(--hub-directory-glyph-label-gap, 5px);
+  min-width: 0;
+  overflow: hidden;
+  /* Sort icon must not steal flex space from the column title. */
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+table.hub-users-table.hub-users-table--directory .hub-users-th-label > svg,
+table.hub-users-table[data-hub-directory-select] .hub-users-th-label > svg {
+  flex-shrink: 0;
+}
+
+table.hub-users-table.hub-users-table--directory .hub-users-th-label .hub-chrome-brand-icon-bare,
+table.hub-users-table[data-hub-directory-select] .hub-users-th-label .hub-chrome-brand-icon-bare {
+  vertical-align: middle;
+}
+
+/* Directory table body — brand glyph SSOT (parity P0005 Product / P0020 Service). */
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-cell-name img.hub-brand-icon-bare,
+table.hub-users-table.hub-users-table--directory td .hub-users-cell-name img.hub-brand-icon-bare,
+table.hub-users-table.hub-users-table--twofa td .hub-users-cell-name img.hub-brand-icon-bare,
+table.hub-users-table[data-hub-directory-select] td .hub-users-cell-name img.hub-brand-icon-bare,
+table.hub-users-table[class*="hub-users-table--directory"] td .quota-platform-cell img.hub-brand-icon-bare,
+table.hub-users-table.hub-users-table--twofa td .quota-platform-cell img.hub-brand-icon-bare {
+  width: var(--hub-directory-table-brand-icon-px, 16px);
+  height: var(--hub-directory-table-brand-icon-px, 16px);
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+/* Safety — strip legacy filter/chrome tile chrome if any directory cell still emits it. */
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-cell-name img.hub-chrome-brand-icon,
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-users-cell-name img.hub-filter-brand-icon,
+table.hub-users-table.hub-users-table--twofa td .hub-users-cell-name img.hub-chrome-brand-icon,
+table.hub-users-table.hub-users-table--twofa td .hub-users-cell-name img.hub-filter-brand-icon,
+table.hub-users-table[class*="hub-users-table--directory"] td .quota-platform-cell img.hub-chrome-brand-icon,
+table.hub-users-table[class*="hub-users-table--directory"] td .quota-platform-cell img.hub-filter-brand-icon {
+  width: var(--hub-directory-table-brand-icon-px, 16px) !important;
+  height: var(--hub-directory-table-brand-icon-px, 16px) !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  filter: none !important;
+  object-fit: contain;
+}
+
+.hub-directory-brand-glyph {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+table.hub-users-table.hub-users-table--directory thead .hub-users-th-text,
+table.hub-users-table[data-hub-directory-select] thead .hub-users-th-text {
+  color: var(--text);
+  font-weight: 600;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  /* Never show "A…" / "Brows…" — when cramped, hide label and keep glyph (title/hint still expose name). */
+  text-overflow: clip;
+}
+
+/*
+ * Icon-only collapse is JS-only (`computeHubTableHeaderIconOnly` vs <th> width).
+ * Do NOT hide labels via @container max-width here — fixed cols (e.g. Update 6.25rem)
+ * falsely match loose thresholds and stay icon-only while the column still has room
+ * (TikTok/Mail/Services/Facebook/Partner + every Hub directory table).
+ * Never put container-type on .hub-users-th-heading (flex min-width:0 → width 0 latch).
+ */
+
+/*
+ * Glyph column headers — keep short labels sized to content so flex+ellipsis does not
+ * clip before JS measures the real <th> budget. Long text-only headers stay default flex.
+ */
+table.hub-users-table[data-hub-directory-select] thead th:has(
+  .hub-users-th-emoji,
+  .hub-users-th-icon,
+  .hub-chrome-brand-icon-bare,
+  img.hub-users-th-icon--image
+) .hub-users-th-heading,
+table.hub-users-table[data-hub-directory-select] thead th:has(
+  .hub-users-th-emoji,
+  .hub-users-th-icon,
+  .hub-chrome-brand-icon-bare,
+  img.hub-users-th-icon--image
+) .hub-users-th-label {
+  flex: 0 1 auto;
+  min-width: max-content;
+  overflow: visible;
+  width: auto;
+}
+
+table.hub-users-table[data-hub-directory-select] thead th:has(
+  .hub-users-th-emoji,
+  .hub-users-th-icon,
+  .hub-chrome-brand-icon-bare,
+  img.hub-users-th-icon--image
+) .hub-users-th-text:not(.hub-users-th-text--measure) {
+  flex: 0 0 auto;
+  min-width: max-content;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* JS fit — never clip header labels; icon-only when measured overflow. */
+.hub-users-th-heading--icon-only .hub-users-th-text:not(.hub-users-th-text--measure) {
+  display: none !important;
+}
+
+.hub-users-th-text--measure {
+  position: absolute;
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  width: max-content;
+  max-width: none;
+}
+
+/* Split scroll — thead fixed outside scroll; scrollbar only on tbody pane */
+.hub-directory-table-split {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden !important;
+  max-height: none;
+  scrollbar-gutter: auto;
+}
+
+.hub-directory-table-split.hub-directory-table-scroll--flex-pane {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Flex-pane — head reserves gutter via pad + ::after (same single surface as head; no th stack) */
+.hub-directory-table-split.hub-directory-table-scroll--flex-pane .hub-directory-table-head {
+  padding-right: var(--hub-directory-split-scrollbar-pad, 0px);
+}
+
+.hub-directory-table-split.hub-directory-table-scroll--flex-pane .hub-directory-table-body-scroll {
+  scrollbar-gutter: stable;
+}
+
+.hub-directory-table-split.hub-directory-table-scroll--flex-pane .hub-directory-table-head::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--hub-directory-split-scrollbar-pad, 0px);
+  height: 100%;
+  background: var(--hub-directory-thead-surface);
+  pointer-events: none;
+  border-top-right-radius: calc(1rem - 1px);
+}
+
+.hub-directory-table-split table.hub-users-table.hub-users-table--directory,
+.hub-directory-table-split table.hub-users-table[data-hub-directory-select] {
+  min-width: 0;
+  width: 100%;
+}
+
+.hub-directory-table-head {
+  flex: 0 0 auto;
+  overflow: hidden;
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--hub-directory-thead-surface);
+  border-bottom: 1px solid var(--hub-directory-thead-border);
+  padding-right: var(--hub-directory-split-scrollbar-pad, 0px);
+}
+
+.hub-directory-table-head table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.hub-directory-table-split .hub-directory-table-head table.hub-users-table thead,
+.hub-directory-table-split .hub-directory-table-head table.hub-users-table thead th {
+  background: transparent;
+  border-bottom: none;
+}
+
+/* Pane-chrome split wrap — radius on head track (parent wrap clips) */
+.hub-directory-table-wrap--pane-chrome > .hub-directory-table-head {
+  border-top-left-radius: calc(1rem - 1px);
+  border-top-right-radius: calc(1rem - 1px);
+  overflow: hidden;
+}
+
+.hub-directory-table-wrap--pane-chrome > .hub-directory-table-head table.hub-users-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.hub-directory-table-wrap--pane-chrome > .hub-directory-table-head thead th:first-child {
+  border-top-left-radius: calc(1rem - 1px);
+}
+
+.hub-directory-table-wrap--pane-chrome > .hub-directory-table-head thead th:last-child {
+  border-top-right-radius: 0;
+}
+
+/* Directory icon + label cell — platform / proxy / status body parity */
+.hub-directory-icon-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Expanded hit target — icon size unchanged (Profiles Run/Stop, ReUp Cancel). */
+.hub-directory-icon-cell--hit-expand {
+  position: relative;
+  min-width: 4rem;
+  padding: 2px 10px;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.hub-directory-icon-cell--hit-expand::before {
+  content: "";
+  position: absolute;
+  inset: -6px -10px;
+  border-radius: inherit;
+}
+
+.hub-directory-icon-cell__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.hub-directory-icon-cell__icon img,
+.hub-directory-icon-cell__img {
+  display: block;
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  background: transparent;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* GitHub tile mark — optional white pad inside platform tone ring only */
+.hub-directory-brand-icon--tile {
+  padding: 1px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.94);
+  object-fit: contain;
+}
+
+.hub-directory-icon-cell__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 820;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.hub-directory-table-body-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hub-split-scroll-thumb, #2a3158) var(--hub-directory-thead-surface, var(--panel));
+  -webkit-overflow-scrolling: touch;
+}
+
+.hub-directory-table-body-scroll::-webkit-scrollbar {
+  width: var(--hub-split-scroll-size, 10px);
+  height: var(--hub-split-scroll-size, 10px);
+}
+
+.hub-directory-table-body-scroll::-webkit-scrollbar-track {
+  background: var(--hub-directory-thead-surface, var(--panel));
+}
+
+.hub-directory-table-body-scroll::-webkit-scrollbar-thumb {
+  background: var(--hub-split-scroll-thumb, #2a3158);
+  border-radius: var(--hub-split-scroll-radius, 6px);
+}
+
+.hub-directory-table-body-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--hub-split-scroll-thumb-hover, #3a4178);
+}
+/* Tight glyph paint only — no padding/bold/outward ring (avoids layout shift + neighbor bleed). */
+.hub-directory-search-highlight {
+  background: var(--hub-search-highlight-bg, rgba(99, 102, 241, 0.38));
+  color: var(--hub-search-highlight-fg, rgb(224, 231, 255));
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+  font-weight: inherit;
+  box-shadow: none;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Route / extension health — icon + label, no pill badge (E0001 Status column parity). */
+.hub-route-status-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hub-inline-gap-meta, 5px);
+  max-width: 100%;
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.hub-route-status-label__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.hub-route-status-label__text {
+  min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.hub-route-status-label--ready {
+  color: #38bdf8;
+}
+
+.hub-route-status-label--ok {
+  color: #34d399;
+}
+
+.hub-route-status-label--empty {
+  color: #a78bfa;
+}
+
+.hub-route-status-label--error {
+  color: #f87171;
+}
+
+.hub-route-status-label--warn {
+  color: #fcd34d;
+}
+
+.hub-route-status-label--neutral {
+  color: var(--muted);
+}
+

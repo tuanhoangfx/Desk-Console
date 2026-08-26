@@ -1,0 +1,100 @@
+/* Directory timestamp typography — SSOT for Created / Updated / Date columns (all P00xx). */
+
+.hub-directory-timestamp {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.hub-directory-timestamp .hub-users-status {
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  text-transform: none;
+}
+
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-directory-timestamp,
+table.hub-users-table[data-hub-directory-select] td .hub-directory-timestamp {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-directory-timestamp .hub-users-status,
+table.hub-users-table[data-hub-directory-select] td .hub-directory-timestamp .hub-users-status {
+  color: var(--muted);
+}
+
+/* Subscription / Plan Due — inherit `orderDaysLeftExpiryClass` over age-stale muted. */
+.hub-directory-timestamp.quota-expiry .hub-users-status,
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-directory-timestamp.quota-expiry .hub-users-status,
+table.hub-users-table[data-hub-directory-select] td .hub-directory-timestamp.quota-expiry .hub-users-status {
+  color: inherit;
+}
+
+/* Directory log column — typography parity with hub-directory-timestamp (Date V2 lock). */
+.hub-directory-log-cell,
+.twofa-log-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hub-directory-glyph-label-gap, var(--hub-inline-gap-comfort, 6px));
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.hub-directory-log-cell .hub-users-th-icon,
+.twofa-log-cell .hub-users-th-icon,
+.hub-directory-log-cell .twofa-adm-log-row__icon,
+.twofa-log-cell .twofa-adm-log-row__icon {
+  width: var(--hub-directory-header-glyph-px, 13px);
+  height: var(--hub-directory-header-glyph-px, 13px);
+  flex-shrink: 0;
+}
+
+.hub-directory-log-cell .hub-users-th-emoji,
+.twofa-log-cell .hub-users-th-emoji {
+  flex-shrink: 0;
+  font-size: var(--hub-directory-header-glyph-px, 13px);
+  line-height: 1;
+}
+
+.hub-directory-log-cell__note,
+.twofa-log-cell__note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+table.hub-users-table[class*="hub-users-table--directory"] td .hub-directory-log-cell,
+table.hub-users-table[data-hub-directory-select] td .hub-directory-log-cell,
+table.hub-users-table[class*="hub-users-table--directory"] td .twofa-log-cell,
+table.hub-users-table[data-hub-directory-select] td .twofa-log-cell {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ADM change-log rows — name gap (8px) in detail modals; directory table keeps 5px header token. */
+.twofa-adm-log-row .hub-directory-log-cell.twofa-adm-log-row__action,
+.twofa-adm-log-row .twofa-log-cell.twofa-adm-log-row__action {
+  gap: var(--hub-inline-gap-name, 8px);
+  flex: 1 1 auto;
+  min-width: 0;
+}

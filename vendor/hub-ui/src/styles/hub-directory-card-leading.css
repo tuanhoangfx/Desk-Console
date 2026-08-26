@@ -1,0 +1,41 @@
+/* Directory card header — leading icon tile (golden 22px box) */
+.hub-directory-card-leading-tile {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: var(--hub-directory-card-icon-box-px, 22px);
+  height: var(--hub-directory-card-icon-box-px, 22px);
+  border-radius: 8px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.04);
+}
+
+.hub-directory-card-leading-tile--muted {
+  background: rgb(255 255 255 / 0.03);
+}
+
+.hub-directory-card-leading-glyph {
+  width: var(--hub-directory-card-glyph-px, 14px);
+  height: var(--hub-directory-card-glyph-px, 14px);
+  flex-shrink: 0;
+}
+
+.hub-directory-card-leading-glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hub-directory-card-leading-glyph.material-symbols-outlined {
+  font-size: var(--hub-directory-card-glyph-px, 14px);
+  line-height: 1;
+}
+
+.hub-directory-card-leading-glyph img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}

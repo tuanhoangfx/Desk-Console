@@ -1,0 +1,488 @@
+/* Workflow rail — Console channel badges + terminal + run history (P0003, P0027 SSOT). */
+
+:root {
+  --hub-runtime-channel-badge-size: 10px;
+  --hub-runtime-channel-badge-size-compact: 9px;
+}
+
+.hub-runtime-channel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.125rem 0.5rem;
+  font-size: var(--hub-runtime-channel-badge-size, 10px);
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.hub-runtime-channel-badge--compact {
+  padding: 0.0625rem 0.375rem;
+  font-size: var(--hub-runtime-channel-badge-size-compact, 9px);
+}
+
+.hub-runtime-channel-badge__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.hub-runtime-channel-badge__icon svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.hub-runtime-channel-badge--compact .hub-runtime-channel-badge__icon svg {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+/* P0003 Stealth channels */
+.hub-runtime-channel-badge--workflow {
+  border-color: color-mix(in srgb, rgb(96, 165, 250) 35%, transparent);
+  background: color-mix(in srgb, rgb(96, 165, 250) 14%, transparent);
+  color: rgb(147, 197, 253);
+}
+
+.hub-runtime-channel-badge--profile {
+  border-color: color-mix(in srgb, rgb(52, 211, 153) 35%, transparent);
+  background: color-mix(in srgb, rgb(52, 211, 153) 14%, transparent);
+  color: rgb(110, 231, 183);
+}
+
+.hub-runtime-channel-badge--backup {
+  border-color: color-mix(in srgb, rgb(251, 146, 60) 35%, transparent);
+  background: color-mix(in srgb, rgb(251, 146, 60) 14%, transparent);
+  color: rgb(253, 186, 116);
+}
+
+/* P0027 ReUp channels */
+.hub-runtime-channel-badge--worker {
+  border-color: color-mix(in srgb, rgb(52, 211, 153) 35%, transparent);
+  background: color-mix(in srgb, rgb(52, 211, 153) 14%, transparent);
+  color: rgb(110, 231, 183);
+}
+
+.hub-runtime-channel-badge--api {
+  border-color: color-mix(in srgb, rgb(99, 102, 241) 35%, transparent);
+  background: color-mix(in srgb, rgb(99, 102, 241) 14%, transparent);
+  color: rgb(199, 210, 254);
+}
+
+.hub-runtime-channel-badge--n8n {
+  border-color: color-mix(in srgb, rgb(251, 146, 60) 35%, transparent);
+  background: color-mix(in srgb, rgb(251, 146, 60) 14%, transparent);
+  color: rgb(253, 186, 116);
+}
+
+.hub-runtime-channel-badge--job {
+  border-color: color-mix(in srgb, rgb(34, 211, 238) 35%, transparent);
+  background: color-mix(in srgb, rgb(34, 211, 238) 14%, transparent);
+  color: rgb(103, 232, 249);
+}
+
+.hub-runtime-channel-badge--ui {
+  border-color: color-mix(in srgb, rgb(148, 163, 184) 35%, transparent);
+  background: color-mix(in srgb, rgb(148, 163, 184) 14%, transparent);
+  color: rgb(203, 213, 225);
+}
+
+/* Shared */
+.hub-runtime-channel-badge--system {
+  border-color: color-mix(in srgb, rgb(192, 132, 252) 35%, transparent);
+  background: color-mix(in srgb, rgb(192, 132, 252) 14%, transparent);
+  color: rgb(216, 180, 254);
+}
+
+/* Console terminal */
+.hub-runtime-term {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 0;
+  height: 100%;
+}
+
+.hub-runtime-term__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.hub-runtime-term__body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  font-family: inherit;
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+}
+
+.hub-runtime-term__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--muted, rgb(148, 163, 184));
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+}
+
+.hub-runtime-term__line--ok {
+  color: rgb(110, 231, 183);
+}
+
+.hub-runtime-term__line--error {
+  color: rgb(252, 165, 165);
+}
+
+.hub-runtime-term__line--warn {
+  color: rgb(253, 224, 71);
+}
+
+.hub-runtime-term__line--active {
+  color: rgb(125, 211, 252);
+}
+
+.hub-runtime-term__time {
+  color: var(--muted, rgb(100, 116, 139));
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.hub-runtime-term__src {
+  color: var(--muted, rgb(100, 116, 139));
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.hub-runtime-term__msg {
+  min-width: 0;
+  word-break: break-word;
+  color: var(--text, rgb(226, 232, 240));
+}
+
+.hub-runtime-term__dur {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: auto;
+  color: rgb(125, 211, 252);
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Run history list */
+.hub-runtime-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hub-runtime-history-list__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.4rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hub-runtime-history-list__row--single {
+  align-items: center;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
+.hub-runtime-history-list__row--single .hub-runtime-history-list__icon {
+  margin-top: 0;
+}
+
+.hub-runtime-history-list__icon {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1rem;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+}
+
+.hub-runtime-history-list__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.hub-runtime-history-list__row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hub-runtime-history-list__row.is-active {
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.hub-runtime-history-list__primary {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.hub-runtime-history-list__title {
+  min-width: 0;
+  flex: 1 1 0;
+  color: var(--text, rgb(226, 232, 240));
+  font-weight: 600;
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/** Single-line primary: profile · task · time · duration */
+.hub-runtime-history-list__line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.hub-runtime-history-profile-chip {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text, rgb(226, 232, 240));
+}
+
+.hub-runtime-history-list__task {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--text, rgb(226, 232, 240));
+}
+
+.hub-runtime-history-list__meta-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  margin-left: 0.15rem;
+  color: var(--muted, rgb(100, 116, 139));
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+}
+
+.hub-runtime-history-list__status {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.hub-runtime-history-list__meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted, rgb(100, 116, 139));
+  font-variant-numeric: tabular-nums;
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+}
+
+.hub-runtime-history-list__meta-sep {
+  opacity: 0.55;
+}
+
+.hub-runtime-history-list__empty {
+  padding: 0.25rem 0.35rem;
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+  color: var(--muted, rgb(148, 163, 184));
+}
+
+.hub-runtime-history-list__meta-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.hub-runtime-history-list__meta-part--dur {
+  color: rgb(110, 231, 183);
+}
+
+/* Hub copy badge — chip uses table muted sans; full keeps mono (directory ID column). */
+.hub-copy-badge--full {
+  font-size: var(--hub-table-muted-size, 11px);
+}
+
+.hub-copy-badge--chip {
+  font-family: inherit;
+  font-size: var(--hub-table-muted-size, 11px);
+  font-weight: 500;
+  line-height: var(--hub-table-body-line-height, 1.45);
+}
+
+/* Runtime rail surfaces — directory table typography parity (P0003/P0027/P0006). */
+.stealth-runtime-history,
+.stealth-runtime-console,
+.hub-runtime-rail-surface,
+.reup-job-detail-log-rail {
+  font-family: inherit;
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+}
+
+.stealth-runtime-history .hub-users-status,
+.stealth-runtime-console .hub-users-status,
+.hub-runtime-rail-surface .hub-users-status,
+.reup-job-detail-log-rail .hub-users-status {
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  font-weight: 400;
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+  color: var(--text);
+  text-transform: none;
+}
+
+.hub-runtime-history-list--chip-lanes .hub-runtime-history-list__meta .hub-users-status {
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+  color: var(--muted, rgb(148, 163, 184));
+}
+
+.hub-runtime-history-list--chip-lanes .hub-runtime-history-list__meta .hub-users-status-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.stealth-runtime-history .hub-directory-table-body-text,
+.stealth-runtime-console .hub-directory-table-body-text,
+.hub-runtime-rail-surface .hub-directory-table-body-text,
+.reup-job-detail-log-rail .hub-directory-table-body-text {
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  font-weight: 400;
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+  color: var(--text);
+}
+
+.stealth-runtime-history .reup-runtime-grid-head__label,
+.stealth-runtime-console .reup-runtime-grid-head__label,
+.hub-runtime-rail-surface .reup-runtime-grid-head__label,
+.reup-job-detail-log-rail .reup-runtime-grid-head__label {
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text, rgb(226, 232, 240));
+  opacity: 1;
+}
+
+.stealth-runtime-history .reup-runtime-grid-head .hub-users-th-heading,
+.stealth-runtime-console .reup-runtime-grid-head .hub-users-th-heading,
+.hub-runtime-rail-surface .reup-runtime-grid-head .hub-users-th-heading,
+.reup-job-detail-log-rail .reup-runtime-grid-head .hub-users-th-heading {
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.stealth-runtime-history .reup-runtime-grid-head .hub-users-th-text,
+.stealth-runtime-console .reup-runtime-grid-head .hub-users-th-text,
+.hub-runtime-rail-surface .reup-runtime-grid-head .hub-users-th-text,
+.reup-job-detail-log-rail .reup-runtime-grid-head .hub-users-th-text {
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 600;
+  color: var(--text, rgb(226, 232, 240));
+}
+
+.stealth-runtime-history .reup-runtime-grid-head .hub-users-th-icon,
+.stealth-runtime-console .reup-runtime-grid-head .hub-users-th-icon,
+.hub-runtime-rail-surface .reup-runtime-grid-head .hub-users-th-icon,
+.reup-job-detail-log-rail .reup-runtime-grid-head .hub-users-th-icon {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+/* Runtime grid time column — muted 11px (parity P0003 `.hub-runtime-term__time`). */
+.stealth-runtime-history .reup-runtime-activity-time,
+.stealth-runtime-console .reup-runtime-activity-time,
+.reup-job-detail-log-rail .reup-runtime-activity-time {
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+  font-weight: 400;
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+  color: var(--muted, rgb(100, 116, 139));
+}
+
+/* Shared grid body typography — font only; Console message color stays on level modifiers. */
+.stealth-runtime-history .reup-runtime-grid-body-text,
+.stealth-runtime-console .reup-runtime-grid-body-text,
+.reup-job-detail-log-rail .reup-runtime-grid-body-text {
+  font-family: inherit;
+  font-size: var(--hub-runtime-body-size, var(--hub-table-body-size, 12px));
+  font-weight: 400;
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+}
+
+.stealth-runtime-history .reup-runtime-grid-body-text {
+  color: var(--text, rgb(226, 232, 240));
+}
+
+/* History job ID chip — muted meta parity Console time column (restore when ID column returns). */
+.stealth-runtime-history .reup-history-list__id-badge .hub-copy-badge--chip {
+  font-family: inherit;
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+  font-weight: 400;
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+  font-variant-numeric: tabular-nums;
+}
+
+/* Run History job title — layout in tool reup-runtime-rail.css; typography via .reup-runtime-grid-body-text. */
+
+.stealth-runtime-history .reup-runtime-duration-ms,
+.stealth-runtime-console .reup-runtime-duration-ms,
+.hub-runtime-rail-surface .reup-runtime-duration-ms,
+.reup-job-detail-log-rail .reup-runtime-duration-ms {
+  font-family: inherit;
+  font-size: var(--hub-runtime-muted-size, var(--hub-table-muted-size, 11px));
+  font-weight: 400;
+  line-height: var(--hub-runtime-body-line-height, var(--hub-table-body-line-height, 1.45));
+  font-variant-numeric: tabular-nums;
+  color: rgb(125, 211, 252);
+}
+
+/* Sticky column headers when scrollable list body moves (@container ≥280px shows head). */
+.stealth-runtime-history .reup-history-list__head.reup-runtime-grid-head,
+.stealth-runtime-console .reup-console-terminal > .reup-runtime-grid-head,
+.reup-job-detail-log-rail .reup-console-terminal > .reup-runtime-grid-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel, var(--color-surface, #121830));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+}

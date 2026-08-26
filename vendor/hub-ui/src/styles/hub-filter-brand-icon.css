@@ -1,0 +1,95 @@
+/* Filter dropdown brand icons — SSOT for option.iconSrc (trigger + list, including portal). */
+@import "./hub-brand-icon-bare.css";
+
+.hub-filter-brand-icon--tile,
+.hub-filter-brand-icon.hub-filter-brand-icon--tile,
+.hub-filter-dropdown-list img.hub-filter-brand-icon--tile,
+[data-hub-multi-filter-panel] img.hub-filter-brand-icon--tile,
+[data-hub-single-filter-panel] img.hub-filter-brand-icon--tile,
+.hub-chart-legend-label img.hub-filter-brand-icon--tile,
+.hub-chart-legend-label img.hub-filter-brand-icon.hub-filter-brand-icon--tile {
+  box-sizing: border-box;
+  width: var(--hub-directory-header-glyph-px, 13px) !important;
+  height: var(--hub-directory-header-glyph-px, 13px) !important;
+  flex-shrink: 0;
+  padding: 1px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.94) !important;
+  object-fit: contain;
+}
+
+.hub-filter-brand-icon--dark-ink,
+.hub-filter-dropdown-list img.hub-filter-brand-icon--dark-ink,
+[data-hub-multi-filter-panel] img.hub-filter-brand-icon--dark-ink,
+[data-hub-single-filter-panel] img.hub-filter-brand-icon--dark-ink,
+.hub-chart-legend-label img.hub-filter-brand-icon--dark-ink {
+  box-sizing: border-box;
+  width: var(--hub-directory-header-glyph-px, 13px) !important;
+  height: var(--hub-directory-header-glyph-px, 13px) !important;
+  flex-shrink: 0;
+  padding: 1px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.94) !important;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%);
+}
+
+/* Person photo in FilterBar / ClickFilter — circular crop + thin frame. */
+.hub-filter-avatar-icon,
+.hub-filter-dropdown-list img.hub-filter-avatar-icon,
+[data-hub-multi-filter-panel] img.hub-filter-avatar-icon,
+[data-hub-single-filter-panel] img.hub-filter-avatar-icon,
+.hub-chart-legend-label img.hub-filter-avatar-icon,
+.hub-adm-click-filter__trigger img.hub-filter-avatar-icon,
+.hub-sidebar-chrome-type img.hub-filter-avatar-icon {
+  box-sizing: border-box;
+  width: var(--hub-directory-header-glyph-px, 13px) !important;
+  height: var(--hub-directory-header-glyph-px, 13px) !important;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(99, 102, 241, 0.18);
+  object-fit: cover;
+}
+
+.hub-filter-dropdown-group-label {
+  padding: 0.4rem 0.5rem 0.1rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  user-select: none;
+}
+
+/* Safety net — any filter dropdown img without explicit brand class */
+.hub-filter-dropdown-list img,
+[data-hub-multi-filter-panel] img,
+[data-hub-single-filter-panel] img,
+.hub-chart-legend-label img {
+  max-width: var(--hub-directory-header-glyph-px, 13px) !important;
+  max-height: var(--hub-directory-header-glyph-px, 13px) !important;
+}
+
+/* Directory twofa filters — brand logos match table body 16px SSOT */
+[data-hub-filter-scope="twofa"] img.hub-brand-icon-bare,
+[data-hub-multi-filter-panel][data-hub-filter-scope="twofa"] img.hub-brand-icon-bare,
+[data-hub-single-filter-panel][data-hub-filter-scope="twofa"] img.hub-brand-icon-bare,
+[data-hub-filter-scope="twofa"] img.hub-filter-brand-icon-bare,
+[data-hub-multi-filter-panel][data-hub-filter-scope="twofa"] img.hub-filter-brand-icon-bare,
+[data-hub-single-filter-panel][data-hub-filter-scope="twofa"] img.hub-filter-brand-icon-bare {
+  width: var(--hub-directory-table-brand-icon-px, 16px) !important;
+  height: var(--hub-directory-table-brand-icon-px, 16px) !important;
+  max-width: var(--hub-directory-table-brand-icon-px, 16px) !important;
+  max-height: var(--hub-directory-table-brand-icon-px, 16px) !important;
+}
+
+[data-hub-filter-scope="twofa"] img,
+[data-hub-multi-filter-panel][data-hub-filter-scope="twofa"] img,
+[data-hub-single-filter-panel][data-hub-filter-scope="twofa"] img {
+  max-width: var(--hub-directory-table-brand-icon-px, 16px) !important;
+  max-height: var(--hub-directory-table-brand-icon-px, 16px) !important;
+}

@@ -1,0 +1,11 @@
+/* Self-hosted Material Symbols Outlined — icon font SSOT (FILL/wght/opsz/GRAD).
+ * Import only in tools that render MaterialIcon / .material-symbols-outlined.
+ * Docs: Tool/docs/ssot/hub-typography-ssot.md
+ */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/material-symbols-outlined.woff2") format("woff2");
+}

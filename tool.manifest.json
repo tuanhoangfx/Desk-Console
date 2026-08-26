@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "code": "P0001",
+  "id": "desk-console",
+  "aliases": [
+    "P0001",
+    "Desk Console",
+    "Desk"
+  ],
+  "name": "Desk Console",
+  "type": "Desktop",
+  "owner": "Tool",
+  "status": "WIP",
+  "summary": "Standalone desktop host for clips, screenshots, Vite/worker runners, and Dev-* scheduled tasks.",
+  "stack": [
+    "Electron",
+    "React",
+    "Vite",
+    "hub-ui"
+  ],
+  "devPort": 5180,
+  "uiShell": {
+    "golden": "P0020",
+    "mainMode": "directory",
+    "splitScreens": [
+      "clips",
+      "captures",
+      "runners",
+      "tasks"
+    ],
+    "userFooter": "workspace"
+  },
+  "uiScreens": [
+    {
+      "screen": "clips",
+      "template": "directory",
+      "golden": "P0004/users",
+      "notes": "Clipboard / quick-save inbox. Local JSON store."
+    },
+    {
+      "screen": "captures",
+      "template": "directory",
+      "golden": "P0004/users",
+      "notes": "Screenshot directory (screen / window)."
+    },
+    {
+      "screen": "runners",
+      "template": "directory",
+      "golden": "P0004/users",
+      "notes": "Vite/worker Start · Restart · Recover via ensure-dev-product."
+    },
+    {
+      "screen": "tasks",
+      "template": "directory",
+      "golden": "P0004/users",
+      "notes": "Windows Task Scheduler Dev-* only."
+    },
+    {
+      "screen": "system",
+      "template": "document-toc",
+      "golden": "P0004/overview-toc",
+      "notes": "HubDesignTemplateEmpty default."
+    }
+  ],
+  "commands": {
+    "dev": "corepack pnpm dev",
+    "dev:web": "corepack pnpm dev:web",
+    "desktop:run": "corepack pnpm desktop:dev",
+    "desktop:dir": "corepack pnpm desktop:dir",
+    "build": "corepack pnpm build",
+    "preview": "corepack pnpm preview",
+    "package": "corepack pnpm desktop:dist",
+    "release": "corepack pnpm desktop:release"
+  },
+  "deployTarget": "github-release",
+  "github": {
+    "repo": "tuanhoangfx/Desk-Console",
+    "branch": "main",
+    "manifestPath": "tool.manifest.json"
+  },
+  "urls": {
+    "local": "http://127.0.0.1:5180",
+    "worker": "http://127.0.0.1:6010",
+    "app": "http://127.0.0.1:5180"
+  },
+  "health": {
+    "status": "WIP",
+    "note": "UI :5180 · host API :6010 (127.0.0.1). Pipeline golden P0003 Electron — not P0021 video worker."
+  },
+  "smoke": [
+    {
+      "id": "host-health",
+      "method": "GET",
+      "url": "http://127.0.0.1:6010/api/health",
+      "expectStatus": [
+        200
+      ]
+    },
+    {
+      "id": "ui",
+      "method": "GET",
+      "url": "http://127.0.0.1:5180/",
+      "expectStatus": [
+        200
+      ]
+    }
+  ],
+  "directoryDisplayPrefs": {
+    "ssot": "src/lib/display-prefs-registry.ts"
+  },
+  "release": {
+    "version": "0.1.14"
+  },
+  "manifestUpdatedAt": "2026-08-26T22:39:09.418Z",
+  "ship": {
+    "schemaVersion": 1,
+    "fastPath": "Deploy",
+    "releasePath": "Release",
+    "deployTarget": "github-release",
+    "playbook": "Tool/docs/playbooks/release-fast-path.md",
+    "script": "powershell -File E:\\Dev\\Tool\\scripts\\ship-product.ps1",
+    "preShip": [
+      "check-version-sync",
+      "verify-untracked-imports",
+      "verify-no-sibling-tool-imports",
+      "hub-workspace-chrome-ssot",
+      "build"
+    ],
+    "preShipCommands": {
+      "check-version-sync": "node E:\\Dev\\Tool\\scripts\\check-version-sync.mjs --product-root . --no-warn-published",
+      "verify-untracked-imports": "node E:\\Dev\\Tool\\scripts\\verify-untracked-imports.mjs --product-root .",
+      "verify-no-sibling-tool-imports": "node E:\\Dev\\Tool\\scripts\\verify-no-sibling-tool-imports.mjs --product-root .",
+      "hub-workspace-chrome-ssot": "node E:\\Dev\\Tool\\scripts\\audit-hub-workspace-chrome-ssot.mjs --json",
+      "build": "corepack pnpm run build"
+    },
+    "syncedAt": "2026-08-26T22:20:26.075Z"
+  }
+}

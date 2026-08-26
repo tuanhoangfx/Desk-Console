@@ -1,0 +1,746 @@
+/**
+ * Hub mobile SSOT — drawer + compact chrome (KPI / filter / bulk).
+ * Desktop (≥ 768px): no visual change.
+ * Card: Tool/docs/playbooks/_cards/hub-mobile-ssot.md
+ */
+
+:root,
+.theme-hub {
+  --hub-bp-sm: 640px;
+  --hub-bp-md: 768px;
+  --hub-bp-lg: 1100px;
+}
+
+/* display:contents — DOM parent is .hub-sidebar-root; shell CSS targets aside.hub-sidebar-shell */
+.hub-sidebar-root {
+  display: contents;
+}
+
+.hub-sidebar-toggle-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.hub-sidebar-menu-btn,
+.hub-sidebar-backdrop {
+  display: none;
+}
+
+html.hub-embed {
+  --hub-loader-inset-left: 0px;
+}
+
+html.hub-embed #hub-boot-loader.hub-boot-loader--pane,
+html.hub-embed .hub-tab-loader-fill {
+  left: 0 !important;
+}
+
+html.hub-embed #hub-boot-loader.hub-boot-loader--pane::before {
+  display: none !important;
+}
+
+@media (max-width: 767.98px) {
+  html {
+    --hub-loader-inset-left: 0px;
+  }
+
+  /* Drawer is overlay — pin fill to the viewport even if an older hub-boot.css
+     still uses left: var(--hub-sidebar-width) (15rem ≈ half a 390px phone). */
+  #hub-boot-loader.hub-boot-loader--pane,
+  .hub-tab-loader-fill {
+    left: 0 !important;
+  }
+
+  #hub-boot-loader.hub-boot-loader--pane::before {
+    display: none !important;
+  }
+
+  /* —— Sidebar drawer —— */
+  .hub-app:not(.hub-app--embed) .hub-sidebar-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 0.4rem;
+    left: 0.4rem;
+    z-index: 70;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text, #e8eaef);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .hub-app:not(.hub-app--embed) .hub-sidebar-menu-btn:hover,
+  .hub-app:not(.hub-app--embed) .hub-sidebar-menu-btn:focus-visible {
+    background: transparent;
+    color: #e0f2fe;
+    outline: none;
+  }
+
+  .hub-app:not(.hub-app--embed) .app-tab-header {
+    padding-left: 3.1rem;
+  }
+
+  .hub-app:not(.hub-app--embed) > aside.hub-sidebar-shell,
+  .hub-app:not(.hub-app--embed) aside.hub-sidebar-shell {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--hub-sidebar-width, 15rem) !important;
+    max-width: min(var(--hub-sidebar-width, 15rem), 86vw);
+    z-index: 65;
+    transform: translateX(-105%);
+    transition: transform 0.18s ease;
+    background: var(--panel, #0f172a);
+    box-shadow: 8px 0 28px rgba(0, 0, 0, 0.45);
+  }
+
+  .hub-app:not(.hub-app--embed)
+    .hub-sidebar-toggle-input:checked
+    ~ aside.hub-sidebar-shell {
+    transform: translateX(0);
+  }
+
+  /* Drawer open — hide the menu glyph so it does not sit on the brand mark. Close via backdrop / nav. */
+  .hub-app:not(.hub-app--embed)
+    .hub-sidebar-toggle-input:checked
+    ~ .hub-sidebar-menu-btn {
+    display: none !important;
+    pointer-events: none;
+  }
+
+  .hub-app:not(.hub-app--embed) .hub-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    margin: 0;
+    background: rgba(2, 6, 23, 0.55);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .hub-app:not(.hub-app--embed)
+    .hub-sidebar-toggle-input:checked
+    ~ .hub-sidebar-backdrop {
+    display: block;
+  }
+
+  /* —— Main padding: avoid control bleed past frame —— */
+  .hub-app > main,
+  .hub-main {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    overflow-x: hidden;
+  }
+
+  .hub-filter-sticky {
+    margin-left: -0.75rem !important;
+    margin-right: -0.75rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  /* —— KPI: 4 per row, icon + value only —— */
+  .hub-kpi-strip {
+    --hub-kpi-strip-min-h: 2.75rem;
+    --hub-kpi-icon: calc(var(--hub-kpi-sticker-size) + 0.5rem);
+    --hub-kpi-value-size: 0.8125rem;
+    --hub-kpi-pad-x: 0.35rem;
+    --hub-kpi-pad-y: 0.3rem;
+    --hub-kpi-gap: 0.35rem;
+    --hub-kpi-inner-gap: 0.35rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .hub-kpi-strip[data-kpi-count="1"] {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+  .hub-kpi-strip[data-kpi-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .hub-kpi-strip[data-kpi-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .hub-kpi-strip .hub-kpi-tile {
+    min-height: var(--hub-kpi-strip-min-h);
+    border-radius: 0.65rem;
+    padding: 0;
+  }
+
+  .hub-kpi-strip .hub-kpi-tile__inner {
+    padding: var(--hub-kpi-pad-y) var(--hub-kpi-pad-x);
+    min-height: calc(var(--hub-kpi-strip-min-h) - 2px);
+    justify-content: center;
+  }
+
+  .hub-kpi-strip .hub-kpi-tile__label,
+  .hub-kpi-strip .hub-kpi-tile__hint {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  .hub-kpi-strip .hub-kpi-tile__body {
+    min-width: 0;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .hub-kpi-strip .hub-kpi-tile__value {
+    font-size: var(--hub-kpi-value-size);
+    font-weight: 600;
+  }
+
+  .hub-kpi-strip .hub-kpi-tile__icon {
+    width: max(var(--hub-kpi-icon), calc(var(--hub-kpi-sticker-size) + 0.5rem));
+    height: max(var(--hub-kpi-icon), calc(var(--hub-kpi-sticker-size) + 0.5rem));
+    border-radius: 0.4rem;
+    overflow: visible;
+  }
+
+  .hub-kpi-strip .hub-kpi-tile > .pointer-events-none {
+    display: none;
+  }
+
+  /* —— Charts: hide by default on mobile —— */
+  .hub-charts-band,
+  .hub-charts-band--reserve,
+  .hub-tab-kpi-zone .hub-charts-band {
+    display: none !important;
+  }
+
+  .hub-tab-kpi-zone--reserved {
+    --hub-charts-band-min-h: 0px;
+  }
+
+  /* —— Header: hide session + center stats; title optically centered —— */
+  .app-tab-header {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+    row-gap: 0 !important;
+  }
+
+  .app-tab-header__start {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    justify-self: center !important;
+  }
+
+  .app-tab-header__end {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    justify-self: end !important;
+    max-width: none !important;
+  }
+
+  .app-tab-header-center-stats,
+  .app-tab-header__session {
+    display: none !important;
+  }
+
+  /* —— FilterBar mobile = desktop two rows, icon-only chrome ——
+     Row 1: search | All / Display / count
+     Row 2: filters left | bulk actions right
+     Forbidden: 3-row stack (search → toolbar+actions → filters). */
+  .hub-filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .hub-filter-bar.space-y-2 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+  }
+
+  .hub-filter-bar__row-tools,
+  .hub-filter-bar__row-band {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .hub-filter-bar__row-search {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: auto !important;
+    order: unset !important;
+  }
+
+  .hub-filter-bar__toolbar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin-left: auto !important;
+    margin-top: 0 !important;
+    order: unset !important;
+  }
+
+  .hub-filter-bar__row-filters {
+    display: flex !important;
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: auto !important;
+    order: unset !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hub-filter-bar__actions {
+    order: unset;
+    margin-left: auto !important;
+    margin-top: 0 !important;
+    width: auto !important;
+    max-width: 100%;
+    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+    align-self: center !important;
+  }
+
+  .hub-filter-bar__trailing {
+    flex: 0 0 auto !important;
+    margin-left: 0 !important;
+  }
+
+  .hub-directory-bulk-rail {
+    justify-content: flex-end !important;
+  }
+
+  /* Icon-only: All / Display / count / filters / bulk / view toggle */
+  .hub-bulk-action-btn__label,
+  .hub-view-toggle__label,
+  .hub-directory-bulk-more__label,
+  .hub-filter-bar .hub-filter-trigger__label,
+  .hub-filter-bar .hub-filter-trigger__count,
+  .hub-filter-bar .hub-result-count__text {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  button.hub-bulk-action-btn,
+  .hub-directory-bulk-rail > button,
+  .hub-filter-bar__actions > button,
+  .hub-filter-bar .hub-filter-trigger,
+  .hub-filter-bar .hub-result-count,
+  .hub-filter-bar__toolbar > .relative > button,
+  .hub-filter-bar__toolbar > button {
+    padding-left: 0.45rem !important;
+    padding-right: 0.45rem !important;
+    gap: 0.2rem !important;
+  }
+
+  .hub-view-toggle button {
+    padding-left: 0.4rem !important;
+    padding-right: 0.4rem !important;
+    gap: 0 !important;
+  }
+
+  /* Table header ? icon only */
+  .hub-users-th-label,
+  .hub-users-th-heading {
+    gap: 0 !important;
+  }
+
+  .hub-users-th-text:not(.hub-users-th-text--measure) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  /* No frozen/sticky columns on mobile (override injected sticky CSS) */
+  .hub-users-table thead th,
+  .hub-users-table tbody td,
+  table.hub-users-table thead th,
+  table.hub-users-table tbody td {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    box-shadow: none !important;
+  }
+
+  /* —— Directory —— */
+  .hub-users-table-wrap,
+  .hub-directory-table-body-scroll,
+  .hub-directory-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  [data-hub-col-priority="low"],
+  .hub-users-col--twofa-note,
+  .hub-users-col--twofa-log,
+  .hub-users-col--twofa-created,
+  .hub-users-col--twofa-updated,
+  .hub-users-col--twofa-stealth,
+  .hub-users-col--twofa-period,
+  .hub-users-col--twofa-full-info,
+  .hub-users-col--twofa-backup-code,
+  .hub-users-col--twofa-partner-info,
+  .hub-users-col--twofa-partner-ts,
+  .hub-users-col--twofa-mail-checking,
+  .hub-users-col--twofa-mail-antigravity {
+    display: none !important;
+  }
+
+  /* —— Tool / account detail modal (Phase C) ——
+     Inset card — 64dvh on phone (desktop Layout 2/3 stays 73.6vh). */
+  .modal-backdrop--tool-detail {
+    --app-sidebar-width: 0px;
+    padding: 1rem 0.85rem !important;
+  }
+
+  .modal-shell.modal-shell--tool-detail,
+  .modal-shell.hub-tool-detail-modal,
+  .modal-shell.hub-tool-detail-modal.hub-account-detail-modal,
+  .modal-shell.hub-tool-detail-modal.hub-tool-detail-modal--split,
+  .modal-shell.hub-tool-detail-modal.hub-account-detail-modal.hub-tool-detail-modal--split {
+    width: calc(100vw - 1.7rem) !important;
+    max-width: calc(100vw - 1.7rem) !important;
+    height: min(64dvh, calc(100dvh - 2rem)) !important;
+    min-height: 0 !important;
+    max-height: min(64dvh, calc(100dvh - 2rem)) !important;
+    border-radius: 0.85rem !important;
+    --hub-modal-max-w: calc(100vw - 1.7rem);
+    --hub-modal-max-h: min(64dvh, calc(100dvh - 2rem));
+    --hub-modal-max-vh: min(64dvh, calc(100dvh - 2rem));
+    --hub-adm-toc-w: 100%;
+    --overview-toc-w: 100%;
+    --hub-tool-detail-rail-w: 100%;
+    --hub-tool-detail-split-min-h: 0;
+  }
+
+  .hub-modal-frame {
+    overflow: visible !important;
+  }
+
+  .hub-modal-close {
+    top: -0.55rem !important;
+    right: -0.55rem !important;
+    z-index: 40;
+  }
+
+  .user-access-modal__header {
+    padding: 0.5rem 0.85rem 0.5rem 0.65rem !important;
+    gap: 0.45rem !important;
+  }
+
+  /* Ops / detail headers with search: title + unread chrome on row 1, search full-width row 2.
+     Desktop keeps title | search | empty right column. minmax(18rem) search must not stay on
+     the title row or it covers the label and the close X. */
+  .user-access-modal__header:has(.user-access-modal__header-center) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: auto auto !important;
+    column-gap: 0.45rem !important;
+    row-gap: 0.45rem !important;
+    align-items: center !important;
+  }
+
+  .user-access-modal__header:has(.user-access-modal__header-center) .user-access-modal__header-main {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    justify-self: start !important;
+    min-width: 0 !important;
+  }
+
+  .user-access-modal__header:has(.user-access-modal__header-center) .user-access-modal__header-actions {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    justify-self: end !important;
+    flex-shrink: 0 !important;
+  }
+
+  .user-access-modal__header:has(.user-access-modal__header-center) .user-access-modal__header-center {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+  }
+
+  .hub-ops-mark-all-read {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+  }
+
+  .hub-ops-mark-all-read__label {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  /* Stack Navigate TOC above content (all tool-detail shells) */
+  .hub-tool-detail-modal__layout,
+  :is(
+      .modal-shell.hub-tool-detail-modal.hub-account-detail-modal,
+      .hub-overview-adm-scaffold__shell.hub-account-detail-modal.twofa-account-detail-modal
+    )
+    .hub-tool-detail-modal__layout,
+  .hub-header-panel-modal .hub-tool-detail-modal__layout,
+  .hub-settings-modal .hub-tool-detail-modal__layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    gap: 0.5rem !important;
+    padding: 0.5rem !important;
+    overflow: hidden !important;
+  }
+
+  .hub-tool-detail-modal__toc,
+  :is(
+      .modal-shell.hub-tool-detail-modal.hub-account-detail-modal,
+      .hub-overview-adm-scaffold__shell.hub-account-detail-modal.twofa-account-detail-modal
+    )
+    .hub-tool-detail-modal__toc {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    align-self: stretch !important;
+    padding-right: 0 !important;
+  }
+
+  .hub-toc-nav {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    padding: 0.4rem !important;
+    border-radius: 0.75rem !important;
+  }
+
+  .hub-toc-nav__heading {
+    margin-bottom: 0.25rem !important;
+    padding: 0 0.25rem 0.35rem !important;
+  }
+
+  /* Horizontal chip strip for Navigate items */
+  .hub-toc-nav__list,
+  .hub-toc-nav ul {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 0.25rem !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    max-height: none !important;
+    padding-bottom: 0.1rem !important;
+  }
+
+  .hub-toc-nav__list.space-y-0\.5 > :not([hidden]) ~ :not([hidden]),
+  .hub-toc-nav__list > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+  }
+
+  .hub-toc-nav__item,
+  .hub-toc-nav li {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  .hub-toc-nav__label {
+    white-space: nowrap !important;
+  }
+
+  /* Credentials | Note+Log → single column scroll */
+  .hub-tool-detail-split {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: none !important;
+    min-height: 0 !important;
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hub-tool-detail-split__main,
+  .hub-tool-detail-split__rail {
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .hub-tool-detail-panel,
+  .hub-tool-detail-rail {
+    flex: 0 0 auto !important;
+    max-height: none !important;
+  }
+
+  .hub-tool-detail-panel__body,
+  .hub-tool-detail-rail__body,
+  .hub-tool-detail-rail__body--scroll {
+    overflow: visible !important;
+  }
+
+  .hub-tool-detail-modal__content,
+  .hub-tool-detail-modal__scroll,
+  .hub-tool-detail-modal__scroll-inner {
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  :is(.hub-account-detail-modal, .hub-add-modal) .hub-adm-form-row--aligned,
+  :is(.hub-account-detail-modal, .hub-add-modal) .twofa-adm-form-row--aligned,
+  :is(.hub-account-detail-modal, .hub-add-modal) .hub-adm-form-row--aligned-2,
+  :is(.hub-account-detail-modal, .hub-add-modal) .twofa-adm-form-row--aligned-2 {
+    grid-template-columns: var(--hub-adm-label-w, 5.5rem) minmax(0, 1fr) !important;
+  }
+
+  .hub-tool-detail-modal__footer-inner,
+  .cookie-dl-modal__footer-inner {
+    padding: 0.65rem 0.65rem calc(0.65rem + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 0.5rem !important;
+  }
+
+  .hub-tool-detail-modal__footer-bar,
+  .hub-tool-detail-modal__footer-bar--split {
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  .hub-tool-detail-modal__footer-leading,
+  .hub-tool-detail-modal__footer-main {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+  }
+
+  .hub-tool-detail-modal__footer-main {
+    margin-left: 0 !important;
+    justify-content: stretch !important;
+  }
+
+  .hub-tool-detail-modal__footer-main > *,
+  .hub-tool-detail-modal__footer-leading > * {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+  }
+}
+
+/* Desktop ≥768 — two flex rows (search|toolbar · filters|actions).
+   Forbidden: one 2-col grid for both rows — actions max-content inflates col2 and
+   leaves a dead gap after a ~180px search (P0003 Profiles 1.0.182). */
+@media (min-width: 768px) {
+  .hub-filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    align-items: stretch !important;
+    min-width: 0 !important;
+  }
+
+  .hub-filter-bar.space-y-2 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+  }
+
+  .hub-filter-bar__row-tools,
+  .hub-filter-bar__row-band {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Row 1 — search grows · toolbar (All/Display/preset) stays on same line, flush right */
+  .hub-filter-bar__row-tools {
+    flex-wrap: nowrap !important;
+  }
+
+  .hub-filter-bar__row-search {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: auto !important;
+    order: unset !important;
+  }
+
+  .hub-filter-bar__toolbar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    order: unset !important;
+    margin-top: 0 !important;
+    margin-left: auto !important;
+  }
+
+  .hub-filter-bar__row-filters {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: auto !important;
+    order: unset !important;
+  }
+
+  .hub-filter-bar__actions {
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+    margin-top: 0 !important;
+    width: auto !important;
+    order: unset !important;
+    align-self: center !important;
+  }
+
+  .hub-filter-bar__trailing {
+    flex: 0 0 auto !important;
+    margin-left: 0 !important;
+    order: unset !important;
+  }
+}

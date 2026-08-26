@@ -1,0 +1,42 @@
+/**
+ * Orders Price column — text color only (no badge chrome).
+ * Pair: HUB_ORDER_PRICE_TEXT_CLASS in shell/hub-order-price-badge.ts
+ */
+
+.hub-order-price-text {
+  display: inline;
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  /* No extra tracking — matches body text (`letter-spacing: normal`) so money columns don't read
+     visually larger than neighbours like Product. tabular-nums still keeps digit columns aligned. */
+  letter-spacing: normal;
+  white-space: nowrap;
+}
+
+/* C1 — neutral body */
+.hub-order-price-text--neutral {
+  color: #e2e8f0;
+}
+
+/* C2 — emerald (metric family) */
+.hub-order-price-text--emerald {
+  color: #a7f3d0;
+}
+
+/* C3 — amber gold (money accent), softened so it reads as an accent without over-popping
+   next to neutral body text. Was #fcd34d (neon amber-300); now a calmer gold. Lock: C3-amber-soft. */
+.hub-order-price-text--amber {
+  color: #e6c069;
+}
+
+/* C4 — indigo (revenue / high-tier) */
+.hub-order-price-text--indigo {
+  color: #c7d2fe;
+}
+
+/* C5 — sky (cool accent) */
+.hub-order-price-text--sky {
+  color: #bae6fd;
+}

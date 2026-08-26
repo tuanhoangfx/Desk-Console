@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`HubOrderPriceBadge > renders default amber money text without badge chrome 1`] = `
+<div>
+  <span
+    class="hub-order-price-text hub-order-price-text--amber"
+  >
+    220 ₫
+  </span>
+</div>
+`;

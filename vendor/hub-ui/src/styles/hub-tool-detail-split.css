@@ -1,0 +1,131 @@
+/* Golden tool-detail split — main column + right log rail (P0020 Account modal SSOT). */
+
+.hub-tool-detail-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--hub-tool-detail-rail-w, min(28rem, 40%));
+  gap: var(--hub-account-detail-columns-gap, 0.65rem);
+  flex: 1;
+  min-height: var(--hub-tool-detail-split-min-h, 24rem);
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.hub-tool-detail-split__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hub-account-detail-columns-gap, 0.65rem);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-tool-detail-split__rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hub-account-detail-columns-gap, 0.65rem);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.hub-tool-detail-panel,
+.hub-tool-detail-rail {
+  border: 1px solid var(--hub-tool-detail-line, rgba(255, 255, 255, 0.1));
+  border-radius: 0.7rem;
+  background: var(--hub-modal-panel-surface, var(--panel));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hub-tool-detail-panel {
+  flex: 0 0 auto;
+}
+
+.hub-tool-detail-panel--grow {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.hub-tool-detail-rail {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.hub-tool-detail-panel__head,
+.hub-tool-detail-rail__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--hub-tool-detail-line, rgba(255, 255, 255, 0.1));
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(148, 163, 184);
+  flex-shrink: 0;
+}
+
+.hub-tool-detail-panel__body,
+.hub-tool-detail-rail__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.45rem;
+  overflow: auto;
+}
+
+.hub-tool-detail-rail__body--scroll {
+  overflow: auto;
+}
+
+.hub-tool-detail-split__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 0.65rem 0.65rem;
+}
+
+/* Split rail only — modal box stays Layout 2/3 tokens (do not re-declare --hub-modal-max-*). */
+.modal-shell.hub-tool-detail-modal.hub-tool-detail-modal--split {
+  --hub-tool-detail-rail-w: min(28rem, 40%);
+  --hub-tool-detail-split-min-h: 32rem;
+}
+
+.modal-shell.hub-tool-detail-modal.hub-tool-detail-modal--split .hub-tool-detail-modal__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.modal-shell.hub-tool-detail-modal.hub-tool-detail-modal--split .hub-tool-detail-modal__scroll-inner {
+  padding: 0;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.modal-shell.hub-tool-detail-modal.hub-tool-detail-modal--split .hub-tool-detail-modal__toc {
+  padding-right: 0;
+}
+
+@media (max-width: 1023px) {
+  .modal-shell.hub-tool-detail-modal.hub-tool-detail-modal--split {
+    --hub-tool-detail-rail-w: min(20rem, 38%);
+  }
+}
+
+@media (max-width: 640px) {
+  .hub-tool-detail-split {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(10rem, 28vh);
+  }
+}

@@ -1,0 +1,290 @@
+/* Directory popover SSOT — column header hints only (below anchor). */
+
+.hub-directory-popover-anchor {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  /* Flex directory cells — shrink so trailing open icons (Customer / Service) stay visible. */
+  min-width: 0;
+}
+
+.hub-directory-popover-anchor > .hub-users-th-label {
+  display: inline-flex;
+}
+
+.hub-directory-popover {
+  position: fixed;
+  z-index: 11000;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 11rem;
+  max-width: min(96vw, 52rem);
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(16, 18, 26, 0.98);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  pointer-events: auto;
+}
+
+.hub-directory-popover__title {
+  margin: 0 0 0.25rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text, #e2e8f0);
+}
+
+.hub-directory-popover__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.25rem;
+  max-width: 100%;
+}
+
+.hub-directory-popover__heading--title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text, #e2e8f0);
+}
+
+.hub-directory-popover__heading--section {
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--muted, #94a3b8);
+}
+
+.hub-directory-popover__heading-text {
+  min-width: 0;
+  white-space: normal;
+}
+
+.hub-directory-popover__desc {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted, #94a3b8);
+}
+
+.hub-directory-popover__desc + .hub-directory-popover__heading--section,
+.hub-directory-popover__desc + .hub-directory-popover__list {
+  margin-top: 0.35rem;
+}
+
+.hub-directory-popover__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hub-directory-popover__row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.hub-directory-popover__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 0.875rem;
+  min-height: 0.875rem;
+}
+
+.hub-directory-popover__tool-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.hub-directory-popover__emoji {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.hub-directory-popover__line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+  align-items: baseline;
+  flex-shrink: 1;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text, #e2e8f0);
+  white-space: normal;
+}
+
+.hub-directory-popover__line .hub-directory-copy-wrap,
+.hub-directory-popover__line .twofa-copy-control-wrap {
+  flex-shrink: 0;
+}
+
+.hub-directory-popover__line .hub-directory-copy-control,
+.hub-directory-popover__line .twofa-copy-control {
+  text-decoration: none;
+}
+
+/* Days Left hex SSOT — tooltip + directory/Detail Left number. 5 days = safe. */
+:root {
+  --hub-days-left-safe: #86efac;
+  --hub-days-left-soon: #fbbf24;
+  --hub-days-left-due: #f87171;
+  --hub-days-left-expired: #c4b5fd;
+}
+
+.hub-directory-popover__days-left,
+.quota-days-left {
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-directory-popover__days-left--safe,
+span.quota-days-left.quota-days-left--safe,
+span.quota-days-left.quota-days-left--ok,
+span.quota-expiry.quota-expiry--safe,
+span.quota-expiry.quota-expiry--ok {
+  color: var(--hub-days-left-safe);
+}
+
+.hub-directory-popover__days-left--soon,
+span.quota-days-left.quota-days-left--soon,
+span.quota-days-left.quota-days-left--warn,
+span.quota-expiry.quota-expiry--soon,
+span.quota-expiry.quota-expiry--warn {
+  color: var(--hub-days-left-soon);
+}
+
+.hub-directory-popover__days-left--due,
+span.quota-days-left.quota-days-left--due,
+span.quota-expiry.quota-expiry--due {
+  color: var(--hub-days-left-due);
+}
+
+.hub-directory-popover__days-left--expired,
+span.quota-days-left.quota-days-left--expired,
+span.quota-days-left.quota-days-left--danger,
+span.quota-expiry.quota-expiry--expired,
+span.quota-expiry.quota-expiry--danger {
+  color: var(--hub-days-left-expired);
+}
+
+.hub-directory-popover__days-left--muted,
+span.quota-days-left.quota-days-left--muted,
+span.quota-expiry.quota-expiry--muted {
+  color: var(--hub-text-muted, #94a3b8);
+}
+
+.hub-directory-popover__access {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.hub-directory-popover__body {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text, #e2e8f0);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: min(92vw, 28rem);
+}
+
+/* Activity-age dots inside column header hints (extension + hub parity). */
+.hub-directory-popover .hub-users-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.hub-directory-popover .hub-users-status-dot--age-recent {
+  background: var(--hub-activity-age-recent, #ef4444);
+}
+
+.hub-directory-popover .hub-users-status-dot--age-aging {
+  background: var(--hub-activity-age-aging, #f59e0b);
+}
+
+.hub-directory-popover .hub-users-status-dot--age-days {
+  background: var(--hub-activity-age-days, #3b82f6);
+}
+
+.hub-directory-popover .hub-users-status-dot--age-week {
+  background: var(--hub-activity-age-week, #14b8a6);
+}
+
+.hub-directory-popover .hub-users-status-dot--age-stale {
+  background: var(--hub-activity-age-stale, #64748b);
+}
+
+.hub-directory-popover .hint-tone-ready {
+  color: #38bdf8;
+}
+
+.hub-directory-popover .hint-tone-ok {
+  color: #34d399;
+}
+
+.hub-directory-popover .hint-tone-empty {
+  color: #a78bfa;
+}
+
+.hub-directory-popover .hint-tone-error {
+  color: #f87171;
+}
+
+.hub-directory-popover .hint-tone-warn {
+  color: #fcd34d;
+}
+
+.hub-directory-popover .hint-tone-accent {
+  color: #a78bfa;
+}
+
+.hub-directory-popover__row--action {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: normal;
+}
+
+.hub-directory-popover__row--action:hover .hub-directory-popover__line {
+  color: var(--accent, #38bdf8);
+}
+
+.hub-directory-popover__icon--with-heat {
+  position: relative;
+  gap: 0.15rem;
+}
+
+.hub-directory-popover__icon--with-heat .hub-directory-metric-heat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}

@@ -1,0 +1,90 @@
+/* Align Tool Hub (theme-hub) with P0020-Data-Box / p0008-globals */
+
+.theme-hub {
+  color-scheme: dark;
+
+  --bg: #0b1020;
+  --panel: #121830;
+  --panel-2: #1a2140;
+  --text: #e6e8ef;
+  --muted: #8a93b2;
+  --accent: #6366f1;
+  --accent-2: #818cf8;
+  --success: #22c55e;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+
+  --color-bg: var(--bg);
+  --color-bg-alt: #0a0e1a;
+  --color-surface: var(--panel);
+  --color-surface-2: var(--panel-2);
+  --color-surface-3: #242d52;
+  --color-sidebar: var(--panel);
+
+  --color-text: var(--text);
+  --color-text-main: var(--text);
+  --color-text-muted: var(--muted);
+  --color-text-subtle: #6b7394;
+
+  --color-border: #2a3158;
+  --color-border-subtle: #1f2647;
+
+  --color-primary: var(--accent-2);
+  --color-primary-hover: #a5b4fc;
+  --color-brand-500: var(--accent);
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+
+  --color-success: var(--success);
+  --color-warning: var(--warn);
+  --color-danger: var(--danger);
+  --color-info: #60a5fa;
+
+  --vibrancy-bg: rgba(18, 24, 48, 0.92);
+  --shadow-warm: 0 4px 20px rgba(99, 102, 241, 0.18);
+  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.theme-hub .sidebar {
+  background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
+  border-right-color: var(--color-border);
+}
+
+.theme-hub .main-area {
+  background: var(--bg);
+}
+
+.theme-hub .brand-icon-wrap {
+  background: linear-gradient(135deg, var(--accent), var(--color-brand-700));
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.theme-hub .dot-grid-bg {
+  opacity: 0.65;
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 42%),
+    radial-gradient(circle at 85% 80%, rgba(129, 140, 248, 0.05) 0%, transparent 42%);
+}
+
+.theme-hub .traffic-lights {
+  display: none;
+}
+
+.theme-hub .brand strong {
+  color: #e0e7ff;
+}
+
+.theme-hub .sidebar-nav-btn.active {
+  background: rgba(99, 102, 241, 0.22);
+  color: #c7d2fe;
+}
+
+.theme-hub .sidebar-nav-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--text);
+}
+
+.theme-hub .btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--color-brand-600));
+  border-color: transparent;
+}

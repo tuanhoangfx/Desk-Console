@@ -1,0 +1,82 @@
+/* Directory copy control — SSOT base (P0020 twofa-table-cells extends with tone modifiers).
+   Whole value is click-to-copy; stopPropagation preserves row click → Detail. */
+.hub-directory-copy-wrap,
+.twofa-copy-control-wrap {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: middle;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.hub-directory-copy-control,
+.twofa-copy-control {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+.hub-directory-copy-control:hover,
+.twofa-copy-control:hover {
+  opacity: 0.85;
+}
+
+.hub-directory-copy-control__value,
+.twofa-copy-control__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/**
+ * Trailing related-detail open (HubRelatedDetailOpenButton / Fingerprint).
+ * `.twofa-mail-recover-open` is an alias for P0020 recover/trailing buttons.
+ */
+.hub-directory-row-open,
+.twofa-mail-recover-open {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.4rem;
+  color: var(--muted);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.hub-directory-row-open:hover:not(:disabled),
+.twofa-mail-recover-open:hover:not(:disabled) {
+  color: var(--text, rgb(226 232 240));
+  background: rgb(255 255 255 / 0.06);
+  border-color: rgb(255 255 255 / 0.12);
+}
+
+.hub-directory-row-open:disabled,
+.twofa-mail-recover-open:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}

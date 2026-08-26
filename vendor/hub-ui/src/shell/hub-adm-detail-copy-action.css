@@ -1,0 +1,51 @@
+/* ADM detail — trailing copy icon beside dropdown / date / edit fields. */
+.hub-adm-detail-field-copy.hub-inline-copy-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.4rem;
+  color: var(--muted);
+  border: 1px solid transparent;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.hub-adm-detail-field-copy.hub-inline-copy-control:hover {
+  opacity: 1;
+  color: rgb(165, 180, 252);
+  background: rgb(99 102 241 / 0.1);
+  border-color: rgb(129 140 248 / 0.3);
+}
+
+.hub-adm-detail-field-copy .hub-inline-copy-control__value {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ADM trailing open/call affordance (Phone tel:, Zalo/Tele/Meta external). */
+a.hub-adm-trailing-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.4rem;
+  color: var(--muted);
+  border: 1px solid transparent;
+  background: transparent;
+  text-decoration: none;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+a.hub-adm-trailing-action:hover {
+  color: rgb(52, 211, 153);
+  background: rgb(16 185 129 / 0.12);
+  border-color: rgb(52 211 153 / 0.35);
+}

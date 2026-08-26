@@ -1,0 +1,132 @@
+@import "./hub-flash-border.css";
+
+.hub-bulk-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-value-weight, 400);
+  line-height: var(--hub-adm-type-line, 1.45);
+  color: var(--hub-adm-type-value-color, rgb(203, 213, 225));
+}
+
+/* ADM log rail empty / hint — parity twofa-adm-muted + directory log SSOT */
+.hub-adm-muted {
+  margin: 0;
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-value-weight, 400);
+  line-height: var(--hub-adm-type-line, 1.45);
+  color: var(--hub-adm-type-muted-color, rgb(100, 116, 139));
+  letter-spacing: 0.01em;
+}
+
+.hub-bulk-activity-op {
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  min-width: 0;
+  scroll-margin-top: 0.5rem;
+  scroll-margin-bottom: 0.5rem;
+}
+
+.hub-bulk-activity-op__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  list-style: none;
+  min-width: 0;
+}
+
+.hub-bulk-activity-op__summary::-webkit-details-marker {
+  display: none;
+}
+
+.hub-bulk-activity-op__summary::before {
+  content: "▸";
+  float: left;
+  margin-right: 0.35rem;
+  font-size: var(--hub-adm-type-size, 12px);
+  line-height: var(--hub-adm-type-line, 1.45);
+  color: var(--hub-adm-type-muted-color, rgb(100, 116, 139));
+  transition: transform 0.12s ease;
+}
+
+.hub-bulk-activity-op[open] > .hub-bulk-activity-op__summary::before {
+  transform: rotate(90deg);
+}
+
+.hub-bulk-activity-op__time {
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-value-weight, 400);
+  line-height: var(--hub-adm-type-line, 1.45);
+  color: var(--hub-adm-type-muted-color, rgb(100, 116, 139));
+}
+
+.hub-bulk-activity-op__title {
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: 500;
+  line-height: var(--hub-adm-type-line, 1.45);
+  color: var(--hub-adm-type-value-color, rgb(203, 213, 225));
+  padding-right: 0.25rem;
+}
+
+.hub-bulk-activity-op__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0 0.5rem 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.hub-bulk-activity-account {
+  min-width: 0;
+}
+
+.hub-bulk-activity-account__label {
+  margin: 0.35rem 0 0.2rem;
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-label-weight, 500);
+  letter-spacing: 0.01em;
+  line-height: var(--hub-adm-type-line, 1.45);
+  color: var(--hub-adm-type-label-color, rgb(148, 163, 184));
+}
+
+.hub-bulk-activity-account__body {
+  min-width: 0;
+}
+
+.hub-bulk-activity-account__body .twofa-adm-log-list {
+  margin: 0;
+  padding-left: 0;
+}
+
+.hub-bulk-activity-list__more {
+  margin: 0.1rem 0 0;
+}
+
+.hub-bulk-activity-list__load-more {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.2rem 0.45rem;
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-label-weight, 500);
+  line-height: var(--hub-adm-type-line, 1.45);
+  color: var(--hub-adm-type-label-color, rgb(148, 163, 184));
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  cursor: pointer;
+}
+
+.hub-bulk-activity-list__load-more:hover:not(:disabled) {
+  border-color: color-mix(in srgb, rgb(129, 140, 248) 45%, var(--border));
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+}
+
+.hub-bulk-activity-list__load-more:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

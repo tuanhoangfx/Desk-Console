@@ -1,0 +1,102 @@
+/* Hub copy / app toast — SSOT (P0020 TwofaCopyControl + tool-detail modal layer). */
+
+:root {
+  --hub-toast-z: 10100;
+}
+
+.hub-toast-portal-host {
+  position: fixed;
+  inset: 0;
+  z-index: var(--hub-toast-z, 10100);
+  pointer-events: none;
+}
+
+/* Inside modal backdrop — above modal shell, below directory popovers (10050) when no modal. */
+.modal-backdrop--tool-detail > .hub-toast-portal-host,
+.modal-backdrop.modal-backdrop--tool-detail > .hub-toast-portal-host {
+  z-index: 5;
+}
+
+.hub-toast-viewport {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1;
+  display: flex;
+  width: min(100vw - 2rem, 20rem);
+  flex-direction: column-reverse;
+  gap: 0.375rem;
+  pointer-events: none;
+}
+
+.hub-toast-item {
+  pointer-events: auto;
+  display: flex;
+  max-width: 100%;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  border-width: 1px;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1.375;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  backdrop-filter: blur(4px);
+  transition:
+    transform 180ms ease-out,
+    opacity 180ms ease-out;
+}
+
+.hub-toast-item--success {
+  border-color: rgb(16 185 129 / 0.45);
+  background: rgb(16 185 129 / 0.15);
+  color: rgb(209 250 229);
+}
+
+.hub-toast-item--error {
+  border-color: rgb(244 63 94 / 0.5);
+  background: rgb(244 63 94 / 0.15);
+  color: rgb(255 228 230);
+}
+
+.hub-toast-item--warn {
+  border-color: rgb(245 158 11 / 0.5);
+  background: rgb(245 158 11 / 0.15);
+  color: rgb(254 243 199);
+}
+
+.hub-toast-item--info {
+  border-color: rgb(99 102 241 / 0.45);
+  background: rgb(99 102 241 / 0.15);
+  color: rgb(224 231 255);
+}
+
+.hub-toast-item__icon--success {
+  color: rgb(110 231 183);
+}
+
+.hub-toast-item__icon--error {
+  color: rgb(251 113 133);
+}
+
+.hub-toast-item__icon--warn {
+  color: rgb(252 211 77);
+}
+
+.hub-toast-item__icon--info {
+  color: rgb(165 180 252);
+}
+
+.hub-toast-item__title {
+  font-weight: 500;
+}
+
+.hub-toast-item__preview {
+  margin-top: 0.125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  opacity: 0.9;
+}

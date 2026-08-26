@@ -1,0 +1,79 @@
+@import "./styles/hub-ui-styles.css";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body:has(.hub-app.theme-hub) {
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.hub-btn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.hub-btn--primary {
+  border-color: rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.18);
+}
+
+.desk-region-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 10, 18, 0.78);
+}
+
+.desk-region-overlay__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  color: var(--text);
+  font-size: 0.75rem;
+  background: var(--panel);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.desk-region-overlay__actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.desk-region-overlay__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.desk-region-overlay__stage img {
+  max-width: 96%;
+  max-height: 96%;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.desk-region-overlay__rect {
+  position: fixed;
+  border: 1px solid rgba(129, 140, 248, 0.95);
+  background: rgba(99, 102, 241, 0.18);
+  pointer-events: none;
+}
+
+.desk-picker-drag {
+  -webkit-app-region: drag;
+}

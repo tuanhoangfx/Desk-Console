@@ -1,0 +1,30 @@
+.hub-inline-copy-control {
+  display: inline;
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  vertical-align: top;
+  transition: opacity 0.12s ease;
+}
+
+.hub-inline-copy-control:hover {
+  opacity: 0.9;
+}
+
+.hub-inline-copy-control__value {
+  display: inline;
+}
+
+.hub-inline-copy-control__tick {
+  display: inline-block;
+  vertical-align: text-top;
+  margin-left: 3px;
+  color: #34d399;
+  flex-shrink: 0;
+}

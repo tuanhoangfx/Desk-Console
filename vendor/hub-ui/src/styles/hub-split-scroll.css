@@ -1,0 +1,83 @@
+/* Golden split-pane scroll — Notes rail, editor body, History TOC rails (P0020 / P0016). */
+/* Scrollbar chrome: hub-scrollbar.css — tokens: hub-theme-tokens --hub-split-scroll-* */
+@import "./hub-scrollbar.css";
+
+/*
+ * SSOT — HubSplitDirectoryPane scroll layers (P0020 Notes/Sheet split workspace)
+ *
+ * 1. `hub-split-directory-pane__body` — overflow:hidden, scrollbar-gutter:auto (no pane scroll).
+ * 2. `HubSplitDirectoryPane` — do NOT pass `scroll` when children use `.hub-split-scroll--panel`.
+ *    Pane-level `scroll` adds `.hub-split-scroll` + scrollbar-gutter:stable → filter row wider than body frame.
+ * 3. Inner scroll only — `.hub-split-scroll` / `.hub-split-scroll--panel` on editor body, TOC rails, etc.
+ * Gate: hub-scroll-layer-gate.mjs (pane-scroll + inner-panel-scroll rule).
+ */
+
+.hub-split-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hub-split-scroll--rail {
+  scroll-padding-bottom: var(--hub-split-scroll-end-padding, 0.75rem);
+}
+
+.hub-split-scroll--panel {
+  scroll-padding-bottom: var(--hub-split-scroll-end-padding, 0.75rem);
+}
+
+/* Directory tables (Accounts, Pages, …) — standalone scroll only; split-pane uses hub-directory-table-split */
+.hub-directory-table-scroll:not(.hub-directory-table-split) {
+  max-height: min(68dvh, calc(100dvh - var(--hub-chrome-sticky-est-h, 8rem) - 10rem));
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--hub-split-scroll-end-padding, 0.75rem);
+  scroll-padding-bottom: calc(var(--hub-split-scroll-end-padding, 0.75rem) + 2px);
+}
+
+.hub-directory-table-scroll:not(.hub-directory-table-split) table.hub-users-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Legacy non-directory scroll tables only — directory thead uses hub-directory-table.css (P0004 Users) */
+.hub-directory-table-scroll:not(.hub-directory-table-split) table.hub-users-table:not(.hub-users-table--directory):not([data-hub-directory-select]) thead th {
+  background: rgba(15, 18, 32, 0.96);
+}
+
+.hub-directory-table-scroll:not(.hub-directory-table-split) table.hub-users-table thead th.hub-users-col--select {
+  z-index: 3;
+}
+
+.hub-filter-dropdown-list {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* Split flex-pane layout — head lives outside scroll pane; cancel sticky + outer scroll (must follow rules above) */
+.hub-directory-table-split.hub-directory-table-scroll,
+.hub-directory-table-split.hub-directory-table-scroll--flex-pane {
+  overflow: hidden !important;
+  max-height: none;
+  padding-bottom: 0;
+  scroll-padding-bottom: 0;
+  scrollbar-gutter: auto;
+}
+
+.hub-directory-table-split.hub-directory-table-scroll table.hub-users-table thead th {
+  position: static;
+  top: auto;
+  box-shadow: none;
+}
+
+/* Standalone split — height SSOT in hub-directory-table.css (imported after this file in tools) */

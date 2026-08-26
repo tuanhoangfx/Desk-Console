@@ -1,0 +1,15 @@
+/* HubCloneConfirmDialog — field chrome. Width = compact 28rem token, not this file. */
+
+.hub-clone-confirm__keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: var(--hub-adm-value-h, 26px);
+}
+
+.hub-clone-confirm__keep:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

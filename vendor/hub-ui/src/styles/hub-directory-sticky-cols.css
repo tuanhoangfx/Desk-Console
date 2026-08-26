@@ -1,0 +1,21 @@
+/**
+ * Directory sticky (frozen) leading columns — static behaviour SSOT.
+ * Per-column offsets/tints are emitted by buildDirectoryStickyColumnsCss (keyed on colClass).
+ * This file only holds order-independent keyframes shared across every scope.
+ *
+ * Frozen-cell flash: mirrors hub-flash-border.css row flash but composites the tint over an
+ * opaque --panel base (row keyframe ends at `transparent`, which would bleed on a frozen cell).
+ */
+@keyframes hub-flash-border-directory-row-frozen {
+  0%,
+  14% {
+    background-color: color-mix(in srgb, var(--hub-flash-border-accent, rgb(129 140 248)) 9%, var(--panel, #121830));
+    box-shadow:
+      inset 3px 0 0 color-mix(in srgb, var(--hub-flash-border-accent, rgb(129 140 248)) 46%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--hub-flash-border-accent, rgb(129 140 248)) 24%, rgb(255 255 255 / 0.04));
+  }
+  100% {
+    background-color: var(--panel, #121830);
+    box-shadow: none;
+  }
+}

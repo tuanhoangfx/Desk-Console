@@ -1,0 +1,95 @@
+{
+  "name": "desk-console",
+  "version": "0.1.14",
+  "private": true,
+  "description": "Standalone desktop host for clips, captures, runners, and Dev-* tasks.",
+  "author": "Desk Console",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "node scripts/dev-stack.mjs",
+    "dev:web": "vite --host 127.0.0.1 --port 5180",
+    "dev:host": "node host/server.mjs",
+    "desktop:dev": "cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5180 electron .",
+    "desktop:dir": "node scripts/run-electron-package.mjs --dir --publish never",
+    "desktop:assemble": "node scripts/assemble-unpacked.mjs --out dist-desk-win/win-unpacked",
+    "desktop:dist": "node scripts/run-electron-package.mjs --publish never",
+    "desktop:release": "powershell -ExecutionPolicy Bypass -File scripts/release-desktop.ps1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4180",
+    "typecheck": "node --test host/desk-host.test.mjs",
+    "test": "node --test host/desk-host.test.mjs",
+    "lint": "node ../scripts/run-script-chain.cjs -- node ../scripts/hub-vite-alias-check.mjs --code P0001"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.49.1",
+    "@tool-workspace/hub-ui": "workspace:*",
+    "@vitejs/plugin-react": "^5.1.1",
+    "cross-env": "^10.1.0",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "vite": "^7.2.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "10.4.20",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "postcss": "8.4.47",
+    "tailwindcss": "3.4.13",
+    "typescript": "^5.9.3"
+  },
+  "build": {
+    "appId": "vn.infi.desk-console",
+    "productName": "Desk Console",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "electron/**/*",
+      "host/**/*",
+      "dist/**/*",
+      "build/icons/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icons/app.ico",
+        "to": "app.ico"
+      }
+    ],
+    "asarUnpack": [
+      "host/**"
+    ],
+    "win": {
+      "icon": "build/icons/app.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "build/icons/app.ico",
+      "uninstallerIcon": "build/icons/app.ico"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "tuanhoangfx",
+        "repo": "Desk-Console",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

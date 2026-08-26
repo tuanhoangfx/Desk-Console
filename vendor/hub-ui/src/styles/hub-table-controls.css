@@ -1,0 +1,50 @@
+/* Golden directory table checkbox — P0004 Hub / Users parity */
+
+.hub-checkbox,
+.hub-users-checkbox {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.25);
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.hub-checkbox:hover:not(:disabled),
+.hub-users-checkbox:hover:not(:disabled) {
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.hub-checkbox:checked,
+.hub-users-checkbox:checked {
+  border-color: #22c55e;
+  background-color: #22c55e;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 6.2L5 8.7L9.5 3.8' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 0.625rem;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25);
+}
+
+.hub-checkbox:focus-visible,
+.hub-users-checkbox:focus-visible {
+  outline: 2px solid rgba(34, 197, 94, 0.55);
+  outline-offset: 2px;
+}
+
+.hub-checkbox:disabled,
+.hub-users-checkbox:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

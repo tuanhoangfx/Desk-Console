@@ -1,0 +1,55 @@
+/*
+ * HubAdmCopyValueBadge semantic tones — SSOT chip text colours (P0005 Order Sample columns).
+ * Text-only tint (like the original Notify warn tone): border + background stay the base badge
+ * style; only the label colour changes by status. Compound selector `.hub-copy-badge.<tone>`
+ * (0,2,0) beats the base badge text utility (0,1,0) in table and modal.
+ */
+
+.hub-copy-badge.hub-adm-copy-value-badge--warn {
+  color: #fcd34d;
+}
+.hub-copy-badge.hub-adm-copy-value-badge--warn:hover {
+  color: #fde68a;
+}
+
+.hub-copy-badge.hub-adm-copy-value-badge--info {
+  color: #7dd3fc;
+}
+.hub-copy-badge.hub-adm-copy-value-badge--info:hover {
+  color: #bae6fd;
+}
+
+.hub-copy-badge.hub-adm-copy-value-badge--muted {
+  color: #94a3b8;
+}
+.hub-copy-badge.hub-adm-copy-value-badge--muted:hover {
+  color: #cbd5e1;
+}
+
+.hub-copy-badge.hub-adm-copy-value-badge--success {
+  color: #6ee7b7;
+}
+.hub-copy-badge.hub-adm-copy-value-badge--success:hover {
+  color: #a7f3d0;
+}
+
+.hub-copy-badge.hub-adm-copy-value-badge--orange {
+  color: #fdba74;
+}
+.hub-copy-badge.hub-adm-copy-value-badge--orange:hover {
+  color: #fed7aa;
+}
+
+.hub-copy-badge.hub-adm-copy-value-badge--danger {
+  color: #fda4af;
+}
+.hub-copy-badge.hub-adm-copy-value-badge--danger:hover {
+  color: #fecdd3;
+}
+
+.hub-copy-badge.hub-adm-copy-value-badge--violet {
+  color: #c4b5fd;
+}
+.hub-copy-badge.hub-adm-copy-value-badge--violet:hover {
+  color: #ddd6fe;
+}

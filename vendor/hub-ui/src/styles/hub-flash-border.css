@@ -1,0 +1,53 @@
+/**
+ * Flash border SSOT — post-edit row/card accent (Todo high-priority border recipe + directory inset ring).
+ * Tokens: --hub-flash-border-accent · --hub-flash-border-duration
+ */
+
+/** Persistent light accent border — override --hub-flash-border-accent per surface (e.g. Todo high priority). */
+.hub-flash-border-accent {
+  border-color: color-mix(in srgb, var(--hub-flash-border-accent, rgb(129 140 248)) 32%, rgb(255 255 255 / 0.05));
+}
+
+/** Brief post-edit flash — directory table rows (`<tr>` — inset ring; no tr border). */
+table.hub-users-table[data-hub-directory-select] .hub-users-row.is-flash-border {
+  animation: hub-flash-border-directory-row var(--hub-flash-border-duration, 2s) ease-out both;
+}
+
+table.hub-users-table[data-hub-directory-select] .hub-users-row.is-flash-border:hover {
+  animation: hub-flash-border-directory-row var(--hub-flash-border-duration, 2s) ease-out both;
+}
+
+@keyframes hub-flash-border-directory-row {
+  0%,
+  14% {
+    background-color: color-mix(in srgb, var(--hub-flash-border-accent, rgb(129 140 248)) 9%, transparent);
+    box-shadow:
+      inset 3px 0 0 color-mix(in srgb, var(--hub-flash-border-accent, rgb(129 140 248)) 46%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--hub-flash-border-accent, rgb(129 140 248)) 24%, rgb(255 255 255 / 0.04));
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+/** Brief post-edit flash — bordered card / panel surfaces. */
+.hub-flash-border-surface.is-flash-border {
+  animation: hub-flash-border-surface var(--hub-flash-border-duration, 2s) ease-out both;
+}
+
+@keyframes hub-flash-border-surface {
+  0%,
+  14% {
+    border-color: color-mix(
+      in srgb,
+      var(--hub-flash-border-accent, rgb(129 140 248)) 55%,
+      var(--border, rgb(255 255 255 / 0.08))
+    );
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--hub-flash-border-accent, rgb(129 140 248)) 34%, transparent);
+  }
+  100% {
+    border-color: inherit;
+    box-shadow: none;
+  }
+}

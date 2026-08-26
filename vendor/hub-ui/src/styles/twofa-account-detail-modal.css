@@ -1,0 +1,600 @@
+@import "./hub-add-modal.css";
+
+/* 2FA-specific tokens — grid + modal sizing from hub-account-detail-modal.css (hub-ui SSOT). */
+.modal-shell.hub-tool-detail-modal.twofa-account-detail-modal {
+  --twofa-adm-line: rgba(255, 255, 255, 0.1);
+  --twofa-adm-panel: var(--hub-modal-panel-surface, var(--panel));
+}
+
+.twofa-account-detail-modal .hub-account-detail-modal__main-scroll {
+  scrollbar-gutter: auto;
+}
+
+.twofa-account-detail__split {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.twofa-account-detail__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.twofa-account-detail__panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.twofa-account-detail__panel .hub-tool-detail-panel__body,
+.twofa-account-detail__panel .twofa-adm-panel__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0.45rem;
+}
+
+/* Credentials main scroll inset — SSOT in hub-account-detail-modal.css */
+
+.twofa-adm-credentials-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+.twofa-account-detail__panel .hub-adm-section-stack {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.twofa-account-detail__panel .twofa-adm-form-rows.hub-adm-section-stack {
+  gap: 0.55rem;
+}
+
+.twofa-account-detail-modal .twofa-adm-inline-field__control,
+.twofa-account-detail-modal .twofa-adm-inline-field__value {
+  min-width: 0;
+}
+
+.twofa-account-detail-modal .twofa-adm-control {
+  width: 100%;
+}
+
+.twofa-account-detail-modal .hub-account-detail-modal__split > .hub-tool-detail-panel.hub-tool-detail-panel--grow {
+  width: 100%;
+  min-width: 0;
+}
+
+.twofa-adm-rail,
+.twofa-adm-panel {
+  border: 1px solid var(--twofa-adm-line);
+  border-radius: 0.7rem;
+  background: var(--twofa-adm-panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.twofa-adm-rail--toc,
+.twofa-account-detail-modal .hub-tool-detail-rail.twofa-adm-rail--toc {
+  height: 100%;
+}
+
+.twofa-adm-rail__head,
+.twofa-adm-panel__head,
+.twofa-account-detail-modal .hub-tool-detail-rail__head,
+.twofa-account-detail-modal .hub-tool-detail-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--twofa-adm-line);
+  flex-shrink: 0;
+}
+
+.twofa-adm-rail__body,
+.twofa-adm-panel__body,
+.twofa-account-detail-modal .hub-tool-detail-rail__body,
+.twofa-account-detail-modal .hub-tool-detail-panel__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.45rem;
+  overflow: auto;
+}
+
+.twofa-account-detail-modal .hub-tool-detail-rail.hub-adm-rail--note .hub-tool-detail-rail__body,
+.twofa-account-detail-modal .hub-adm-note-rail__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.twofa-account-detail-modal .hub-tool-detail-rail.hub-adm-rail--note .hub-adm-note-editor-field,
+.twofa-account-detail-modal .hub-tool-detail-rail.hub-adm-rail--note .hub-adm-note-editor {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Note textarea must not inherit twofa-adm-control fixed 2rem height (P0005 Order parity). */
+.twofa-account-detail-modal .hub-adm-note-textarea.twofa-adm-control,
+.twofa-account-detail-modal .hub-tool-detail-rail.hub-adm-rail--note .hub-adm-note-editor textarea.hub-adm-note-textarea {
+  height: 100%;
+  min-height: 0;
+}
+
+/* Fill note body — works even when Vite serves stale hub-ui (rows=1, no --fill class). */
+.twofa-account-detail-modal .hub-tool-detail-rail.hub-adm-rail--note .hub-adm-note-editor {
+  position: relative;
+}
+
+.twofa-account-detail-modal .hub-tool-detail-rail.hub-adm-rail--note .hub-adm-note-editor textarea.hub-adm-note-textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+  resize: none;
+}
+
+.twofa-adm-rail__body--scroll {
+  overflow: auto;
+}
+
+.twofa-adm-rail--toc .hub-toc-nav__list,
+.twofa-account-detail-modal .hub-tool-detail-rail.twofa-adm-rail--toc .hub-toc-nav__list {
+  margin: 0;
+}
+
+.twofa-adm-hero__code {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.35rem 0.5rem;
+  min-width: 0;
+  width: 100%;
+  overflow: visible;
+}
+
+.twofa-adm-hero__period-group {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.twofa-adm-muted,
+.hub-adm-muted,
+.twofa-adm-hero__period-label {
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-label-weight, 500);
+  color: var(--hub-adm-type-label-color, rgb(148, 163, 184));
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ---- inline fields imported from twofa-inline-fields.css ---- */
+
+.twofa-adm-form-rows {
+  margin-top: 0;
+}
+
+.twofa-adm-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  --twofa-log-time-w: 4.65rem;
+  --twofa-log-meta-w: calc(6px + 0.4rem + var(--twofa-log-time-w));
+}
+
+.twofa-adm-log-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-value-weight, 400);
+  line-height: var(--hub-adm-type-line, 1.45);
+}
+
+.twofa-adm-log-row--detail {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+}
+
+.twofa-adm-log-row__head {
+  display: flex;
+  align-items: center;
+  gap: var(--hub-inline-gap-name, 8px);
+  min-width: 0;
+}
+
+.twofa-adm-log-row__action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hub-inline-gap-name, 8px);
+  min-width: 0;
+  flex: 1 1 auto;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.twofa-adm-log-row__action .twofa-adm-log-row__msg {
+  color: inherit;
+  font-weight: inherit;
+}
+
+.twofa-adm-log-row__values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem;
+  min-width: 0;
+  padding-left: var(--twofa-log-meta-w, calc(6px + 0.4rem + 4.65rem));
+}
+
+.twofa-adm-log-row--cell {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.twofa-adm-log-row--cell .twofa-adm-log-dot {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.twofa-adm-log-row__time--cell {
+  width: auto;
+  min-width: 0;
+  flex-shrink: 0;
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-value-weight, 400);
+  color: var(--hub-adm-type-muted-color, rgb(100, 116, 139));
+}
+
+.twofa-adm-log-row--cell .twofa-adm-log-row__delta {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.twofa-adm-log-row--cell .twofa-adm-log-inline-val__btn .twofa-copy-control__value {
+  max-width: 6rem;
+}
+
+.twofa-adm-log-row__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  min-height: 1.125rem;
+  width: var(--twofa-log-meta-w, calc(6px + 0.4rem + 4.65rem));
+  min-width: var(--twofa-log-meta-w, calc(6px + 0.4rem + 4.65rem));
+}
+
+.twofa-adm-log-row__time {
+  flex-shrink: 0;
+  margin: 0;
+  font-family: inherit;
+  font-style: normal;
+  color: rgb(148, 163, 184);
+  width: var(--twofa-log-time-w, 4.65rem);
+  min-width: var(--twofa-log-time-w, 4.65rem);
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.twofa-adm-log-row__field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hub-inline-gap-comfort, 6px);
+  flex-shrink: 0;
+  font-weight: 500;
+  color: rgb(148, 163, 184);
+}
+
+.twofa-adm-log-row__field--msg {
+  min-width: 0;
+  flex: 1 1 8rem;
+  color: rgb(226, 232, 240);
+  font-weight: 400;
+}
+
+.twofa-adm-log-row__field--msg .twofa-adm-log-row__msg {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.twofa-adm-log-row__colon {
+  flex-shrink: 0;
+  color: rgb(100, 116, 139);
+  font-weight: 400;
+}
+
+.twofa-adm-log-row__icon {
+  width: var(--hub-directory-header-glyph-px, 13px);
+  height: var(--hub-directory-header-glyph-px, 13px);
+  flex-shrink: 0;
+}
+
+.twofa-adm-log-row__delta {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1 1 8rem;
+}
+
+.twofa-adm-log-row__arrow {
+  flex-shrink: 0;
+  font-size: var(--hub-adm-type-size, 12px);
+  color: var(--hub-adm-type-muted-color, rgb(100, 116, 139));
+}
+
+.twofa-adm-log-row__msg {
+  min-width: 0;
+  flex: 1 1 8rem;
+  color: rgb(226, 232, 240);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.twofa-adm-log-row__msg-part {
+  display: inline;
+}
+
+.twofa-adm-log-row__msg-part + .twofa-adm-log-row__msg-part::before {
+  content: " · ";
+  color: rgb(100, 116, 139);
+}
+
+.twofa-adm-log-inline-val {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.twofa-adm-log-inline-val__wrap {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  vertical-align: baseline;
+  cursor: copy;
+}
+
+.twofa-adm-log-inline-val__wrap:hover .twofa-adm-log-inline-val__btn {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.twofa-adm-log-inline-val__btn {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 0.2rem;
+  background: var(--hub-modal-panel-surface, var(--panel));
+  padding: 0 0.22rem;
+  font-family: inherit;
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-value-weight, 400);
+  line-height: var(--hub-adm-type-line, 1.45);
+  color: rgb(203, 213, 225);
+}
+
+.twofa-adm-log-inline-val__btn--old {
+  color: rgb(148, 163, 184);
+  border-color: rgba(148, 163, 184, 0.08);
+  background: transparent;
+}
+
+.twofa-adm-log-inline-val__btn--new {
+  color: rgb(226, 232, 240);
+}
+
+.twofa-adm-log-inline-val__btn--single {
+  color: rgb(203, 213, 225);
+}
+
+.twofa-adm-log-row--detail .twofa-adm-log-inline-val__btn {
+  align-items: flex-start;
+  height: auto;
+  white-space: normal;
+  text-align: left;
+  border: 0;
+  border-radius: 0.28rem;
+  background: transparent;
+  padding: 0 0.15rem;
+}
+
+.twofa-adm-log-row--detail .twofa-adm-log-inline-val__btn--old,
+.twofa-adm-log-row--detail .twofa-adm-log-inline-val__btn--new,
+.twofa-adm-log-row--detail .twofa-adm-log-inline-val__btn--single {
+  border: 0;
+  background: transparent;
+}
+
+.twofa-adm-log-row--detail .twofa-adm-log-inline-val__wrap:hover .twofa-adm-log-inline-val__btn {
+  border: 0;
+  background: var(--hub-adm-glow-hover-bg, rgb(255 255 255 / 0.04));
+  box-shadow: var(--hub-adm-glow-hover-ring, none);
+}
+
+.twofa-adm-log-row--detail .twofa-adm-log-inline-val__btn.hub-adm-detail-value-text {
+  flex: unset;
+}
+
+.twofa-adm-log-row--detail .twofa-adm-log-inline-val__btn .twofa-copy-control__value {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+.twofa-adm-log-row--detail .twofa-adm-log-row__arrow {
+  font: inherit;
+}
+
+.twofa-adm-log-inline-val__btn .twofa-copy-control__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12rem;
+}
+
+.twofa-adm-log-inline-val--empty,
+.twofa-adm-log-inline-val--fingerprint {
+  font-size: var(--hub-adm-type-size, 12px);
+  padding: 0 0.15rem;
+}
+
+.hub-adm-plain-time,
+.twofa-adm-plain-time {
+  font-family: inherit;
+  font-size: var(--hub-adm-type-size, 12px);
+  font-weight: var(--hub-adm-type-value-weight, 400);
+  line-height: var(--hub-adm-type-line, 1.45);
+  letter-spacing: normal;
+  color: var(--hub-adm-type-label-color, rgb(148, 163, 184));
+}
+
+.twofa-adm-log-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.twofa-adm-log-dot--0 {
+  background: rgb(52, 211, 153);
+}
+
+.twofa-adm-log-dot--1 {
+  background: rgb(251, 191, 36);
+}
+
+.twofa-adm-log-dot--2 {
+  background: rgb(129, 140, 248);
+}
+
+.twofa-account-detail-modal .twofa-adm-password-field {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+  min-height: var(--hub-adm-value-h, var(--hub-control-h, 26px));
+  height: var(--hub-adm-value-h, var(--hub-control-h, 26px));
+}
+
+.twofa-account-detail-modal .twofa-adm-password-field:focus-within {
+  border-radius: 0.28rem;
+  background: var(--hub-adm-glow-focus-bg);
+  box-shadow: var(--hub-adm-glow-focus-ring);
+}
+
+.twofa-account-detail-modal .twofa-adm-password-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  padding-right: 2rem;
+}
+
+.twofa-account-detail-modal input[name="twofa-detail-secret"],
+.twofa-account-detail-modal input[name="twofa-detail-browser"] {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.twofa-account-detail-modal .twofa-adm-inline-field__label .hub-users-th-text {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.twofa-account-detail-modal .twofa-adm-password-reveal {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--muted);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.twofa-account-detail-modal .twofa-adm-password-reveal:hover {
+  color: var(--text);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.twofa-account-detail-modal .twofa-add-field-masked {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+
+.twofa-account-detail-modal .twofa-adm-hero__code .twofa-code-badge {
+  margin: 0;
+  flex-shrink: 0;
+  padding: 0.1rem 0.35rem;
+  letter-spacing: 0.08em;
+}
+
+.twofa-account-detail-modal .twofa-adm-hero__code .hub-twofa-period-inline {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1023px) {
+  .modal-shell.hub-tool-detail-modal.twofa-account-detail-modal {
+    --twofa-detail-log-w: min(20rem, 38%);
+  }
+}
+
+@media (max-width: 640px) {
+  .twofa-adm-rail--log,
+  .twofa-adm-rail--note {
+    min-height: 0;
+  }
+}

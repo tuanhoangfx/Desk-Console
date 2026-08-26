@@ -1,0 +1,131 @@
+/* Hub scrollbar SSOT — vertical + horizontal; tokens in hub-theme-tokens.css (:root). */
+
+.hub-scrollbar,
+.hub-split-scroll,
+.hub-filter-dropdown-list,
+.hub-directory-table-scroll:not(.hub-directory-table-split),
+.hub-directory-table-body-scroll,
+.hub-main,
+.modal-shell--tool-detail .modal-shell__scroll,
+.hub-tool-detail-modal__scroll,
+.hub-account-detail-modal__main-scroll,
+.hub-tool-detail-panel__body,
+.hub-tool-detail-rail__body,
+.hub-runtime-term__body,
+.hub-filter-select-panel,
+.hub-directory-display-panel,
+.hub-directory-display-panel__body,
+.hub-toc-nav {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hub-split-scroll-thumb, #2a3158) var(--hub-split-scroll-track, transparent);
+}
+
+.hub-scrollbar::-webkit-scrollbar,
+.hub-split-scroll::-webkit-scrollbar,
+.hub-directory-table-scroll:not(.hub-directory-table-split)::-webkit-scrollbar,
+.hub-directory-table-body-scroll::-webkit-scrollbar,
+.hub-main::-webkit-scrollbar,
+.modal-shell--tool-detail .modal-shell__scroll::-webkit-scrollbar,
+.hub-tool-detail-modal__scroll::-webkit-scrollbar,
+.hub-account-detail-modal__main-scroll::-webkit-scrollbar,
+.hub-tool-detail-panel__body::-webkit-scrollbar,
+.hub-tool-detail-rail__body::-webkit-scrollbar,
+.hub-runtime-term__body::-webkit-scrollbar,
+.hub-filter-select-panel::-webkit-scrollbar,
+.hub-directory-display-panel__body::-webkit-scrollbar,
+.hub-toc-nav::-webkit-scrollbar {
+  width: var(--hub-split-scroll-size, 10px);
+  height: var(--hub-split-scroll-size, 10px);
+}
+
+.hub-filter-dropdown-list::-webkit-scrollbar:vertical {
+  width: var(--hub-split-scroll-size, 10px);
+}
+
+.hub-filter-dropdown-list::-webkit-scrollbar:horizontal {
+  height: 0;
+  display: none;
+}
+
+.hub-scrollbar::-webkit-scrollbar-track,
+.hub-split-scroll::-webkit-scrollbar-track,
+.hub-filter-dropdown-list::-webkit-scrollbar-track,
+.hub-directory-table-scroll:not(.hub-directory-table-split)::-webkit-scrollbar-track,
+.hub-directory-table-body-scroll::-webkit-scrollbar-track,
+.hub-main::-webkit-scrollbar-track,
+.modal-shell--tool-detail .modal-shell__scroll::-webkit-scrollbar-track,
+.hub-tool-detail-modal__scroll::-webkit-scrollbar-track,
+.hub-account-detail-modal__main-scroll::-webkit-scrollbar-track,
+.hub-tool-detail-panel__body::-webkit-scrollbar-track,
+.hub-tool-detail-rail__body::-webkit-scrollbar-track,
+.hub-runtime-term__body::-webkit-scrollbar-track,
+.hub-filter-select-panel::-webkit-scrollbar-track,
+.hub-directory-display-panel__body::-webkit-scrollbar-track,
+.hub-toc-nav::-webkit-scrollbar-track {
+  background: var(--hub-split-scroll-track, transparent);
+}
+
+.hub-scrollbar::-webkit-scrollbar-thumb,
+.hub-split-scroll::-webkit-scrollbar-thumb,
+.hub-filter-dropdown-list::-webkit-scrollbar-thumb,
+.hub-directory-table-scroll:not(.hub-directory-table-split)::-webkit-scrollbar-thumb,
+.hub-directory-table-body-scroll::-webkit-scrollbar-thumb,
+.hub-main::-webkit-scrollbar-thumb,
+.modal-shell--tool-detail .modal-shell__scroll::-webkit-scrollbar-thumb,
+.hub-tool-detail-modal__scroll::-webkit-scrollbar-thumb,
+.hub-account-detail-modal__main-scroll::-webkit-scrollbar-thumb,
+.hub-tool-detail-panel__body::-webkit-scrollbar-thumb,
+.hub-tool-detail-rail__body::-webkit-scrollbar-thumb,
+.hub-runtime-term__body::-webkit-scrollbar-thumb,
+.hub-filter-select-panel::-webkit-scrollbar-thumb,
+.hub-directory-display-panel__body::-webkit-scrollbar-thumb,
+.hub-toc-nav::-webkit-scrollbar-thumb {
+  background: var(--hub-split-scroll-thumb, #2a3158);
+  border-radius: var(--hub-split-scroll-radius, 6px);
+}
+
+.hub-scrollbar::-webkit-scrollbar-thumb:hover,
+.hub-split-scroll::-webkit-scrollbar-thumb:hover,
+.hub-filter-dropdown-list::-webkit-scrollbar-thumb:hover,
+.hub-directory-table-scroll:not(.hub-directory-table-split)::-webkit-scrollbar-thumb:hover,
+.hub-directory-table-body-scroll::-webkit-scrollbar-thumb:hover,
+.hub-main::-webkit-scrollbar-thumb:hover,
+.modal-shell--tool-detail .modal-shell__scroll::-webkit-scrollbar-thumb:hover,
+.hub-tool-detail-modal__scroll::-webkit-scrollbar-thumb:hover,
+.hub-account-detail-modal__main-scroll::-webkit-scrollbar-thumb:hover,
+.hub-tool-detail-panel__body::-webkit-scrollbar-thumb:hover,
+.hub-tool-detail-rail__body::-webkit-scrollbar-thumb:hover,
+.hub-runtime-term__body::-webkit-scrollbar-thumb:hover,
+.hub-filter-select-panel::-webkit-scrollbar-thumb:hover,
+.hub-directory-display-panel__body::-webkit-scrollbar-thumb:hover,
+.hub-toc-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--hub-split-scroll-thumb-hover, #3a4178);
+}
+
+.hub-scrollbar::-webkit-scrollbar-corner,
+.hub-split-scroll::-webkit-scrollbar-corner,
+.hub-filter-dropdown-list::-webkit-scrollbar-corner,
+.hub-directory-table-scroll:not(.hub-directory-table-split)::-webkit-scrollbar-corner,
+.hub-directory-table-body-scroll::-webkit-scrollbar-corner,
+.hub-main::-webkit-scrollbar-corner,
+.modal-shell--tool-detail .modal-shell__scroll::-webkit-scrollbar-corner,
+.hub-tool-detail-modal__scroll::-webkit-scrollbar-corner,
+.hub-account-detail-modal__main-scroll::-webkit-scrollbar-corner,
+.hub-tool-detail-panel__body::-webkit-scrollbar-corner,
+.hub-tool-detail-rail__body::-webkit-scrollbar-corner,
+.hub-runtime-term__body::-webkit-scrollbar-corner,
+.hub-filter-select-panel::-webkit-scrollbar-corner,
+.hub-directory-display-panel__body::-webkit-scrollbar-corner,
+.hub-toc-nav::-webkit-scrollbar-corner {
+  background: var(--panel, #121830);
+}
+
+/* Header KPI rail — intentionally hidden scrollbar (P0004 golden). */
+.app-tab-header-center-stats {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-tab-header-center-stats::-webkit-scrollbar {
+  display: none;
+}

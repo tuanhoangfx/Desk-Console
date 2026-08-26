@@ -1,0 +1,48 @@
+/* Self-hosted Inter — Hub typography SSOT (sidebar / header / cardview).
+ * Root scale: html font-size via --hub-user-zoom-pct (default 90% → 14.4px).
+ * Docs: Tool/docs/ssot/hub-typography-ssot.md
+ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/inter-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/inter-latin-500-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/inter-latin-600-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/inter-latin-700-normal.woff2") format("woff2");
+}
+
+:root,
+.theme-hub {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+}
+
+html,
+body,
+.hub-app {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

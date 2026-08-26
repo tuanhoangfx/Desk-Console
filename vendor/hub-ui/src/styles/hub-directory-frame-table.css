@@ -1,0 +1,313 @@
+/* Golden directory frame tables — profile pane + workflow rail (P0001/P0003 SSOT). */
+
+:root {
+  --hub-directory-row-h: 1.875rem;
+  --hub-directory-head-row-h: 2.125rem;
+  --hub-directory-page-rows: 20;
+}
+
+/* Directory body value — table cells + filter values when panelScope mirrors table (P0020 twofa). */
+.hub-directory-body-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--text);
+}
+
+/* Directory header label — table th + filter facet chips (single SSOT layer). */
+.hub-directory-header-label,
+.hub-users-th-text {
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text);
+}
+
+/* Directory pane surface tokens — SSOT in hub-users-table.css :root (--panel parity, P0003 Profiles) */
+
+.hub-directory-frame table.hub-users-table.hub-directory-frame-table {
+  font-size: var(--hub-table-body-size, 12px);
+  line-height: var(--hub-table-body-line-height, 1.45);
+}
+
+.hub-directory-frame table.hub-directory-frame-table th {
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 700;
+  height: var(--hub-directory-head-row-h);
+  padding: 8px 10px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  box-sizing: border-box;
+}
+
+.hub-directory-frame table.hub-directory-frame-table td {
+  padding: 7px 10px;
+  font-size: var(--hub-table-body-size, 12px);
+  line-height: var(--hub-table-body-line-height, 1.45);
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill table.hub-directory-frame-table td {
+  padding: 3px 10px;
+  overflow: hidden;
+}
+
+.hub-directory-frame .hub-directory-frame-table .hub-users-th-text {
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 700;
+}
+
+.hub-directory-frame .hub-directory-frame-table .hub-users-name-title,
+.hub-directory-frame .hub-directory-frame-table .hub-directory-table-body-text,
+.hub-directory-frame .hub-directory-frame-table .hub-directory-icon-cell__label {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--text);
+}
+
+.hub-directory-frame .hub-directory-frame-table .hub-users-status {
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  line-height: var(--hub-table-body-line-height, 1.45);
+  color: var(--text);
+  text-transform: none;
+}
+
+.hub-directory-frame .hub-directory-frame-table .hub-users-status-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* Metric / duration columns — tabular nums at body size, semibold (P0003/P0006 Processing parity). */
+.hub-directory-frame .hub-directory-frame-table td.hub-users-cell-num,
+.hub-directory-frame .hub-directory-frame-table .hub-users-cell-num {
+  font-size: var(--hub-table-body-size, 12px);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+/* Inline table wrap — content height only; pager flush below rows (no flex gap). */
+.hub-directory-frame:not(.hub-directory-frame--panel-fill):not(.hub-split-directory-pane--fixed-rows)
+  .hub-split-directory-pane__body
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap:not(.hub-directory-table-split):not(.hub-directory-table-scroll--flex-pane) {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+/* fixedRows — exact N rows, pager below (workflow rail) */
+.hub-directory-frame.hub-split-directory-pane--fixed-rows .hub-split-directory-pane__body {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.hub-directory-frame.hub-split-directory-pane--fixed-rows table.hub-directory-frame-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.hub-directory-frame.hub-split-directory-pane--fixed-rows .hub-paginated-table-shell {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.hub-directory-frame.hub-split-directory-pane--fixed-rows .hub-paginated-table-shell > .hub-users-table-wrap {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: hidden;
+}
+
+.hub-directory-frame.hub-split-directory-pane--fixed-rows .hub-table-pager {
+  flex: 0 0 auto;
+  margin-top: 4px;
+  padding-top: 0;
+}
+
+/* Panel scroll — when pane does not pin fixed row count */
+.hub-directory-frame:not(.hub-directory-frame--panel-fill):not(.hub-split-directory-pane--fixed-rows)
+  .hub-split-directory-pane__body
+  .hub-paginated-table-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-directory-frame:not(.hub-directory-frame--panel-fill):not(.hub-split-directory-pane--fixed-rows)
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap.hub-directory-table-scroll--flex-pane {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-directory-frame:not(.hub-directory-frame--panel-fill):not(.hub-split-directory-pane--fixed-rows)
+  .hub-paginated-table-shell
+  > .hub-table-pager {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  margin-top: 4px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Panel fill — P0004 inline wrap (no inner scrollbar); N equal rows stretch tbody */
+.hub-directory-frame.hub-directory-frame--panel-fill .hub-split-directory-pane__body .hub-paginated-table-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap.hub-directory-table-scroll--flex-pane {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap:not(.hub-directory-table-split) {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap:not(.hub-directory-table-split)
+  table.hub-users-table,
+.hub-directory-frame.hub-directory-frame--panel-fill
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap:not(.hub-directory-table-split)
+  table.hub-directory-frame-table {
+  height: 100%;
+  table-layout: fixed;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap:not(.hub-directory-table-split)
+  thead
+  tr {
+  height: var(--hub-directory-head-row-h);
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap:not(.hub-directory-table-split)
+  tbody {
+  vertical-align: top;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap:not(.hub-directory-table-split)
+  tbody
+  tr {
+  height: calc(
+    (100% - var(--hub-directory-head-row-h)) / var(--hub-directory-page-rows, 20)
+  );
+  min-height: 0;
+  max-height: calc(
+    (100% - var(--hub-directory-head-row-h)) / var(--hub-directory-page-rows, 20)
+  );
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill .hub-directory-table-body-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill .hub-directory-table-body-scroll table {
+  height: 100%;
+  table-layout: fixed;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill .hub-directory-table-body-scroll thead tr {
+  height: var(--hub-directory-head-row-h);
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill .hub-directory-table-body-scroll tbody {
+  vertical-align: top;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill .hub-directory-table-body-scroll tbody tr {
+  height: calc(
+    (100% - var(--hub-directory-head-row-h)) / var(--hub-directory-page-rows, 20)
+  );
+  min-height: 0;
+  max-height: calc(
+    (100% - var(--hub-directory-head-row-h)) / var(--hub-directory-page-rows, 20)
+  );
+  box-sizing: border-box;
+}
+
+.hub-directory-frame.hub-directory-frame--panel-fill .hub-paginated-table-shell > .hub-table-pager {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  margin-top: 4px;
+  position: relative;
+  z-index: 2;
+}
+
+/*
+ * Panel-fill even row height on partial pages (search/filter).
+ * `table { height: 100% }` distributes surplus height by natural content height,
+ * so one data row + empty pad rows lets the data row absorb ALL surplus (giant row).
+ * Give each pad cell a full line's natural height so surplus spreads evenly.
+ */
+.hub-directory-frame.hub-directory-frame--panel-fill tbody tr.hub-users-row--pad td::after {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: calc(var(--hub-table-body-size, 12px) * var(--hub-table-body-line-height, 1.45));
+}
+
+/* Partial-page pad — default chrome is invisible (hub-directory-table.css). */
+.hub-directory-frame[data-partial-page-pad="invisible"] tbody tr.hub-users-row--pad {
+  pointer-events: none;
+  user-select: none;
+}
+
+.hub-directory-frame[data-partial-page-pad="invisible"] tbody tr.hub-users-row--pad td {
+  border-color: transparent !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.hub-directory-frame[data-partial-page-pad="visible"] tbody tr.hub-users-row--pad {
+  pointer-events: none;
+  user-select: none;
+}
+
+.hub-directory-frame[data-partial-page-pad="visible"] tbody tr.hub-users-row--pad td {
+  border-top-color: rgba(255, 255, 255, 0.02) !important;
+}

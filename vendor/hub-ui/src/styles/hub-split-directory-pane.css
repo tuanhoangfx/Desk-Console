@@ -1,0 +1,167 @@
+/* HubSplitDirectoryPane — unified outer frame + inner table chrome (P0004 Users parity) */
+
+.hub-split-directory-pane__filters {
+  position: relative;
+  z-index: 8;
+  overflow: visible;
+}
+
+.hub-split-directory-pane__body {
+  overflow: hidden;
+}
+
+/* Pane body is a layout shell — scroll lives on inner .hub-split-scroll--* only (P0020 Notes editor). */
+.hub-split-directory-pane__body:not(.hub-split-scroll) {
+  scrollbar-gutter: auto;
+}
+
+.hub-split-directory-pane__kpi-band {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  min-width: 0;
+  /* --panel tiles read as cards (P0020/P0005). Do not paint --panel here. */
+  background: var(--bg);
+}
+
+.hub-split-directory-pane__kpi-band .hub-kpi-strip {
+  min-height: var(--hub-kpi-strip-min-h);
+}
+
+.hub-split-directory-pane__body > .hub-paginated-table-shell,
+.hub-split-directory-pane__body > .gpm-workflow-directory-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.hub-split-directory-pane__body > .gpm-workflow-directory-shell > .hub-paginated-table-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.hub-split-directory-pane__body .hub-paginated-table-shell > .hub-users-table-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.hub-split-directory-pane__body .hub-users-table-wrap:not(.hub-directory-table-split) {
+  min-width: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  clip-path: inset(0 round 1rem);
+  background: var(--hub-directory-pane-surface, var(--panel));
+  isolation: isolate;
+}
+
+/* border-collapse:collapse ignores th radius — separate + clip matches golden pane chrome */
+.hub-split-directory-pane__body .hub-users-table-wrap:not(.hub-directory-table-split) table.hub-users-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+/* thead paint — SSOT hub-directory-table.css golden header (P0004 Hub/Users parity) */
+
+.hub-split-directory-pane__body .hub-users-table-wrap.hub-directory-table-split {
+  min-width: 0;
+  margin-bottom: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+/* Opt-in golden chrome for split wrap inside unified pane (Sheet grid). */
+.hub-split-directory-pane__body .hub-users-table-wrap.hub-directory-table-split.hub-directory-table-wrap--pane-chrome {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  clip-path: inset(0 round 1rem);
+  background: var(--hub-directory-pane-surface, var(--panel));
+}
+
+.hub-split-directory-pane__body
+  .hub-users-table-wrap.hub-directory-table-split.hub-directory-table-wrap--pane-chrome
+  .hub-directory-table-head {
+  overflow: hidden;
+  border-top-left-radius: calc(1rem - 1px);
+  border-top-right-radius: calc(1rem - 1px);
+}
+
+.hub-split-directory-pane__body
+  .hub-users-table-wrap.hub-directory-table-split.hub-directory-table-wrap--pane-chrome
+  thead
+  th:first-child {
+  border-top-left-radius: calc(1rem - 1px);
+}
+
+.hub-split-directory-pane__body
+  .hub-users-table-wrap.hub-directory-table-split.hub-directory-table-wrap--pane-chrome
+  thead
+  th:last-child {
+  border-top-right-radius: 0;
+}
+
+.hub-split-directory-pane__body .hub-table-pager {
+  flex-shrink: 0;
+  margin-top: 4px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.hub-split-directory-pane--fixed-rows .hub-split-directory-pane__body {
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.hub-split-directory-pane--fixed-rows .hub-split-directory-pane__body > .hub-paginated-table-shell,
+.hub-split-directory-pane--fixed-rows .hub-split-directory-pane__body > .gpm-workflow-directory-shell {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+
+.hub-split-directory-pane--fixed-rows .hub-paginated-table-shell > .hub-users-table-wrap,
+.hub-split-directory-pane--fixed-rows .gpm-workflow-directory-shell > .hub-paginated-table-shell {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+.hub-split-directory-pane--fixed-rows .hub-users-table-wrap:not(.hub-directory-table-split) {
+  overflow: hidden;
+}
+
+.hub-split-directory-pane--fixed-rows .hub-users-table-wrap.hub-directory-table-split {
+  overflow: hidden;
+}
+
+/* Clip thead to golden wrap radius (fixed-rows no longer uses overflow:visible). */
+.hub-split-directory-pane--fixed-rows .hub-users-table-wrap:not(.hub-directory-table-split) thead th:first-child {
+  border-top-left-radius: calc(1rem - 1px);
+}
+
+.hub-split-directory-pane--fixed-rows .hub-users-table-wrap:not(.hub-directory-table-split) thead th:last-child {
+  border-top-right-radius: calc(1rem - 1px);
+}
+
+.hub-split-directory-pane--fixed-rows table.hub-users-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.hub-split-directory-pane--fixed-rows .hub-table-pager {
+  margin-top: 4px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Split head/body paint + gutter — SSOT hub-directory-table.css only */

@@ -1,0 +1,272 @@
+.field {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid #2a3158;
+  border-radius: 8px;
+  font-size: 13px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.15);
+}
+
+.field:hover:not(:focus) {
+  border-color: #3a4178;
+}
+
+/* Native selects in Hub modals — dark options (fallback) */
+select.field,
+select.hub-filter-select-native,
+.hub-users-role-select {
+  appearance: none;
+  background-color: var(--panel-2);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+select.field option,
+select.hub-filter-select-native option,
+.hub-users-role-select option {
+  background-color: var(--panel);
+  color: var(--text);
+}
+
+/* HubFilterSelect — FilterBar dropdown chrome */
+.hub-filter-select-trigger {
+  display: inline-flex;
+  width: 100%;
+  min-height: var(--hub-control-h);
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(99 102 241 / 0.4);
+  background: rgb(99 102 241 / 0.1);
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgb(199 210 254);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.hub-filter-select-trigger:hover:not(:disabled) {
+  background: rgb(99 102 241 / 0.16);
+  border-color: rgb(99 102 241 / 0.5);
+}
+
+.hub-filter-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.hub-filter-select-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 80;
+  max-height: 16rem;
+  overflow: auto;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel);
+  padding: 0.25rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+.hub-filter-select-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  color: var(--text);
+  transition: background 0.12s;
+}
+
+.hub-filter-select-option:hover,
+.hub-filter-select-option[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hub-filter-select-option-check {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  place-items: center;
+}
+
+/* Modal form field label + filter trigger prefix */
+.hub-form-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.hub-form-field-label__icon {
+  color: #a5b4fc;
+  flex-shrink: 0;
+}
+
+.hub-form-field-label__emoji {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.hub-modal-filter-field {
+  min-width: 0;
+}
+
+.hub-filter-trigger-text__prefix {
+  color: var(--muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.hub-filter-trigger-text__value {
+  color: inherit;
+  font-weight: 500;
+}
+
+/* Clear filters — rose SSOT (do not inherit --text from host theme overrides). */
+.hub-filter-clear-btn {
+  color: #fecdd3 !important; /* rose-200 */
+  border-color: rgb(244 63 94 / 0.3) !important;
+  background-color: rgb(244 63 94 / 0.1) !important;
+}
+
+.hub-filter-clear-btn:hover {
+  background-color: rgb(244 63 94 / 0.2) !important;
+}
+
+.hub-filter-clear-btn__count {
+  color: #fff !important;
+  background-color: rgb(244 63 94 / 0.8) !important;
+}
+
+/* Active multi-filter trigger — keep indigo text when host forces --text on buttons. */
+.hub-filter-trigger.border-indigo-500\/40,
+button.hub-filter-trigger[class*="border-indigo-500"] {
+  color: #c7d2fe; /* indigo-200 */
+}
+
+/* Directory search pending — pulse in place. Never spin the magnifier:
+   `animate-spin` replaces `-translate-y-1/2`, so the handle sweeps top→bottom. */
+@keyframes hub-search-pending {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.hub-search-field__glyph--pending {
+  color: rgb(165 180 252); /* indigo-300 */
+  animation: hub-search-pending 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-search-field__glyph--pending {
+    animation: none;
+    opacity: 0.72;
+  }
+}
+
+/* P0012 Todo calendar day cells — portaled to body; use --accent (always on :root). */
+.hub-date-picker-day {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.75rem;
+  line-height: 1;
+  outline: none;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.hub-date-picker-day:hover {
+  background: rgb(255 255 255 / 0.05);
+}
+
+.hub-date-picker-day:focus,
+.hub-date-picker-day:focus-visible {
+  outline: none;
+}
+
+.hub-date-picker-day--selected,
+.hub-date-picker-day--selected:hover {
+  transform: scale(1.05);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.hub-date-picker-day--today:not(.hub-date-picker-day--selected) {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.hub-date-picker-footer-today {
+  color: var(--accent);
+}
+
+/* HubPeriodSelect month grid — same --accent fill as HubFilterDatePicker days. */
+.hub-period-month {
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.875rem;
+  outline: none;
+  padding: 0.5rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.hub-period-month:hover {
+  background: rgb(255 255 255 / 0.05);
+}
+
+.hub-period-month:focus,
+.hub-period-month:focus-visible {
+  outline: none;
+}
+
+.hub-period-month--selected,
+.hub-period-month--selected:hover {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.hub-period-month-footer {
+  color: var(--accent);
+}

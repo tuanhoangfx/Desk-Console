@@ -1,0 +1,5 @@
+/**
+ * @deprecated Use hub-theme-tokens.css — single theme SSOT for embed + standalone tools.
+ * Kept as import alias for backward-compatible embed paths.
+ */
+@import "./hub-theme-tokens.css";

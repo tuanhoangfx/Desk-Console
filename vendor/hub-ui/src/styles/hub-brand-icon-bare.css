@@ -1,0 +1,29 @@
+/* SSOT — colored/native brand logos (no white tile, no circular crop). */
+
+.hub-brand-icon-bare,
+.hub-chrome-brand-icon-bare,
+.hub-filter-brand-icon-bare,
+.hub-filter-dropdown-list img.hub-filter-brand-icon-bare,
+[data-hub-multi-filter-panel] img.hub-filter-brand-icon-bare,
+[data-hub-single-filter-panel] img.hub-filter-brand-icon-bare,
+.hub-chart-legend-label img.hub-brand-icon-bare,
+.hub-chart-legend-label img.hub-filter-brand-icon-bare,
+table.hub-users-table.hub-users-table--directory .hub-users-th-label .hub-chrome-brand-icon-bare,
+table.hub-users-table[data-hub-directory-select] .hub-users-th-label .hub-chrome-brand-icon-bare {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.hub-filter-brand-icon-bare,
+.hub-filter-dropdown-list img.hub-filter-brand-icon-bare,
+[data-hub-multi-filter-panel] img.hub-filter-brand-icon-bare,
+[data-hub-single-filter-panel] img.hub-filter-brand-icon-bare,
+.hub-chart-legend-label img.hub-brand-icon-bare,
+.hub-chart-legend-label img.hub-filter-brand-icon-bare {
+  width: var(--hub-directory-header-glyph-px, 13px) !important;
+  height: var(--hub-directory-header-glyph-px, 13px) !important;
+}

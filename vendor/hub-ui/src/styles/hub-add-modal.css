@@ -1,0 +1,47 @@
+/*
+ * Add modal shell — fixed body height when switching Single/Bulk tabs.
+ * Products set --hub-add-modal-body-h and --hub-add-modal-toc-bulk-slot-h on shell class.
+ */
+.modal-shell.hub-tool-detail-modal.hub-add-modal {
+  --overview-toc-w: 11.5rem;
+  --hub-add-modal-body-h: 18rem;
+  --hub-add-modal-toc-bulk-slot-h: 4.5rem;
+  --hub-adm-label-w: 6.5rem;
+  --hub-adm-field-gap: 0.7rem;
+  --hub-adm-value-h: var(--hub-control-h, 26px);
+  --hub-control-h: 26px;
+  --hub-table-header-size: 12px;
+  --hub-table-body-size: 12px;
+  min-height: calc(var(--hub-add-modal-body-h) + 8.75rem);
+}
+
+.modal-shell.hub-tool-detail-modal.hub-add-modal .hub-tool-detail-modal__body {
+  flex: 1 1 auto;
+  min-height: var(--hub-add-modal-body-h);
+}
+
+.modal-shell.hub-tool-detail-modal.hub-add-modal .hub-tool-detail-modal__layout {
+  min-height: var(--hub-add-modal-body-h);
+  align-items: stretch;
+}
+
+.modal-shell.hub-tool-detail-modal.hub-add-modal .hub-tool-detail-modal__content,
+.modal-shell.hub-tool-detail-modal.hub-add-modal .hub-tool-detail-modal__scroll {
+  min-height: var(--hub-add-modal-body-h);
+}
+
+.modal-shell.hub-tool-detail-modal.hub-add-modal .hub-tool-detail-modal__scroll {
+  flex: 1 1 auto;
+}
+
+.hub-add-modal__toc-sections {
+  min-height: var(--hub-add-modal-toc-bulk-slot-h);
+}
+
+.hub-add-modal__panels {
+  min-height: var(--hub-add-modal-body-h);
+}
+
+.hub-add-modal__panel--hidden {
+  display: none;
+}

@@ -1,0 +1,19 @@
+.hub-copy-tick-wrap {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 3px;
+}
+
+.hub-copy-tick-wrap__slot {
+  display: inline-flex;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.hub-copy-tick-wrap__tick {
+  color: #34d399;
+}

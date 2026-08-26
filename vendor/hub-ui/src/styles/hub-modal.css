@@ -1,0 +1,1181 @@
+/* Shared modal chrome — edge close button (P0004 golden). */
+
+.hub-modal-frame {
+  position: relative;
+  margin: 0 auto;
+}
+
+.hub-modal-close {
+  position: absolute;
+  z-index: 20;
+  top: -0.55rem;
+  right: -0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(180deg, #f87171, #dc2626);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45);
+  transition:
+    transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+.hub-modal-close:hover {
+  transform: rotate(90deg) scale(1.06);
+  filter: brightness(1.08);
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.55);
+}
+
+.hub-modal-close:active {
+  transform: rotate(90deg) scale(0.96);
+}
+
+/* Tool-detail modal shell (P0004 golden — shared via hub-ui). */
+
+:root {
+  --hub-modal-backdrop-z: 1000;
+  --hub-toast-z: calc(var(--hub-modal-backdrop-z) + 20);
+}
+
+.hub-modal-frame {
+  position: relative;
+  z-index: 1;
+  /* Close button sits slightly outside the panel edge — never clip it. */
+  overflow: visible;
+}
+
+/*
+ * Compact forms (Confirm / Prompt / Clone): frame width is the 28rem token.
+ * Without this override, `.modal-shell--tool-detail` fills the Layout 2/3
+ * box and the red X anchors to a narrow frame while the shell overflows.
+ */
+.hub-modal-frame > .modal-shell.modal-shell--tool-detail,
+.hub-modal-frame > .modal-shell.modal-shell--compact {
+  width: 100%;
+  max-width: 100%;
+  /* Keep consumer height utilities (e.g. Shift history `h-[min(85vh,860px)]`). */
+  min-height: 0;
+  flex: none;
+}
+
+/*
+ * …but a Layout 2 / Layout 3 tool modal must NOT be sized by its wrapper.
+ *
+ * The rule above makes the shell fill the frame, so the real width came from whatever
+ * Tailwind `max-w-*` each consumer happened to pass to HubModalFrame — measured on dev:
+ * P0005 Service 1263px, P0020 Service ~1625px, P0020 Partner ~1692px, P0020 Add ~870px,
+ * all with identical shell tokens. The frame now follows the same SSOT width, so every
+ * Layout 2/3 modal is the same box in every tool. `--fit` (confirm / small forms) keeps
+ * the consumer's own width.
+ */
+.hub-modal-frame:has(> .modal-shell.hub-tool-detail-modal:not(.hub-tool-detail-modal--fit)) {
+  width: min(88rem, calc(100vw - var(--hub-modal-h-margin, 2rem)));
+  max-width: none;
+}
+
+.hub-modal-frame:has(> .modal-shell.hub-tool-detail-modal.hub-tool-detail-modal--fit) {
+  width: min(28rem, calc(100vw - var(--hub-modal-h-margin, 2rem)));
+  max-width: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--hub-modal-backdrop-z, 1000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+}
+
+.modal-backdrop--tool-detail {
+  /* Fallback only — Layout 2/3 shell block below owns the visible box (88rem). */
+  --hub-modal-h-margin: 2rem;
+  --hub-modal-max-w: min(88rem, calc(100vw - var(--app-sidebar-width, 0px) - var(--hub-modal-h-margin, 2rem)));
+  --hub-modal-max-h: 768px;
+  --hub-modal-max-vh: 73.6vh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 1rem;
+  padding-left: calc(var(--app-sidebar-width, 0px) + 1rem);
+  background: rgba(6, 8, 14, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/*
+ * Compact forms (Edit Shift / Confirm / Note / Add…): true viewport center —
+ * no Hub sidebar left pad (that offset makes small panels look “lệch”).
+ * Pair with `--fit` / `hub-compact-modal` (28rem token). No max-w-md/lg.
+ */
+.modal-backdrop--compact {
+  --app-sidebar-width: 0px;
+  --hub-modal-max-w: min(28rem, calc(100vw - var(--hub-modal-h-margin, 2rem)));
+  --hub-modal-max-h: 860px;
+  --hub-modal-max-vh: 88vh;
+  --hub-modal-h-margin: 2rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 1.5rem 1rem;
+  background: rgba(6, 8, 14, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.modal-shell.modal-shell--tool-detail,
+.modal-shell.modal-shell--compact {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: min(var(--hub-modal-max-w), calc(100vw - var(--app-sidebar-width, 0px) - var(--hub-modal-h-margin, 2rem)));
+  max-width: calc(100vw - var(--app-sidebar-width, 0px) - var(--hub-modal-h-margin, 2rem));
+  height: auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(var(--hub-modal-max-vh), var(--hub-modal-max-h));
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  gap: 0;
+  background: var(--panel, #0f1219);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  color: var(--text, var(--color-text-main));
+  animation: hubModalDetailIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: none;
+}
+
+/*
+ * ONE shell size for every Layout 2 / Layout 3 tool modal across P00xx.
+ *
+ * Reference box = Layout 2/3 golden: 88rem × 768px / 73.6vh. Notify · Log · Update ·
+ * Settings · Detail share this box. Confirm / Prompt / Clone use `--fit` (28rem).
+ *
+ * Opt-out stays `.hub-tool-detail-modal--fit` — one compact token, not max-w-md/lg.
+ */
+.modal-shell.hub-tool-detail-modal:not(.hub-tool-detail-modal--fit) {
+  --hub-modal-max-w: min(88rem, calc(100vw - var(--app-sidebar-width, 0px) - var(--hub-modal-h-margin, 2rem)));
+  --hub-modal-max-h: 768px;
+  --hub-modal-max-vh: 73.6vh;
+
+  /* The shell is a flex item: default `min-width: auto` let the widest field grid inside
+     push the box past `width`, so every modal ended up sized by its own content (measured:
+     P0005 Service 1263px, P0020 Service ~1625px, P0020 Add ~870px — same CSS, three boxes).
+     `min-width: 0` makes the token authoritative; inner grids wrap / scroll instead. */
+  min-width: 0;
+  height: min(var(--hub-modal-max-h), var(--hub-modal-max-vh));
+  min-height: min(512px, var(--hub-modal-max-vh));
+  max-height: min(var(--hub-modal-max-h), var(--hub-modal-max-vh));
+}
+
+.modal-shell.hub-tool-detail-modal.hub-tool-detail-modal--fit,
+.modal-shell.hub-tool-detail-modal.hub-compact-modal {
+  --hub-modal-max-w: min(28rem, calc(100vw - var(--hub-modal-h-margin, 2rem)));
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  max-height: min(var(--hub-modal-max-h), var(--hub-modal-max-vh));
+}
+
+.modal-shell.hub-tool-detail-modal:not(.hub-tool-detail-modal--fit):not(.hub-header-panel-modal):not(.hub-settings-modal) .hub-tool-detail-modal__body,
+.modal-shell.hub-tool-detail-modal:not(.hub-tool-detail-modal--fit):not(.hub-header-panel-modal):not(.hub-settings-modal) .hub-tool-detail-modal__body-frame,
+.modal-shell.hub-tool-detail-modal:not(.hub-tool-detail-modal--fit):not(.hub-header-panel-modal):not(.hub-settings-modal) .hub-tool-detail-modal__layout {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Legacy `size="compact"` — same outer shell; inner layout may stay minimal. */
+
+@keyframes hubModalDetailIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-shell--tool-detail .modal-shell__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2.25rem 1.1rem 1.15rem;
+  user-select: text;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 1024px) {
+  .modal-backdrop--tool-detail,
+  .modal-backdrop--compact {
+    --app-sidebar-width: 0px;
+    padding: 0.75rem;
+  }
+
+  .modal-shell.modal-shell--tool-detail,
+  .modal-shell.modal-shell--compact {
+    width: min(96vw, var(--hub-modal-max-w));
+    max-width: 96vw;
+  }
+}
+
+body.hub-modal-open {
+  overflow: hidden;
+}
+
+/* Tool-detail modal — header · TOC · footer (Cookie Auto download FAB golden). */
+
+.user-access-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--panel, #0f1219);
+  position: relative;
+  z-index: 2;
+}
+
+.user-access-modal__header-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-access-modal__header-main .hub-users-role-badge,
+.user-access-modal__header-main .user-access-modal__avatar,
+.user-access-modal__header-main .user-access-modal__header-icon {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.user-access-modal__header-icon {
+  display: block;
+}
+
+.user-access-modal__header-name {
+  flex-shrink: 1;
+  min-width: 4rem;
+  line-height: var(--hub-control-h, 2rem);
+}
+
+.hub-header-panel-modal .user-access-modal__header-main .user-access-modal__header-name {
+  flex-shrink: 0;
+}
+
+/* TOC + content body — content scrolls; tops stay aligned with TOC. */
+.modal-shell.hub-tool-detail-modal {
+  display: flex;
+  flex-direction: column;
+  --overview-toc-w: 10.5rem;
+  --overview-toc-row-h: 2.125rem;
+}
+
+.hub-tool-detail-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-tool-detail-modal__layout {
+  display: grid;
+  grid-template-columns: var(--overview-toc-w, 10.5rem) minmax(0, 1fr);
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+  padding: 0.85rem 0.85rem 0.65rem;
+  align-items: start;
+}
+
+.hub-tool-detail-modal__toc {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.hub-tool-detail-modal__content {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hub-tool-detail-modal__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.hub-tool-detail-modal__scroll-inner {
+  min-width: 0;
+  padding: 0 0.25rem 0.25rem 0;
+}
+
+/* Content pane — no row/chip hover in settings body; tooltips (.hub-hint-tooltip) unchanged. */
+.hub-tool-detail-modal__content .hub-tool-detail-section__body button:hover {
+  background-color: transparent;
+  color: inherit;
+}
+
+.hub-tool-detail-modal__content .hub-tool-detail-section__body button.hub-settings-toggle:focus-visible {
+  outline: 2px solid rgba(129, 140, 248, 0.45);
+  outline-offset: 1px;
+}
+
+/* Directory row hover — hub-directory-table.css (modal read-only + bulk select scopes) */
+
+/* Stacked section frames — gap between siblings (TocHighlightContent or HubToolDetailSections). */
+.hub-tool-detail-modal__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.hub-tool-detail-section {
+  scroll-margin-top: 1rem;
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--hub-modal-panel-surface, var(--panel));
+  padding: 0.75rem;
+  isolation: isolate;
+}
+
+.hub-tool-detail-section__header {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.hub-tool-detail-section__header-actions {
+  flex-shrink: 0;
+}
+
+.hub-tool-detail-section__title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text, #e8eaef);
+}
+
+.hub-tool-detail-section__title-icon {
+  display: grid;
+  height: 1.25rem;
+  width: 1.25rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+}
+
+.hub-tool-detail-section__title-icon > svg {
+  width: 11px;
+  height: 11px;
+}
+
+.hub-hint-tooltip {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1px;
+  cursor: help;
+  outline: none;
+}
+
+.hub-hint-tooltip__bubble {
+  position: absolute;
+  z-index: 80;
+  bottom: calc(100% + 6px);
+  right: 0;
+  transform: translateY(4px);
+  min-width: 180px;
+  max-width: min(280px, 70vw);
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(16, 18, 26, 0.98);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--muted, #94a3b8);
+  white-space: normal;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    visibility 0.15s;
+}
+
+.hub-hint-tooltip:hover .hub-hint-tooltip__bubble,
+.hub-hint-tooltip:focus-visible .hub-hint-tooltip__bubble,
+.hub-hint-tooltip.is-open .hub-hint-tooltip__bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.hub-tool-detail-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  font-size: 12px;
+}
+
+/* Nested rows inside Settings Display group (Header, KPI, App mode, …). */
+.hub-settings-subsection__header {
+  min-width: 0;
+}
+
+.hub-settings-subsection__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+/* Settings ADM section — Mail Modal section pill + rows. */
+.hub-settings-adm-section__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  margin-top: 0.35rem;
+}
+
+/* Pin header + Pin search — Layout 2 one line (Order Detail slot pair). */
+.hub-settings-pin-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--hub-adm-field-gap, 0.7rem);
+  row-gap: 0.35rem;
+  align-items: center;
+}
+
+@media (max-width: 520px) {
+  .hub-settings-pin-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.hub-settings-option-section--compact .hub-settings-subsection__header {
+  margin-bottom: 0;
+}
+
+.hub-settings-option-section--compact .hub-settings-subsection__body:empty {
+  display: none;
+}
+
+.hub-tool-detail-form-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .hub-tool-detail-form-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hub-tool-detail-form-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.hub-modal-filter-field__dropdown .inline-flex {
+  width: 100%;
+}
+
+.modal-shell__scroll--user-access {
+  padding-top: 1rem;
+}
+
+.hub-tool-detail-modal__footer,
+.cookie-dl-modal__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  flex-shrink: 0;
+  background: var(--panel, #0f1219);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hub-tool-detail-modal__footer-inner,
+.cookie-dl-modal__footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.85rem 0.85rem 1rem;
+}
+
+/* Account-detail footer — Close + Save (optional delete / leading secondaries). */
+.hub-tool-detail-modal__footer-bar {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.hub-tool-detail-modal__footer-bar--split {
+  justify-content: space-between;
+}
+
+.hub-tool-detail-modal__footer-leading,
+.hub-tool-detail-modal__footer-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hub-tool-detail-modal__footer-leading {
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.hub-tool-detail-modal__footer-main {
+  flex: 0 0 auto;
+}
+
+.hub-tool-detail-modal__delete-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.hub-tool-detail-modal__hotkey-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(255 255 255 / 0.04);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.hub-tool-detail-modal__confirm,
+.cookie-dl-modal__confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hub-inline-gap-name, 8px);
+  min-width: 190px;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.98), rgba(79, 70, 229, 0.98));
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 28px rgba(79, 70, 229, 0.35);
+  cursor: pointer;
+}
+
+.hub-tool-detail-modal__confirm:hover,
+.cookie-dl-modal__confirm:hover {
+  filter: brightness(1.05);
+}
+
+.hub-tool-detail-modal__confirm:disabled,
+.cookie-dl-modal__confirm:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: saturate(0.65);
+}
+
+.hub-tool-detail-modal__confirm--disabled:not(.hub-tool-detail-modal__confirm--busy),
+.cookie-dl-modal__confirm.hub-tool-detail-modal__confirm--disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: saturate(0.65);
+}
+
+.hub-tool-detail-modal__confirm--danger,
+.cookie-route-modal__confirm--danger {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.98), rgba(185, 28, 28, 0.98));
+  box-shadow: 0 10px 28px rgba(185, 28, 28, 0.35);
+}
+
+.hub-tool-detail-modal__confirm--create {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.98), rgba(5, 150, 105, 0.98));
+  box-shadow: 0 10px 28px rgba(5, 150, 105, 0.35);
+}
+
+.hub-tool-detail-modal__confirm-icon--busy,
+.cookie-dl-modal__confirm-icon--busy {
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.hub-tool-detail-modal__confirm--busy {
+  cursor: wait;
+  opacity: 0.95;
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35), 0 8px 22px rgba(79, 70, 229, 0.28);
+}
+
+/* Relative frame so Save busy HubLoaderOrb can cover TOC + content (not footer). */
+.hub-tool-detail-modal__body-frame {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.hub-tool-detail-modal__body-frame > :not(.hub-tab-loader-inline) {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.hub-tool-detail-modal--busy {
+  cursor: wait;
+}
+
+.hub-tool-detail-modal__secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hub-inline-gap-name, 8px);
+  min-width: 190px;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted, #8b93a7);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.hub-tool-detail-modal__secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--text, #e8eaef);
+}
+
+/* Cross-entity footer nav — one accent per target; hover/focus = soft border lift (not gray). */
+.hub-tool-detail-modal__secondary[class*="hub-tool-detail-modal__secondary--"] {
+  --hub-footer-nav-border-idle: 0.34;
+  --hub-footer-nav-border-hover-alpha: 0.6;
+  --hub-footer-nav-grad-top: 0.26;
+  --hub-footer-nav-grad-mid: 0.1;
+  --hub-footer-nav-grad-bottom: 0.02;
+  --hub-footer-nav-grad-top-hover: 0.3;
+  --hub-footer-nav-grad-mid-hover: 0.14;
+  --hub-footer-nav-grad-bottom-hover: 0.04;
+  --hub-footer-nav-hover-ring: 0;
+  --hub-footer-nav-hover-shadow-y: 0;
+  --hub-footer-nav-hover-shadow-blur: 0;
+  --hub-footer-nav-hover-shadow-alpha: 0;
+  border-color: rgba(var(--hub-footer-nav-border), var(--hub-footer-nav-border-idle));
+  background: linear-gradient(
+    168deg,
+    rgba(var(--hub-footer-nav-grad-a), var(--hub-footer-nav-grad-top)) 0%,
+    rgba(var(--hub-footer-nav-grad-b), var(--hub-footer-nav-grad-mid)) 52%,
+    rgba(var(--hub-footer-nav-grad-b), var(--hub-footer-nav-grad-bottom)) 100%
+  );
+  color: rgb(var(--hub-footer-nav-text));
+  box-shadow: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.hub-tool-detail-modal__secondary[class*="hub-tool-detail-modal__secondary--"]:is(
+    :hover:not(:disabled),
+    :focus-visible:not(:disabled)
+  ) {
+  border-color: rgba(var(--hub-footer-nav-border-hover), var(--hub-footer-nav-border-hover-alpha));
+  background: linear-gradient(
+    168deg,
+    rgba(var(--hub-footer-nav-grad-a), var(--hub-footer-nav-grad-top-hover)) 0%,
+    rgba(var(--hub-footer-nav-grad-b), var(--hub-footer-nav-grad-mid-hover)) 52%,
+    rgba(var(--hub-footer-nav-grad-b), var(--hub-footer-nav-grad-bottom-hover)) 100%
+  );
+  color: rgb(var(--hub-footer-nav-text-hover));
+  /* No glow — border + gradient only */
+  box-shadow: none;
+}
+
+.hub-tool-detail-modal__secondary--emerald {
+  --hub-footer-nav-border: 52, 211, 153;
+  --hub-footer-nav-border-hover: 94, 234, 212;
+  --hub-footer-nav-shadow: 5, 150, 105;
+  --hub-footer-nav-grad-a: 16, 185, 129;
+  --hub-footer-nav-grad-b: 5, 150, 105;
+  --hub-footer-nav-text: 167, 243, 208;
+  --hub-footer-nav-text-hover: 204, 251, 233;
+}
+
+.hub-tool-detail-modal__secondary--sky {
+  --hub-footer-nav-border: 56, 189, 248;
+  --hub-footer-nav-border-hover: 125, 211, 252;
+  --hub-footer-nav-shadow: 2, 132, 199;
+  --hub-footer-nav-grad-a: 14, 165, 233;
+  --hub-footer-nav-grad-b: 2, 132, 199;
+  --hub-footer-nav-text: 186, 230, 253;
+  --hub-footer-nav-text-hover: 219, 234, 254;
+}
+
+.hub-tool-detail-modal__secondary--violet {
+  --hub-footer-nav-border: 167, 139, 250;
+  --hub-footer-nav-border-hover: 196, 181, 253;
+  --hub-footer-nav-shadow: 109, 40, 217;
+  --hub-footer-nav-grad-a: 139, 92, 246;
+  --hub-footer-nav-grad-b: 109, 40, 217;
+  --hub-footer-nav-text: 221, 214, 254;
+  --hub-footer-nav-text-hover: 233, 229, 254;
+}
+
+.hub-tool-detail-modal__secondary--amber {
+  --hub-footer-nav-border: 251, 191, 36;
+  --hub-footer-nav-border-hover: 252, 211, 77;
+  --hub-footer-nav-shadow: 217, 119, 6;
+  --hub-footer-nav-grad-a: 245, 158, 11;
+  --hub-footer-nav-grad-b: 217, 119, 6;
+  --hub-footer-nav-text: 253, 230, 138;
+  --hub-footer-nav-text-hover: 254, 240, 180;
+}
+
+.hub-tool-detail-modal__secondary--rose {
+  --hub-footer-nav-border: 251, 113, 133;
+  --hub-footer-nav-border-hover: 253, 164, 175;
+  --hub-footer-nav-shadow: 225, 29, 72;
+  --hub-footer-nav-grad-a: 244, 63, 94;
+  --hub-footer-nav-grad-b: 225, 29, 72;
+  --hub-footer-nav-text: 254, 205, 211;
+  --hub-footer-nav-text-hover: 255, 228, 230;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Shared TOC nav panel — Cookie download FAB + Settings modal. */
+
+.hub-toc-nav {
+  position: relative;
+  z-index: 10;
+  width: var(--overview-toc-w, 10.5rem);
+  flex-shrink: 0;
+  border-radius: 1rem;
+  border: 1px solid rgba(129, 140, 246, 0.1);
+  background: var(--panel, #0f1219);
+  padding: 0.5rem;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.hub-toc-nav__heading {
+  margin: 0 0 0.35rem;
+  padding: 0 0.35rem 0.45rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: var(--hub-table-header-size, 12px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(148, 163, 184);
+}
+
+.hub-toc-nav__item.is-highlighted .hub-toc-nav__label,
+.hub-toc-nav__item.is-active .hub-toc-nav__label {
+  color: rgb(224 231 255);
+  background: linear-gradient(to right, rgba(99, 102, 241, 0.22), rgba(168, 85, 247, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.2);
+}
+
+.hub-toc-nav__item:focus-visible .hub-toc-nav__label {
+  outline: 2px solid rgba(129, 140, 248, 0.55);
+  outline-offset: 1px;
+}
+
+.hub-toc-nav__icon--plain {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hub-toc-nav__icon--plain > svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Header panel modals — Settings · Log · User (TOC tokens; shell size via --hub-modal-*). */
+
+.modal-shell.hub-tool-detail-modal.hub-header-panel-modal,
+.modal-shell.hub-tool-detail-modal.hub-settings-modal {
+  --overview-toc-w: 14rem;
+  --overview-toc-row-h: 2.125rem;
+  --hub-settings-toc-icon: 11px;
+  /* NO `height: auto` — these panels used to shrink-wrap their content, so Log / Notify /
+     Update Release / Settings opened as a shorter box than every detail modal on the same
+     screen. Height comes from the shared Layout 2/3 block above (one shell size SSOT). */
+}
+
+.hub-header-panel-modal .user-access-modal__header,
+.hub-settings-modal .user-access-modal__header {
+  padding: 0.55rem 0.85rem;
+}
+
+/* Layout 2 ops (Log · Notify · Update Release) — title left · search center · actions right. */
+.hub-header-panel-modal .user-access-modal__header:has(.user-access-modal__header-center) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 42rem) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+}
+
+.hub-header-panel-modal .user-access-modal__header:has(.user-access-modal__header-center) .user-access-modal__header-main {
+  grid-column: 1;
+  justify-self: start;
+  flex: unset;
+  min-width: 0;
+}
+
+.hub-header-panel-modal .user-access-modal__header-center {
+  grid-column: 2;
+  justify-self: center;
+  min-width: 0;
+  width: 100%;
+  max-width: 42rem;
+}
+
+/* Right-corner header actions (optional) — third column before the frame close X.
+   Notify Mark all read + unread metric sit in `headerTrailing` (title cluster). */
+.hub-header-panel-modal
+  .user-access-modal__header:has(.user-access-modal__header-center):has(.user-access-modal__header-actions) {
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 42rem) minmax(0, 1fr);
+}
+
+.hub-header-panel-modal
+  .user-access-modal__header:has(.user-access-modal__header-center):has(.user-access-modal__header-actions)
+  .user-access-modal__header-actions {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.hub-ops-panel-search {
+  display: block;
+  width: 100%;
+}
+
+.hub-ops-panel-search .hub-activity-feed-toolbar {
+  width: 100%;
+  min-width: 0;
+}
+
+.hub-ops-title-read-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.user-access-modal__header-actions {
+  display: flex;
+  min-width: 0;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: end;
+}
+
+.hub-ops-mark-all-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Tablet: same stack as phone — minmax(18rem) search on the title row collides with Mark all read. */
+@media (max-width: 1099.98px) {
+  .hub-header-panel-modal .user-access-modal__header:has(.user-access-modal__header-center) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 0.45rem;
+    row-gap: 0.45rem;
+    padding-right: 0.85rem;
+  }
+
+  .hub-header-panel-modal .user-access-modal__header:has(.user-access-modal__header-center) .user-access-modal__header-main {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    min-width: 0;
+  }
+
+  .hub-header-panel-modal
+    .user-access-modal__header:has(.user-access-modal__header-center):has(.user-access-modal__header-actions)
+    .user-access-modal__header-actions {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    flex-shrink: 0;
+  }
+
+  .hub-header-panel-modal .user-access-modal__header-center {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+}
+
+.hub-activity-feed-toolbar--header input[type="search"] {
+  min-height: 1.75rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
+.hub-header-panel-modal .hub-tool-detail-modal__layout,
+.hub-settings-modal .hub-tool-detail-modal__layout {
+  padding: 0.65rem 0.85rem 0.55rem;
+}
+
+.hub-header-panel-modal .hub-tool-detail-modal__scroll-inner,
+.hub-settings-modal .hub-tool-detail-modal__scroll-inner {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  padding-bottom: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .hub-header-panel-modal .hub-tool-detail-modal__layout,
+  .hub-settings-modal .hub-tool-detail-modal__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hub-toc-nav {
+    width: 100%;
+    max-height: 9rem;
+    overflow-y: auto;
+  }
+}
+
+.hub-notify-alert-item--read {
+  opacity: 0.55;
+}
+
+.hub-notify-alert-item--read .hub-notify-alert-row {
+  border-color: transparent;
+}
+
+.hub-notify-alert-open {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Update Release — TOC + V1 timeline (Design lock). */
+.hub-tool-detail-section--flush {
+  border-color: transparent;
+  background: transparent;
+  padding: 0;
+}
+
+.hub-tool-detail-section--flush .hub-tool-detail-section__body {
+  padding: 0;
+}
+
+.hub-release-timeline {
+  gap: 0.35rem;
+}
+
+.hub-release-timeline-item {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: 0.65rem;
+}
+
+.hub-release-timeline-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 0.85rem;
+}
+
+.hub-release-timeline-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.8);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+  flex-shrink: 0;
+}
+
+.hub-release-timeline-line {
+  width: 1px;
+  flex: 1;
+  min-height: 2rem;
+  margin-top: 0.3rem;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.35), rgba(255, 255, 255, 0.06));
+}
+
+.hub-release-timeline-card {
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0.7rem 0.8rem;
+}
+
+.hub-release-timeline-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+}
+
+.hub-release-headline {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+/** Inline scope + open-detail + copyable entity id (Log · Notify timeline SSOT). */
+.hub-ops-timeline-headline-group {
+  display: inline-flex;
+  flex: 1 1 8rem;
+  min-width: 0;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.hub-ops-timeline-open-detail {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 0.35rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.hub-ops-timeline-open-detail:hover {
+  color: rgb(125, 211, 252);
+  background: rgb(14 165 233 / 0.12);
+  border-color: rgb(56 189 248 / 0.35);
+}
+
+.hub-ops-timeline-headline-sep {
+  flex-shrink: 0;
+  color: rgb(255 255 255 / 0.22);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.hub-ops-timeline-entity-id-copy.hub-directory-copy-control {
+  min-width: 0;
+  max-width: 9rem;
+}
+
+.hub-ops-timeline-entity-id-copy .hub-ops-timeline-entity-id {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.hub-ops-timeline-entity-id-copy:hover .hub-ops-timeline-entity-id {
+  color: rgb(186 230 253);
+}
+
+.hub-release-header-version {
+  max-width: min(100%, 20rem);
+}
+
+/* Match hub header chrome scale inside ops panels (Update · Log · Notify). */
+.hub-header-panel-modal.hub-ops-panel-modal,
+.hub-release-notes-modal {
+  --hub-header-chrome-font-size: 12px;
+  --hub-header-chrome-font-weight: 500;
+}
+
+.hub-header-panel-modal.hub-ops-panel-modal .user-access-modal__header-name,
+.hub-header-panel-modal.hub-ops-panel-modal .app-tab-header__chrome-text,
+.hub-header-panel-modal.hub-ops-panel-modal .hub-activity-feed-toolbar input[type="search"],
+.hub-header-panel-modal.hub-ops-panel-modal .hub-toc-nav,
+.hub-release-notes-modal .user-access-modal__header-name,
+.hub-release-notes-modal .app-tab-header__chrome-text,
+.hub-release-notes-modal .hub-activity-feed-toolbar input[type="search"],
+.hub-release-notes-modal .hub-toc-nav {
+  font-size: var(--hub-header-chrome-font-size);
+  font-weight: var(--hub-header-chrome-font-weight);
+  line-height: 1.25;
+}
+
+.hub-release-notes-modal .hub-release-kind-badge {
+  font-size: var(--hub-header-chrome-font-size);
+  line-height: 1.2;
+}

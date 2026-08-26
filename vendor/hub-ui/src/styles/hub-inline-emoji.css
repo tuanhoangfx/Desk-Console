@@ -1,0 +1,23 @@
+/**
+ * Inline emoji SSOT — filter trigger/dropdown, chart title, chart legend.
+ * Resize once: --hub-inline-emoji-size (defined in hub-theme-tokens.css).
+ * Chart panel titles: text stays --hub-chart-panel-title-size (9.6px);
+ * title emoji uses --hub-chart-label-size (12px) so it matches legend-row glyphs.
+ * Chart legend rows override to --hub-chart-label-size (12px).
+ * KPI strip caption-adjacent emoji inherit --hub-analytics-caption-size;
+ * tile sticker (emoji + Lucide/brand) uses --hub-kpi-sticker-size (1.25rem).
+ * Markup: hubFilterOptionEmojiClass() → .hub-filter-option-emoji
+ */
+
+.hub-filter-option-emoji,
+.hub-analytics-caption__emoji {
+  font-size: var(--hub-inline-emoji-size, var(--hub-directory-header-glyph-px, 13px));
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Legacy legend glyph class — same token until all rows use hub-filter-option-emoji */
+.hub-chart-legend-label__glyph--emoji {
+  font-size: var(--hub-inline-emoji-size, var(--hub-directory-header-glyph-px, 13px));
+  line-height: 1;
+}

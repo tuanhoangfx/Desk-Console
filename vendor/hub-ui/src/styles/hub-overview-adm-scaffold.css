@@ -1,0 +1,114 @@
+/* Page-embedded ADM — chrome only; layout SSOT: hub-account-detail-modal.css (P0020). */
+
+.system-overview-adm-host,
+.hub-overview-adm-page {
+  --hub-overview-adm-chrome-h: calc(
+    var(--app-tab-header-min-h, 3.25rem) + var(--hub-chrome-gap-below, 0.75rem) + 2.25rem
+  );
+
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: calc(100dvh - var(--hub-overview-adm-chrome-h));
+  overflow: hidden;
+}
+
+.hub-tab-content-zone:has([data-overview-adm]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-tab-content-zone:has([data-overview-adm]) > div:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-overview-adm-page__header {
+  flex-shrink: 0;
+  margin-bottom: var(--hub-account-detail-columns-gap, 0.65rem);
+  border: 1px solid var(--hub-tool-detail-line, rgba(255, 255, 255, 0.1));
+  border-radius: 0.7rem;
+  background: var(--hub-modal-panel-surface, var(--panel));
+  overflow: hidden;
+}
+
+.hub-overview-adm-page__header .user-access-modal__header {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 28rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--hub-account-detail-columns-gap, 0.65rem);
+}
+
+.hub-overview-adm-page__header .user-access-modal__header-main {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.hub-overview-adm-page__header .user-access-modal__header-center {
+  grid-column: 2;
+  width: 100%;
+  max-width: 22rem;
+  justify-self: center;
+  min-width: 0;
+}
+
+.hub-overview-adm-scaffold__shell.hub-account-detail-modal.twofa-account-detail-modal {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 1px solid var(--hub-tool-detail-line, rgba(255, 255, 255, 0.1));
+  border-radius: 0.85rem;
+  background: var(--hub-modal-panel-surface, var(--panel));
+  overflow: hidden;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.hub-overview-adm-scaffold__inner.hub-tool-detail-modal__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Embedded HubToolDetailModal — full tab height, modal SSOT sizing (P0004 Overview). */
+.system-overview-adm-host > .modal-shell.hub-tool-detail-modal--embedded {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border: 1px solid var(--hub-tool-detail-line, rgba(255, 255, 255, 0.1));
+  border-radius: 0.85rem;
+  background: var(--hub-modal-panel-surface, var(--panel));
+  overflow: hidden;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.system-overview-adm-host > .modal-shell.hub-tool-detail-modal--embedded.hub-account-detail-modal {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+}
+
+@media (max-width: 1023px) {
+  .hub-overview-adm-page,
+  .system-overview-adm-host {
+    --hub-tool-detail-rail-w: min(20rem, 38%);
+  }
+}

@@ -1,0 +1,76 @@
+/** Toolbar selection chip — Design V2 Spectrum Bar (stacked x/y + % hue fill). */
+@property --hub-toolbar-selection-accent {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: hsl(215 72% 62%);
+}
+
+@property --hub-toolbar-selection-accent-soft {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: hsl(215 55% 48% / 0.35);
+}
+
+.hub-directory-toolbar-selection {
+  --hub-toolbar-selection-w: 5.25rem;
+  display: inline-flex;
+  width: var(--hub-toolbar-selection-w);
+  min-width: var(--hub-toolbar-selection-w);
+  height: var(--hub-control-h, 31px);
+  flex-shrink: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1875rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.03);
+  padding: 0.25rem 0.4375rem 0.3125rem;
+  font-variant-numeric: tabular-nums;
+  transition:
+    --hub-toolbar-selection-accent 0.2s ease,
+    --hub-toolbar-selection-accent-soft 0.2s ease,
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.hub-directory-toolbar-selection__nums {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.0625rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.hub-directory-toolbar-selection__selected {
+  color: var(--hub-toolbar-selection-accent, hsl(215 72% 62%));
+  transition: color 0.2s ease;
+}
+
+.hub-directory-toolbar-selection__den {
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.55);
+  transition: color 0.2s ease;
+}
+
+.hub-directory-toolbar-selection__bar {
+  height: 3px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  overflow: hidden;
+}
+
+.hub-directory-toolbar-selection__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--hub-toolbar-selection-accent-soft, hsl(215 55% 48% / 0.35)),
+    var(--hub-toolbar-selection-accent, hsl(215 72% 62%))
+  );
+  transition: width 0.2s ease, background 0.2s ease;
+}
