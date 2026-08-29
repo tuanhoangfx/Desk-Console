@@ -188,7 +188,7 @@ function HintLineGlyph({ line }: { line: HubDirectoryColumnHintLine }) {
   );
 }
 
-/** Rich multi-line column header hint — hub-directory-popover SSOT (below anchor). */
+/** Rich multi-line column header hint — hub-directory-popover SSOT (dropdown flip). */
 export function HubDirectoryColumnHint({ content, titleGlyph, children, onLineAction }: Props) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -197,7 +197,8 @@ export function HubDirectoryColumnHint({ content, titleGlyph, children, onLineAc
 
   const updatePosition = useCallback(() => {
     const next = measureHubDirectoryPopoverPosition(anchorRef.current, popoverRef.current);
-    if (next) setPos(next);
+    if (!next) return;
+    setPos((prev) => (prev.top === next.top && prev.left === next.left ? prev : next));
   }, []);
 
   const show = useCallback(() => {
@@ -209,7 +210,10 @@ export function HubDirectoryColumnHint({ content, titleGlyph, children, onLineAc
   useLayoutEffect(() => {
     if (!open) return;
     updatePosition();
-  }, [open, updatePosition, content]);
+    const id = window.requestAnimationFrame(updatePosition);
+    return () => window.cancelAnimationFrame(id);
+    // `content` remints every parent chrome lift — must not retrigger measure/setState (React #185).
+  }, [open, updatePosition]);
 
   const resolvedTitleGlyph = content.titleGlyph ?? titleGlyph;
   const resolvedOptionsGlyph =
@@ -257,7 +261,7 @@ export function HubDirectoryColumnHint({ content, titleGlyph, children, onLineAc
                 const tokenSpans = tokens?.length
                   ? tokens.map((token, tokenIndex) => (
                       <span key={`${token.text}-${tokenIndex}`}>
-                        {lead || tokenIndex > 0 ? " • " : null}
+                        {lead || line.label || tokenIndex > 0 ? " • " : null}
                         <span className={token.className}>{token.text}</span>
                       </span>
                     ))
@@ -273,7 +277,16 @@ export function HubDirectoryColumnHint({ content, titleGlyph, children, onLineAc
                     {tokenSpans ?? (text ? <span>{` • ${text}`}</span> : null)}
                   </span>
                 ) : (
-                  <span className="hub-directory-popover__line">{tokenSpans ?? text}</span>
+                  <span className="hub-directory-popover__line">
+                    {tokenSpans ? (
+                      <>
+                        {line.label ? <span>{line.label}</span> : null}
+                        {tokenSpans}
+                      </>
+                    ) : (
+                      text
+                    )}
+                  </span>
                 );
                 const rowBody = (
                   <>
@@ -332,8 +345,6 @@ export function HubDirectoryColumnHint({ content, titleGlyph, children, onLineAc
         className="hub-directory-popover-anchor"
         onMouseEnter={show}
         onMouseLeave={hide}
-        onFocus={show}
-        onBlur={hide}
       >
         {children}
       </span>

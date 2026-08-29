@@ -31,6 +31,14 @@
   pointer-events: auto;
 }
 
+/* ADM / Sample value popover — tall body (Message Sample) near modal footer.
+   Flip is in JS; this cap keeps the portal inside the viewport if still taller. */
+.hub-directory-popover--value {
+  max-height: min(72vh, calc(100dvh - 16px));
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .hub-directory-popover__title {
   margin: 0 0 0.25rem;
   font-size: 12px;

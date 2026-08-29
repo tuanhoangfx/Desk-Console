@@ -32,7 +32,8 @@ export function HubDirectoryValuePopover({
 
   const updatePosition = useCallback(() => {
     const next = measureHubDirectoryPopoverPosition(anchorRef.current, popoverRef.current);
-    if (next) setPos(next);
+    if (!next) return;
+    setPos((prev) => (prev.top === next.top && prev.left === next.left ? prev : next));
   }, []);
 
   const show = useCallback(() => {
@@ -45,7 +46,29 @@ export function HubDirectoryValuePopover({
   useLayoutEffect(() => {
     if (!open) return;
     updatePosition();
-  }, [open, updatePosition, text, title]);
+    let inner = 0;
+    const outer = window.requestAnimationFrame(() => {
+      updatePosition();
+      // Second frame: rich content (like lists) finishes layout — flip above if clipped.
+      inner = window.requestAnimationFrame(updatePosition);
+    });
+    const popover = popoverRef.current;
+    const ro =
+      popover && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updatePosition())
+        : null;
+    if (popover && ro) ro.observe(popover);
+    const onScrollOrResize = () => updatePosition();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.cancelAnimationFrame(outer);
+      window.cancelAnimationFrame(inner);
+      ro?.disconnect();
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open, updatePosition, text, title, content]);
 
   if (!enabled || !text) {
     return <>{children}</>;

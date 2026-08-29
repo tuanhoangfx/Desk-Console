@@ -5,7 +5,7 @@ function apiOrigin(): string {
   ).trim();
   if (bridged) return bridged;
   if (window.location.protocol === "file:") return "http://127.0.0.1:6010";
-  if (window.location.hostname === "127.0.0.1" && window.location.port === "5180") {
+  if (window.location.hostname === "127.0.0.1" && /^\d+$/.test(window.location.port)) {
     return "http://127.0.0.1:6010";
   }
   return "";
@@ -70,6 +70,42 @@ export type TaskRow = {
   nextRun: string;
 };
 
+export type OpsRow = {
+  id: string;
+  kind: "task" | "runner";
+  targetId: string;
+  name: string;
+  status: string;
+  detail: string;
+  updated: string;
+  lastRun?: string;
+  lastResult?: string;
+  nextRun?: string;
+  up?: boolean;
+  port?: number;
+  url?: string;
+  code?: string;
+};
+
+export type OpsHistoryEntry = {
+  id: string;
+  at: string;
+  kind: "task" | "runner";
+  targetId: string;
+  action: string;
+  ok: boolean;
+  message: string;
+  pid?: number;
+};
+
+export type OpsConsoleEntry = {
+  id: string;
+  at: string;
+  level: string;
+  channel: string;
+  message: string;
+};
+
 export type DeskHotkeys = {
   ok: boolean;
   picker: string;
@@ -77,6 +113,35 @@ export type DeskHotkeys = {
   labels: { picker: string; capture: string };
   defaults: { picker: string; capture: string; labels: { picker: string; capture: string } };
 };
+
+function mergeOpsRows(runners: RunnerRow[], tasks: TaskRow[]): OpsRow[] {
+  const taskRows: OpsRow[] = tasks.map((row) => ({
+    id: `task:${row.id}`,
+    kind: "task",
+    targetId: row.id,
+    name: row.name,
+    status: row.status || "—",
+    detail: `last ${row.lastResult || "—"}`,
+    updated: row.lastRun || row.nextRun || "",
+    lastRun: row.lastRun,
+    lastResult: row.lastResult,
+    nextRun: row.nextRun,
+  }));
+  const runnerRows: OpsRow[] = runners.map((row) => ({
+    id: `runner:${row.id}`,
+    kind: "runner",
+    targetId: row.id,
+    code: row.code,
+    name: `${row.code} · ${row.name}`,
+    status: row.up ? "Up" : "Down",
+    detail: `${row.kind} :${row.port}`,
+    updated: row.url,
+    up: row.up,
+    port: row.port,
+    url: row.url,
+  }));
+  return [...taskRows, ...runnerRows].sort((a, b) => a.name.localeCompare(b.name));
+}
 
 export const deskApi = {
   health: () => req<{ ok: boolean; cursorRunning: boolean }>("/api/health"),
@@ -104,10 +169,38 @@ export const deskApi = {
   deleteCapture: (id: string) => req(`/api/captures/${id}`, { method: "DELETE" }),
   captureSrc: (id: string) => `${apiOrigin()}/api/captures/${id}/file`,
   runners: async () => ({ rows: rowsOf(await req<{ rows: RunnerRow[] }>("/api/runners")) }),
-  runnerAction: (code: string, mode: "start" | "restart" | "recover") =>
+  runnerAction: (code: string, mode: "start" | "restart" | "recover" | "stop") =>
     req(`/api/runners/${encodeURIComponent(code)}/${mode}`, { method: "POST" }),
   tasks: async () => ({ rows: rowsOf(await req<{ rows: TaskRow[] }>("/api/tasks")) }),
   taskAction: (name: string, action: "run" | "enable" | "disable") =>
     req(`/api/tasks/${encodeURIComponent(name)}/${action}`, { method: "POST" }),
+  ops: async () => {
+    try {
+      const data = await req<{ rows: OpsRow[] }>("/api/ops");
+      if (Array.isArray(data.rows) && data.rows.length > 0) return { rows: data.rows };
+    } catch {
+      /* stale host without /api/ops — merge legacy endpoints */
+    }
+    const [runners, tasks] = await Promise.all([deskApi.runners(), deskApi.tasks()]);
+    return { rows: mergeOpsRows(runners.rows, tasks.rows) };
+  },
+  opsHistory: async (target?: string) => {
+    const q = target ? `?target=${encodeURIComponent(target)}` : "";
+    return req<{ entries: OpsHistoryEntry[] }>(`/api/ops/history${q}`);
+  },
+  opsLogs: async (target: string, kind?: "task" | "runner") => {
+    const params = new URLSearchParams({ target });
+    if (kind) params.set("kind", kind);
+    return req<{ path: string; exists: boolean; sources?: string[]; lines?: string[]; entries: OpsConsoleEntry[] }>(
+      `/api/ops/logs?${params}`,
+    );
+  },
+  opsTerminalStreamUrl: (target: string, kind?: "task" | "runner") => {
+    const origin = apiOrigin();
+    if (!origin) return "";
+    const params = new URLSearchParams({ target });
+    if (kind) params.set("kind", kind);
+    return `${origin}/api/ops/terminal/stream?${params}`;
+  },
   cursorGc: (close = false) => req("/api/cursor/gc", { method: "POST", body: JSON.stringify({ close }) }),
 };

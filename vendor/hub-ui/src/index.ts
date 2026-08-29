@@ -73,6 +73,11 @@ export {
   type WorkspaceDirectoryChromeHandlers,
   type WorkspaceDirectoryChromeSnapshot,
 } from "./directory-band/useWorkspaceDirectoryChrome";
+export {
+  hubDirectoryHasPaintedRows,
+  resolveHubDirectoryBootGateReady,
+  useHubDirectoryBootGateReady,
+} from "./loading/hub-directory-boot-gate";
 export type {
   DisplayPrefsPrefs,
   HubDisplayPrefsProps,
@@ -499,6 +504,13 @@ export {
 } from "./lib/directory-sort-contract";
 export { useDirectoryHaystackFilter } from "./hooks/useDirectoryHaystackFilter";
 export { useHubDirectorySelection } from "./hooks/useHubDirectorySelection";
+export {
+  useHubDirectoryDeepLink,
+  useDirectoryDeepLink,
+  findDirectoryDeepLinkRow,
+  readDirectoryDeepLinkId,
+} from "./hooks/useHubDirectoryDeepLink";
+
 export { HubRowLimitSelect } from "./shell/HubRowLimitSelect";
 export { HubTablePageSizeSelect } from "./shell/HubTablePageSizeSelect";
 export { HubFilterSelect, type HubFilterSelectOption } from "./shell/HubFilterSelect";
@@ -708,6 +720,10 @@ export {
   HubDirectoryCopyText,
   type HubDirectoryCopyTextProps,
 } from "./shell/HubDirectoryCopyText";
+export {
+  HubDirectoryOptionCell,
+  type HubDirectoryOptionCellProps,
+} from "./shell/HubDirectoryOptionCell";
 export {
   HubDirectoryPhoneCell,
   type HubDirectoryPhoneCellProps,
@@ -1884,6 +1900,24 @@ export {
   type HubAdmNoteLogRailNoteProps,
   type HubAdmNoteLogRailsProps,
 } from "./shell/HubAdmNoteLogRails";
+export {
+  CRM_DETAIL_CONTROL_CLASS,
+  CRM_DETAIL_FORM_STACK_CLASS,
+  CRM_DETAIL_FORM_ROW_ALIGNED_3,
+  CRM_DETAIL_FORM_ROW_ALIGNED_2,
+  CRM_DETAIL_FORM_ROW_DETAIL_LINE,
+  type HubCrmDetailTocItem,
+} from "./shell/hubCrmDetailChrome";
+export { HubCrmDetailTocNav, CrmDetailTocNav } from "./shell/HubCrmDetailTocNav";
+export { HubCrmDetailVaultIdBadge, CrmDetailVaultIdBadge } from "./shell/HubCrmDetailVaultIdBadge";
+export {
+  buildHubCrmDetailFieldKit,
+  buildCrmDetailFieldKit,
+  hubCrmColumnHeaderProps,
+  crmColumnHeaderProps,
+  hubCrmColumnHintContent,
+  type HubCrmDetailFieldKitOptions,
+} from "./shell/buildHubCrmDetailFieldKit";
 export { HubAdmBulkFieldCell, type HubAdmBulkFieldCellProps } from "./shell/HubAdmBulkFieldCell";
 export {
   buildHubAdmNoteMirrorSegments,

@@ -18,7 +18,7 @@ export type WorkspacePeriodKey =
   | "customMonth"
   | "customRange";
 
-export type WorkspacePeriodScope =
+export type WorkspacePeriodKnownScope =
   | "notes"
   | "todo"
   | "twofa"
@@ -38,10 +38,15 @@ export type WorkspacePeriodScope =
   | "dashboard"
   | "index"
   | "posts"
+  | "documents"
+  | "bulletin"
   | "bots"
   | "groups"
   | "teams"
   | "places";
+
+/** Catalog scopes + any new directory tab slug (URL keys derived from the slug). */
+export type WorkspacePeriodScope = WorkspacePeriodKnownScope | (string & {});
 
 export type WorkspacePeriodPrefs = {
   range: WorkspacePeriodKey;
@@ -81,11 +86,10 @@ export const WORKSPACE_PERIOD_ORDER: readonly WorkspacePeriodKey[] = [
 
 const VALID_KEYS = new Set<string>(Object.keys(WORKSPACE_PERIOD_LABELS));
 
+export type WorkspacePeriodUrlKeys = { range: string; month: string; from: string; to: string };
+
 /** Per-tab URL keys — each screen keeps its own period when switching tabs. */
-const SCOPE_URL_KEYS: Record<
-  WorkspacePeriodScope,
-  { range: string; month: string; from: string; to: string }
-> = {
+const SCOPE_URL_KEYS: Record<WorkspacePeriodKnownScope, WorkspacePeriodUrlKeys> = {
   notes: { range: "nrange", month: "nperiodMonth", from: "nperiodFrom", to: "nperiodTo" },
   todo: { range: "trange", month: "tperiodMonth", from: "tperiodFrom", to: "tperiodTo" },
   twofa: { range: "frange", month: "fperiodMonth", from: "fperiodFrom", to: "fperiodTo" },
@@ -105,13 +109,15 @@ const SCOPE_URL_KEYS: Record<
   dashboard: { range: "dbrange", month: "dbperiodMonth", from: "dbperiodFrom", to: "dbperiodTo" },
   index: { range: "ixrange", month: "ixperiodMonth", from: "ixperiodFrom", to: "ixperiodTo" },
   posts: { range: "psrange", month: "psperiodMonth", from: "psperiodFrom", to: "psperiodTo" },
+  documents: { range: "docrange", month: "docperiodMonth", from: "docperiodFrom", to: "docperiodTo" },
+  bulletin: { range: "blrange", month: "blperiodMonth", from: "blperiodFrom", to: "blperiodTo" },
   bots: { range: "botrange", month: "botperiodMonth", from: "botperiodFrom", to: "botperiodTo" },
   groups: { range: "grprange", month: "grpperiodMonth", from: "grpperiodFrom", to: "grpperiodTo" },
   teams: { range: "teamrange", month: "teamperiodMonth", from: "teamperiodFrom", to: "teamperiodTo" },
   places: { range: "plcrange", month: "plcperiodMonth", from: "plcperiodFrom", to: "plcperiodTo" },
 };
 
-const TWOFA_VAULT_PERIOD_SCOPES = new Set<WorkspacePeriodScope>([
+const TWOFA_VAULT_PERIOD_SCOPES = new Set<string>([
   "twofa.mail",
   "twofa.services",
   "twofa.facebook",
@@ -165,8 +171,22 @@ function defaultPrefs(defaultRange: WorkspacePeriodKey): WorkspacePeriodPrefs {
   };
 }
 
-function scopeUrlKeys(scope: WorkspacePeriodScope) {
-  return SCOPE_URL_KEYS[scope] ?? SCOPE_URL_KEYS.twofa;
+export function slugWorkspacePeriodUrlKeys(scope: string): WorkspacePeriodUrlKeys {
+  const slug = scope.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "ws";
+  return {
+    range: `${slug}range`,
+    month: `${slug}periodMonth`,
+    from: `${slug}periodFrom`,
+    to: `${slug}periodTo`,
+  };
+}
+
+function isKnownPeriodScope(scope: string): scope is WorkspacePeriodKnownScope {
+  return Object.prototype.hasOwnProperty.call(SCOPE_URL_KEYS, scope);
+}
+
+function scopeUrlKeys(scope: WorkspacePeriodScope): WorkspacePeriodUrlKeys {
+  return isKnownPeriodScope(scope) ? SCOPE_URL_KEYS[scope] : slugWorkspacePeriodUrlKeys(scope);
 }
 
 function readRawRange(sp: URLSearchParams, scope: WorkspacePeriodScope, defaultKey: WorkspacePeriodKey) {

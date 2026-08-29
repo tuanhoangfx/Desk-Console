@@ -1747,3 +1747,10 @@
     justify-self: stretch;
   }
 }
+
+/* CRM detail form stack — P0005 + P0015 (tighter than --hub-adm-field-gap). */
+.crm-detail-form-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}

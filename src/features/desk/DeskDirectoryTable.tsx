@@ -8,7 +8,7 @@ import {
   type HubSortDir,
 } from "@tool-workspace/hub-ui";
 import { DESK_COLUMN_META } from "./desk-column-meta";
-import { renderDeskDirectoryBodyCell, type DeskRow } from "./desk-directory-cells";
+import { renderDeskDirectoryBodyCell, type DeskOpsCellHandlers, type DeskRow } from "./desk-directory-cells";
 import { deskTablePrefs, type DeskCol } from "./desk-table-prefs";
 
 export type { DeskRow };
@@ -22,6 +22,8 @@ type Props = {
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   allVisibleSelected: boolean;
+  opsHandlers?: DeskOpsCellHandlers;
+  onRowClick?: (row: DeskRow) => void;
 };
 
 const KEYS: DeskCol[] = ["name", "status", "extra", "updated"];
@@ -35,6 +37,8 @@ export function DeskDirectoryTable({
   onToggleSelect,
   onToggleSelectAll,
   allVisibleSelected,
+  opsHandlers,
+  onRowClick,
 }: Props) {
   const [columnTick, setColumnTick] = useState(0);
   useEffect(() => {
@@ -57,11 +61,11 @@ export function DeskDirectoryTable({
         {keys.map((key) => {
           const col = columns.find((c) => c.key === key);
           if (!col) return null;
-          return renderDeskDirectoryBodyCell(row, key, col);
+          return renderDeskDirectoryBodyCell(row, key, col, opsHandlers);
         })}
       </>
     ),
-    [columns, keys],
+    [columns, keys, opsHandlers],
   );
 
   return (
@@ -81,6 +85,7 @@ export function DeskDirectoryTable({
       allVisibleSelected={allVisibleSelected}
       selectAllLabel="Select all on this page"
       emptyMessage="No rows."
+      onRowClick={onRowClick}
       renderRowCells={renderRowCells}
     />
   );

@@ -4,8 +4,10 @@
  */
 
 import {
+  countCrmOrderDetailMailboxes,
   crmOrderProductMatchesService,
   expandCrmOrderGmailAliases,
+  extractCrmOrderDetailIdentityTokens,
   isCrmOrderCompletedStatus,
   normalizeCrmOrderDetailsIdentifier,
 } from "./crm-order-details";
@@ -28,6 +30,8 @@ export type CrmOrderUsageHit = {
   details: string;
   mentionCount: number;
   identifiers: string[];
+  /** Persisted Services vault ids on this order — empty when CRM has not linked yet. */
+  linkedVaultIds?: string[];
 };
 
 /** String = subscription-only (legacy / Own heal). Object = live Usage gate + exceptions. */
@@ -164,6 +168,52 @@ function accountUsageIdentifiers(row: { account?: string | null; mailRecover?: s
   return [...values];
 }
 
+function usageHitIdentitySet(hit: Pick<CrmOrderUsageHit, "details" | "identifiers">): Set<string> {
+  const out = new Set<string>();
+  for (const identifier of hit.identifiers ?? []) {
+    for (const alias of expandCrmOrderGmailAliases(identifier)) {
+      if (alias.length >= 3) out.add(alias);
+    }
+  }
+  for (const token of extractCrmOrderDetailIdentityTokens(hit.details ?? "")) {
+    if (token.length >= 3) out.add(token);
+  }
+  return out;
+}
+
+function subjectKeysInIdentity(
+  row: { account?: string | null; mailRecover?: string | null },
+  identity: Set<string>,
+): boolean {
+  return accountUsageIdentifiers(row).some((key) => identity.has(key));
+}
+
+/**
+ * Usage join: Account email or a real vault-id link.
+ * Recover-only hitchhikers (new ChatGPT row sharing Recover of an already-linked
+ * single-seat order) must not inherit Usage / Own.
+ */
+export function crmOrderUsageHitAllowedForSubject(
+  subject: CrmUsageSubject,
+  hit: CrmOrderUsageHit,
+): boolean {
+  const identity = usageHitIdentitySet(hit);
+  if (subjectKeysInIdentity({ account: subject.account, mailRecover: "" }, identity)) return true;
+
+  const linked = [...new Set((hit.linkedVaultIds ?? []).map((id) => id.trim()).filter(Boolean))];
+  const vaultId = subject.id?.trim() ?? "";
+  const recoverHit = subjectKeysInIdentity({ account: "", mailRecover: subject.mailRecover }, identity);
+  const mailboxCount = countCrmOrderDetailMailboxes(hit.details ?? "");
+
+  if (vaultId && linked.includes(vaultId) && linked.length > 1 && mailboxCount <= 1) {
+    return false;
+  }
+  if (vaultId && linked.includes(vaultId)) return true;
+  if (recoverHit && linked.length === 0) return true;
+  if (recoverHit && linked.length === 1 && vaultId && linked[0] === vaultId) return true;
+  return false;
+}
+
 export function lookupCrmOrderUsage(
   index: CrmOrderUsageIndex,
   subject: CrmUsageSubject,
@@ -190,6 +240,7 @@ export function lookupCrmOrderUsage(
   if (!mergedOrders.size) return EMPTY_CRM_ORDER_USAGE;
 
   const orders = [...mergedOrders.values()]
+    .filter((hit) => crmOrderUsageHitAllowedForSubject(subject, hit))
     .filter((hit) => crmOrderCountsForUsageBucket(hit, bucket))
     .filter((hit) => crmOrderProductMatchesService(hit.productName, subject.service))
     .sort((a, b) => {

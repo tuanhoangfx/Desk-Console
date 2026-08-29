@@ -12,14 +12,29 @@ export const HUB_DIRECTORY_POPOVER_VIEWPORT_MARGIN_PX = 8;
  * @param {DOMRect} rect
  * @param {number} [popoverWidth]
  * @param {number} [viewportWidth]
+ * @param {number} [popoverHeight]
+ * @param {number} [viewportHeight]
  */
 export function hubDirectoryPopoverPosition(
   rect,
   popoverWidth = 0,
   viewportWidth = typeof window !== "undefined" ? window.innerWidth : 0,
+  popoverHeight = 0,
+  viewportHeight = typeof window !== "undefined" ? window.innerHeight : 0,
 ) {
   const margin = HUB_DIRECTORY_POPOVER_VIEWPORT_MARGIN_PX;
-  const top = rect.bottom + HUB_DIRECTORY_POPOVER_OFFSET_PX;
+  const gap = HUB_DIRECTORY_POPOVER_OFFSET_PX;
+  const vpH = viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 0);
+  let top = rect.bottom + gap;
+  if (popoverHeight > 0 && vpH > 0) {
+    const spaceBelow = vpH - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
+      top = Math.max(margin, rect.top - popoverHeight - gap);
+    } else {
+      top = Math.min(top, Math.max(margin, vpH - margin - popoverHeight));
+    }
+  }
   let left = rect.left;
   if (popoverWidth > 0 && viewportWidth > 0) {
     const maxLeft = viewportWidth - margin - popoverWidth;
@@ -36,7 +51,15 @@ export function hubDirectoryPopoverPosition(
 /** @param {HTMLElement | null} anchor @param {HTMLElement | null} popover */
 export function measureHubDirectoryPopoverPosition(anchor, popover) {
   if (!anchor) return null;
-  return hubDirectoryPopoverPosition(anchor.getBoundingClientRect(), popover?.offsetWidth ?? 0);
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 0;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 0;
+  return hubDirectoryPopoverPosition(
+    anchor.getBoundingClientRect(),
+    popover?.offsetWidth ?? 0,
+    viewportWidth,
+    popover?.offsetHeight ?? 0,
+    viewportHeight,
+  );
 }
 
 /**

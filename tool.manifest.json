@@ -22,12 +22,7 @@
   "uiShell": {
     "golden": "P0020",
     "mainMode": "directory",
-    "splitScreens": [
-      "clips",
-      "captures",
-      "runners",
-      "tasks"
-    ],
+    "splitScreens": [],
     "userFooter": "workspace"
   },
   "uiScreens": [
@@ -47,13 +42,13 @@
       "screen": "runners",
       "template": "directory",
       "golden": "P0004/users",
-      "notes": "Vite/worker Start · Restart · Recover via ensure-dev-product."
+      "notes": "Vite/worker port runners — Start · Restart · Recover · Stop."
     },
     {
       "screen": "tasks",
       "template": "directory",
       "golden": "P0004/users",
-      "notes": "Windows Task Scheduler Dev-* only."
+      "notes": "Windows schtasks Dev-* — Run · Enable · Disable."
     },
     {
       "screen": "system",
@@ -109,9 +104,15 @@
     "ssot": "src/lib/display-prefs-registry.ts"
   },
   "release": {
-    "version": "0.1.14"
+    "version": "0.1.8"
   },
-  "manifestUpdatedAt": "2026-08-26T22:39:09.418Z",
+  "knownGood": {
+    "config": "config/known-good.json",
+    "tagSuffix": "-stable",
+    "snapshot": "node scripts/snapshot-known-good.mjs",
+    "restore": "git checkout v0.1.8-stable"
+  },
+  "manifestUpdatedAt": "2026-08-24T05:14:00.000+07:00",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",

@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 import { colHint } from "../lib/directory-column-hint-helpers";
 import { HubDirectoryColumnHint } from "../table/HubDirectoryColumnHint";
 import { MetaChip } from "./CopyMetaChip";
@@ -60,10 +60,11 @@ export function HubDirectoryQueryPendingChip({
       <HubDirectoryColumnHint content={hint}>
         <MetaChip
           icon={
-            <Search
-              size={11}
-              className={pending ? "hub-search-field__glyph--pending" : undefined}
-            />
+            pending ? (
+              <RefreshCw size={11} className="animate-spin" />
+            ) : (
+              <Search size={11} />
+            )
           }
           label={label}
           tone={pending ? "indigo" : "muted"}

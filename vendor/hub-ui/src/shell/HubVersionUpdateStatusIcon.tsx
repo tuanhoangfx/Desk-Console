@@ -46,7 +46,12 @@ export function hubDesktopUpdateOwnsTrigger(state: HubVersionUpdateState): boole
   return DESKTOP_UPDATE_TRIGGER_STATES.has(state);
 }
 
-/** Modal header action beside version meta — Download / Install / Retry / progress. */
+/** Opening Update Release should re-query GitHub — changelog "current" ≠ feed latest. */
+export function hubDesktopUpdateShouldRecheckOnOpen(state: HubVersionUpdateState | null | undefined): boolean {
+  return state === "latest" || state === "idle" || state === "error";
+}
+
+/** Modal / chip action — always visible on desktop (old StealthHeaderUpdateButton). */
 export function hubDesktopUpdateActionLabel(
   state: HubVersionUpdateState,
   progress?: number,
@@ -64,9 +69,23 @@ export function hubDesktopUpdateActionLabel(
       return "Checking";
     case "installing":
       return "Installing";
+    case "latest":
+    case "idle":
+      return "Check";
     default:
       return null;
   }
+}
+
+/** Header chip text — same words as pre-1.1.7 `StealthHeaderUpdateButton`. */
+export function hubDesktopUpdateChromeLabel(
+  state: HubVersionUpdateState,
+  progress?: number,
+): string | null {
+  if (state === "dev") return "Dev";
+  if (state === "latest") return "Latest";
+  if (state === "idle") return "Update";
+  return hubDesktopUpdateActionLabel(state, progress);
 }
 
 function iconForState(state: HubVersionUpdateState, busy: boolean, progress?: number): ReactNode {

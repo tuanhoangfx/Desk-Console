@@ -183,7 +183,8 @@ export function capCrmOrderServicesVaultIds(
   };
   const mailboxes = crmOrderDetailMailboxOrder(order.details ?? "");
   const slot = crmOrderMultiSeatSlot(order.productName);
-  const limit = slot >= 2 ? slot : mailboxes.length >= 2 ? mailboxes.length : ids.length;
+  // Single-seat: one vault. `ids.length` used to attach every Recover-sharing clone.
+  const limit = slot >= 2 ? slot : mailboxes.length > 0 ? mailboxes.length : ids.length;
   const picked: string[] = [];
   const seen = new Set<string>();
   const tryAdd = (id: string) => {

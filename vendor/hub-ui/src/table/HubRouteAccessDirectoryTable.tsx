@@ -108,6 +108,8 @@ export type HubRouteAccessDirectoryTableProps<TRow> = {
   /** Golden directory sort — one value per column key. */
   getSortValue: (row: TRow, key: HubRouteAccessSortKey) => string | number;
   defaultSortKey?: HubRouteAccessSortKey;
+  /** Display → Allow manual column sort OFF — static headers, fixed default order. */
+  defaultSortOnly?: boolean;
   /** Secondary/tertiary order when primary sort values tie. */
   sortTieBreak?: DirectoryTableSortTieBreak<TRow>;
   /** Rich header hints (SSOT popover) — replaces native `title` when set. */
@@ -187,6 +189,7 @@ export function HubRouteAccessDirectoryTable<TRow>({
   renderExpiresCell,
   getSortValue,
   defaultSortKey = "user",
+  defaultSortOnly = false,
   sortTieBreak,
   columnHeaderHintOverrides,
   showSelectColumn = true,
@@ -237,11 +240,12 @@ export function HubRouteAccessDirectoryTable<TRow>({
     stackAlignColumns,
   };
   const { sortKey, sortDir, onSort, sorted } = useDirectoryTableSort(
-    [...items],
+    items as TRow[],
     defaultSortKey,
     getSortValue,
     "asc",
     sortTieBreak,
+    defaultSortOnly,
   );
   const resolvedPageSize = useHubTablePageSize(pageSize);
   const pagination = useHubTablePagination(sorted, { resetKey, pageSize: resolvedPageSize });
@@ -294,7 +298,9 @@ export function HubRouteAccessDirectoryTable<TRow>({
         ) : (
           <span className="hub-users-th-text">{label}</span>
         )}
-        <HubSortIndicator active={sortKey === col.key} dir={sortDir} />
+        {defaultSortOnly ? null : (
+          <HubSortIndicator active={sortKey === col.key} dir={sortDir} />
+        )}
       </span>
     );
     const labelNode = headerHint ? (
@@ -308,12 +314,17 @@ export function HubRouteAccessDirectoryTable<TRow>({
       labelInner
     );
 
+    const headerClass = `hub-users-th-btn${col.key === "user" ? " hub-users-th-btn--align-start" : ""}`;
     return {
       ...col,
-      header: (
+      header: defaultSortOnly ? (
+        <span className={`${headerClass} hub-users-th-btn--static`} title={headerHint ? undefined : title}>
+          {labelNode}
+        </span>
+      ) : (
         <button
           type="button"
-          className={`hub-users-th-btn${col.key === "user" ? " hub-users-th-btn--align-start" : ""}`}
+          className={headerClass}
           title={headerHint ? undefined : title}
           onClick={() => onSort(col.key as HubRouteAccessSortKey)}
           aria-sort={

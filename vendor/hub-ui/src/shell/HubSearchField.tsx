@@ -1,4 +1,4 @@
-import { Search, X } from "lucide-react";
+import { RefreshCw, Search, X } from "lucide-react";
 import { startTransition, useEffect, useRef, useState, type Ref } from "react";
 import { HUB_MODAL_SEARCH_ATTR } from "../keyboard/hub-modal-search";
 import { HUB_NO_SPELLCHECK_PROPS } from "../lib/no-spellcheck";
@@ -13,7 +13,7 @@ export type HubSearchFieldProps = {
   inputRef?: Ref<HTMLInputElement>;
   /** Show `F` focus hint when empty (directory FilterBar). Off in modals. */
   showShortcutHint?: boolean;
-  /** Debounce / fetch pending — in-place pulse on the search glyph (directory FilterBar SSOT). */
+  /** Debounce / fetch pending — swap loupe for spinning RefreshCw (same as Sync chip). */
   queryPending?: boolean;
   /** Keyboard focus scope — FilterBar registers shortcuts when embedded. */
   shortcutScope?: string;
@@ -108,7 +108,11 @@ export function HubSearchField({
         }`}
         aria-hidden
       >
-        <Search size={compactIconSize(14)} />
+        {glyphPending ? (
+          <RefreshCw size={compactIconSize(14)} className="animate-spin" aria-hidden />
+        ) : (
+          <Search size={compactIconSize(14)} />
+        )}
       </span>
       <input
         ref={inputRef}

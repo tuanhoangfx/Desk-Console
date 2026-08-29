@@ -321,7 +321,7 @@ export function writeTaskNames(names) {
   return next;
 }
 
-async function queryNamedTask(name) {
+export async function queryNamedTask(name) {
   const r = await spawnWinAsync("schtasks", ["/Query", "/TN", name, "/FO", "LIST"], 2500);
   return parseSchtasksListVerbose(r.stdout)[0] || null;
 }

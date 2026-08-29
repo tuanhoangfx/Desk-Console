@@ -23,6 +23,11 @@ export type HubListChromeHeaderProps = {
   /** Sparse status before center stats (e.g. Start Shift toolbar). */
   statusSlot?: ReactNode;
   actions?: ReactNode;
+  /**
+   * Override stackChrome embedded mode. Full-bleed mains (no hub-main 1.5rem pad)
+   * must pass `embedded` so header does not apply `-1.5rem` bleed against zero pad.
+   */
+  embedded?: boolean;
 };
 
 /** Directory tab header — pin/embedded prefs wired from `configureHubChromePrefs`. */
@@ -40,8 +45,10 @@ export function HubListChromeHeader({
   centerContent,
   statusSlot,
   actions,
+  embedded: embeddedProp,
 }: HubListChromeHeaderProps) {
   const { searchPin, headerPin, stackChrome } = useHubChromePrefs();
+  const embedded = embeddedProp ?? stackChrome;
 
   const resolvedMetaItems = useMemo(() => {
     if (!versionReleaseNotesCode || !metaItems[0]) return metaItems;
@@ -76,7 +83,7 @@ export function HubListChromeHeader({
       statusSlot={statusSlot}
       pinSticky={stackChrome ? false : headerPin}
       dividerBelow={stackChrome ? false : !searchPin}
-      embedded={stackChrome}
+      embedded={embedded}
       actions={actions}
     />
   );

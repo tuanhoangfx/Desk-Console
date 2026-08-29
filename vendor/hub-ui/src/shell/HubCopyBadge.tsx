@@ -29,6 +29,12 @@ export type HubCopyBadgeProps = {
    * Full Info SSOT: fingerprint leading only (not dropdown-style Copy).
    */
   showTrailingCopy?: boolean;
+  /**
+   * Native `title=` — short 1-line action only.
+   * Off when wrapped in `HubDirectoryValuePopover` (Sample / ADM) so OS tip
+   * does not stack on the portal and hide the real message.
+   */
+  nativeTitle?: boolean;
 };
 
 export function hubCopyBadgeDisplayLabel(value: string, label?: string): string {
@@ -50,6 +56,7 @@ export function HubCopyBadge({
   display = "full",
   labelContent,
   showTrailingCopy = true,
+  nativeTitle = true,
 }: HubCopyBadgeProps) {
   const toast = useHubToast();
   const [copied, setCopied] = useState(false);
@@ -87,7 +94,8 @@ export function HubCopyBadge({
           ? "hub-copy-badge--chip gap-0 px-1"
           : "hub-copy-badge--full gap-1 px-1.5 font-mono font-medium leading-none"
       } ${className}`}
-      title={copyActionTitle}
+      title={nativeTitle ? copyActionTitle : undefined}
+      aria-label={copyActionTitle}
       data-hub-copy-value={value}
     >
       {!chip ? (

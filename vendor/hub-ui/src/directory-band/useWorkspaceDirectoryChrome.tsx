@@ -35,7 +35,8 @@ export type WorkspaceDirectoryChromeSnapshot = {
  * Pair with `useDirectoryBandSync` for KPI/charts band.
  *
  * `syncKey` — view mode / structural chrome (exclude row counts + selection *count*).
- * `statsKey` — row counts, facet counts, **selection count** (when filterToolbar embeds Detail/bulk badges); also refreshes toolbar + bulk row when they embed counts.
+ * `statsKey` — row counts + **selection count** (filterToolbar Detail/bulk badges).
+ * Do **not** put FilterBar facet-option signatures here — that remounts toolbar on every enrich (React #185).
  */
 export function useWorkspaceDirectoryChrome(
   snapshot: WorkspaceDirectoryChromeSnapshot,

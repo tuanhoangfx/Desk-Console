@@ -3,6 +3,8 @@ import { useEffect, useState, type ReactNode } from "react";
 export type HubChromePrefs = {
   headerPin: boolean;
   searchPin: boolean;
+  /** Directory chrome stays pinned — Display pin toggles hidden. */
+  pinLocked?: boolean;
 };
 
 const DEFAULT_PREFS: HubChromePrefs = { headerPin: true, searchPin: true };
@@ -14,6 +16,10 @@ export function configureHubChromePrefs(read: () => HubChromePrefs) {
   readChromePrefs = read;
 }
 
+export function readHubChromePrefs(): HubChromePrefs {
+  return readChromePrefs();
+}
+
 export function useHubChromePrefs() {
   const [prefs, setPrefs] = useState(readChromePrefs);
 
@@ -23,11 +29,12 @@ export function useHubChromePrefs() {
     return () => window.removeEventListener("popstate", sync);
   }, []);
 
-  const searchPin = prefs.searchPin;
-  const headerPin = prefs.headerPin;
+  const pinLocked = Boolean(prefs.pinLocked);
+  const searchPin = pinLocked ? true : prefs.searchPin;
+  const headerPin = pinLocked ? true : prefs.headerPin;
   const stackChrome = searchPin && headerPin;
 
-  return { prefs, searchPin, headerPin, stackChrome };
+  return { prefs, searchPin, headerPin, stackChrome, pinLocked };
 }
 
 /**
@@ -48,7 +55,7 @@ export function HubTabChrome({
 
   return (
     <div
-      className={`anim-fade relative flex min-h-0 flex-1 flex-col${stack ? " hub-tab-chrome-stack" : ""}`}
+      className={`anim-fade relative flex flex-col${stack ? " hub-tab-chrome-stack" : " min-h-0 flex-1"}`}
       {...(searchPin ? { "data-search-pin": true } : {})}
       {...(headerPin ? { "data-header-pin": true } : {})}
     >

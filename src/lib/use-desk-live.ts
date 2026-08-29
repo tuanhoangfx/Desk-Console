@@ -9,6 +9,7 @@ export function useDeskLive<T>(loader: () => Promise<T[]>, { intervalMs = 6000, 
   const [error, setError] = useState<string | null>(null);
   const applied = useRef(0);
   const seq = useRef(0);
+  const lastLoggedError = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     const id = ++seq.current;
@@ -18,10 +19,13 @@ export function useDeskLive<T>(loader: () => Promise<T[]>, { intervalMs = 6000, 
       applied.current = id;
       setRows(Array.isArray(next) ? next : []);
       setError(null);
+      lastLoggedError.current = null;
     } catch (err) {
       if (id < applied.current) return;
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
+      if (lastLoggedError.current === message) return;
+      lastLoggedError.current = message;
       pushDeskNotifyAlert({
         id: `host-${scope}`,
         severity: "bad",

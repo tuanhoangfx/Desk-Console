@@ -21,7 +21,7 @@ export type HubBrandFilterIcon = {
 
 /**
  * Icon-only brand payload for directory filters — **no** company `label`.
- * Use with `buildHubBrandFilterOption(value, count, hubBrandFilterIcon(hit))`
+ * Use with `buildHubBrandFilterOption(value, undefined, hubBrandFilterIcon(hit))`
  * so facet text stays the storage/product key (ChatGPT), not registry company (OpenAI).
  */
 export function hubBrandFilterIcon(
@@ -72,7 +72,7 @@ export function hubBrandIconSrcFieldsByLabel(label: string) {
 }
 
 /**
- * Filter dropdown row — brand icon (directory 16px / filter 13px) + label + count (P0020 Services SSOT).
+ * Filter dropdown row — brand icon (directory 16px / filter 13px) + label (P0020 Services SSOT).
  *
  * **Facet label contract:** pass `hubBrandFilterIcon(hit)` (or `{ src, shell }` only) for
  * product/service facets so `label` defaults to `value`. Do **not** pass hub registry
@@ -82,14 +82,13 @@ export function hubBrandIconSrcFieldsByLabel(label: string) {
  */
 export function buildHubBrandFilterOption(
   value: string,
-  count: number,
-  brand: HubBrandFilterIcon | null | undefined,
+  _count?: number,
+  brand?: HubBrandFilterIcon | null,
   resolveSrc: (src: string) => string = (s) => s,
 ): FilterOption {
   return {
     value,
     label: brand?.label ?? value,
-    count,
     ...(brand?.src
       ? {
           iconSrc: resolveSrc(brand.src),

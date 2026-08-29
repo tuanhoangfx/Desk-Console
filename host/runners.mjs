@@ -1,7 +1,13 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { spawn } from "node:child_process";
+import { promisify } from "node:util";
+import { execFile } from "node:child_process";
 import { DEV_ROOT, startDetached } from "./windows.mjs";
+import { appendTerminalLine, terminalLogPath } from "./ops-terminal.mjs";
+
+const execFileAsync = promisify(execFile);
 
 const PORTS_PATH = path.join(DEV_ROOT, "Tool", "scripts", "lib", "workspace-ports.json");
 const PROBE_MS = 350;
@@ -80,13 +86,58 @@ export async function listRunners() {
   return inflight;
 }
 
+export function resolveRunnerPort(code, doc = loadPorts()) {
+  const upper = String(code).toUpperCase();
+  const product = doc.products?.[upper];
+  if (product?.port) return Number(product.port);
+  for (const [key, worker] of Object.entries(doc.workers || {})) {
+    const workerCode = String(worker.code || key).toUpperCase();
+    if (workerCode === upper) return Number(worker.port);
+  }
+  return null;
+}
+
+export async function stopRunner(code) {
+  const upper = String(code).toUpperCase();
+  const port = resolveRunnerPort(upper);
+  if (!port) return { ok: false, error: "not found" };
+  appendTerminalLine(upper, "runner", `stop ${upper} :${port}`);
+  try {
+    const ps = [
+      "$c = Get-NetTCPConnection -LocalPort " + port + " -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1",
+      "if ($c) { Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue; 'stopped' } else { 'idle' }",
+    ].join("; ");
+    const { stdout } = await execFileAsync(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", ps],
+      { windowsHide: true, timeout: 8000 },
+    );
+    cache = { at: 0, rows: [] };
+    return { ok: true, port, state: String(stdout || "").trim() || "stopped" };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export function startRunner(code, mode = "start") {
+  const upper = String(code).toUpperCase();
   const script = path.join(DEV_ROOT, "Tool", "scripts", "ensure-dev-product.cjs");
-  const args = [script, String(code).toUpperCase()];
+  const args = [script, upper];
   if (mode === "recover") {
     const recover = path.join(DEV_ROOT, "Tool", "scripts", "ensure-dev-lean.cjs");
-    return startDetached([recover, String(code).toUpperCase(), "--vite-only"]);
+    appendTerminalLine(upper, "runner", `recover ${upper} via ensure-dev-lean`);
+    return startDetached([recover, upper, "--vite-only"]);
   }
   if (mode === "restart") args.push("--force");
-  return startDetached(args);
+  const logFile = terminalLogPath(upper, "runner");
+  appendTerminalLine(upper, "runner", `${mode} ${upper} → ensure-dev-product`);
+  const out = fs.openSync(logFile, "a");
+  const child = spawn(process.execPath, args, {
+    cwd: DEV_ROOT,
+    detached: true,
+    stdio: ["ignore", out, out],
+    windowsHide: true,
+  });
+  child.unref();
+  return child.pid;
 }

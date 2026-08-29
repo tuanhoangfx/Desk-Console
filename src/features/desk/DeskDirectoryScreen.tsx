@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Play, RotateCcw, Trash2, type LucideIcon } from "lucide-react";
+import { Play, RotateCcw, Trash2, Eye, type LucideIcon } from "lucide-react";
 import {
   HubBulkActionButton,
   HubDirectoryBulkActionBar,
@@ -55,6 +55,8 @@ type Props = {
   tabActive?: boolean;
   showPeriod?: boolean;
   toolbarActions?: ReactNode;
+  sideRail?: ReactNode;
+  opsHandlers?: import("./desk-directory-cells").DeskOpsCellHandlers;
   bulkActions?: { label: string; tone?: "rose" | "neutral" | "emerald" | "amber"; icon?: LucideIcon; onClick: (ids: string[]) => void }[];
 };
 
@@ -68,6 +70,8 @@ export function DeskDirectoryScreen({
   tabActive = true,
   showPeriod = true,
   toolbarActions,
+  sideRail,
+  opsHandlers,
   bulkActions,
 }: Props) {
   const search = useHubClientDirectorySearchQuery();
@@ -94,13 +98,13 @@ export function DeskDirectoryScreen({
   };
 
   const statusFilter = useMemo(() => deskStatusFilterDef(rows), [rows]);
-  const filters = useMemo(
-    () =>
-      isHubPrefVisible(prefs.hubFilters, defaultFilterKeys, DESK_STATUS_FILTER_KEY) && statusFilter.options.length
-        ? [statusFilter]
-        : [],
-    [defaultFilterKeys, prefs.hubFilters, statusFilter],
-  );
+  const filters = useMemo(() => {
+    const next: typeof statusFilter[] = [];
+    if (isHubPrefVisible(prefs.hubFilters, defaultFilterKeys, DESK_STATUS_FILTER_KEY) && statusFilter.options.length) {
+      next.push(statusFilter);
+    }
+    return next;
+  }, [defaultFilterKeys, prefs.hubFilters, statusFilter]);
 
   const periodPrefs = useMemo(
     () => ({
@@ -155,6 +159,33 @@ export function DeskDirectoryScreen({
         prefKey: "up",
       });
     }
+    if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "down")) {
+      tiles.push({
+        label: "Down",
+        value: filtered.filter((row) => row.status === "Down").length,
+        emojiGlyph: "⛔",
+        tone: "rose",
+        prefKey: "down",
+      });
+    }
+    if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "ready")) {
+      tiles.push({
+        label: "Ready",
+        value: filtered.filter((row) => /ready/i.test(row.status)).length,
+        emojiGlyph: "✅",
+        tone: "emerald",
+        prefKey: "ready",
+      });
+    }
+    if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "disabled")) {
+      tiles.push({
+        label: "Disabled",
+        value: filtered.filter((row) => /disabled/i.test(row.status)).length,
+        emojiGlyph: "⏸️",
+        tone: "amber",
+        prefKey: "disabled",
+      });
+    }
     if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "history")) {
       tiles.push({
         label: "History",
@@ -180,6 +211,9 @@ export function DeskDirectoryScreen({
       (key, current) => {
         if (key === "total") return kpiClearAllIfAny(current) ?? {};
         if (key === "up") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Up"]);
+        if (key === "down") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Down"]);
+        if (key === "ready") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Ready"]);
+        if (key === "disabled") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Disabled"]);
         if (key === "history") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["History"]);
         if (key === "sample") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Sample"]);
         return null;
@@ -187,6 +221,9 @@ export function DeskDirectoryScreen({
       (key, current) => {
         if (key === "total") return Object.keys(current).length === 0;
         if (key === "up") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Up"]);
+        if (key === "down") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Down"]);
+        if (key === "ready") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Ready"]);
+        if (key === "disabled") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Disabled"]);
         if (key === "history") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["History"]);
         if (key === "sample") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Sample"]);
         return false;
@@ -269,7 +306,14 @@ export function DeskDirectoryScreen({
               {selection.selectedIds.size > 0 && bulkActions?.length
                 ? bulkActions.map((a) => {
                     const Icon =
-                      a.icon ?? (a.label === "Delete" ? Trash2 : a.label === "Start" || a.label === "Run" ? Play : RotateCcw);
+                      a.icon ??
+                      (a.label === "Delete" || a.label === "Disable"
+                        ? Trash2
+                        : a.label === "Detail"
+                          ? Eye
+                          : a.label === "Start" || a.label === "Run"
+                            ? Play
+                            : RotateCcw);
                     return (
                       <HubBulkActionButton
                         key={a.label}
@@ -286,7 +330,39 @@ export function DeskDirectoryScreen({
           </>
         }
       >
-        {viewMode === "card" ? (
+        {sideRail ? (
+          <div className="flex min-h-0 flex-1 gap-3">
+            <div className="flex min-h-0 min-w-0 flex-[3] flex-col overflow-hidden">
+              {viewMode === "card" ? (
+                <HubPaginatedCardGrid items={filtered} resetKey={`${screen}-${search.query}`} pageSize={pageSize} ariaLabel={`${title} cards`}>
+                  {(pageRows) =>
+                    pageRows.map((row) => (
+                      <DeskDirectoryCard
+                        key={row.id}
+                        row={row}
+                        selected={selection.selectedIds.has(row.id)}
+                        onToggleSelect={selection.toggleSelect}
+                      />
+                    ))
+                  }
+                </HubPaginatedCardGrid>
+              ) : (
+                <DeskDirectoryTable
+                  rows={filtered}
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={handleSort}
+                  selectedIds={selection.selectedIds}
+                  onToggleSelect={selection.toggleSelect}
+                  onToggleSelectAll={selection.toggleSelectAll}
+                  allVisibleSelected={selection.allVisibleSelected}
+                  opsHandlers={opsHandlers}
+                />
+              )}
+            </div>
+            <div className="flex min-h-0 min-w-0 flex-[2] flex-col gap-3 overflow-hidden">{sideRail}</div>
+          </div>
+        ) : viewMode === "card" ? (
           <HubPaginatedCardGrid items={filtered} resetKey={`${screen}-${search.query}`} pageSize={pageSize} ariaLabel={`${title} cards`}>
             {(pageRows) =>
               pageRows.map((row) => (
@@ -309,6 +385,7 @@ export function DeskDirectoryScreen({
             onToggleSelect={selection.toggleSelect}
             onToggleSelectAll={selection.toggleSelectAll}
             allVisibleSelected={selection.allVisibleSelected}
+            opsHandlers={opsHandlers}
           />
         )}
       </HubDirectoryScreen>

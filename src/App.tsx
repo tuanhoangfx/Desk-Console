@@ -1,18 +1,20 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import {
   HubAppLogProvider,
   HubVisitedTabPanel,
   hubMainShellClassFromManifest,
   useHubActiveScreenSync,
   useHubVisitedTabsLru,
+  type ToolManifestUiShell,
 } from "@tool-workspace/hub-ui";
+import toolManifest from "../tool.manifest.json";
 import { DeskSidebar } from "./components/DeskSidebar";
 import { CapturesScreen } from "./features/captures/CapturesScreen";
 import { ClipPickerPage } from "./features/clips/ClipPickerPage";
 import { ClipsScreen } from "./features/clips/ClipsScreen";
 import { RunnersScreen } from "./features/runners/RunnersScreen";
-import { SystemScreen } from "./features/system/SystemScreen";
 import { TasksScreen } from "./features/tasks/TasksScreen";
+import { SystemScreen } from "./features/system/SystemScreen";
 import { readAppScreen, writeAppScreen, type AppScreen } from "./lib/app-screen";
 
 const SCREENS: AppScreen[] = ["clips", "captures", "runners", "tasks", "system"];
@@ -28,6 +30,13 @@ export default function App() {
 
 function DeskApp() {
   const [screen, setScreen] = useState<AppScreen>(() => readAppScreen());
+
+  useEffect(() => {
+    const onPop = () => setScreen(readAppScreen());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   const visited = useHubVisitedTabsLru(screen);
 
   useLayoutEffect(() => {
@@ -44,7 +53,16 @@ function DeskApp() {
     >
       <div className="hub-app theme-hub flex h-full min-h-0">
         <DeskSidebar screen={screen} onNavigate={setScreen} />
-        <main className={hubMainShellClassFromManifest(screen, { golden: "P0020", mainMode: "directory" }, "flex flex-col")}>
+        <main
+          className={hubMainShellClassFromManifest(
+            screen,
+            {
+              golden: (toolManifest.uiShell as ToolManifestUiShell).golden,
+              splitScreens: [],
+            },
+            "flex flex-col",
+          )}
+        >
           {SCREENS.map((id) => (
             <HubVisitedTabPanel key={id} tabId={id} active={screen === id} visited={visited} mountMode="visited" dataScreen={id}>
               {id === "captures" ? (

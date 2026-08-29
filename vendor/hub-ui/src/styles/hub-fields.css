@@ -167,25 +167,14 @@ button.hub-filter-trigger[class*="border-indigo-500"] {
   color: #c7d2fe; /* indigo-200 */
 }
 
-/* Directory search pending — pulse in place. Never spin the magnifier:
-   `animate-spin` replaces `-translate-y-1/2`, so the handle sweeps top→bottom. */
-@keyframes hub-search-pending {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
-}
-
+/* Directory search pending — RefreshCw spins on the inner SVG.
+   Never put animate-spin on this wrapper: it fights `-translate-y-1/2`. */
 .hub-search-field__glyph--pending {
   color: rgb(165 180 252); /* indigo-300 */
-  animation: hub-search-pending 1.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hub-search-field__glyph--pending {
+  .hub-search-field__glyph--pending .animate-spin {
     animation: none;
     opacity: 0.72;
   }

@@ -9,6 +9,5 @@ export function readAppScreen(): AppScreen {
 export function writeAppScreen(screen: AppScreen) {
   const url = new URL(window.location.href);
   url.searchParams.set("screen", screen);
-  window.history.replaceState({}, "", url);
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
 }

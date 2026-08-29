@@ -15,8 +15,12 @@ let resolver: FilterIconResolver = {
   resolveAll: () => null,
 };
 
-export function configureFilterIcons(next: FilterIconResolver) {
-  resolver = next;
+export function configureFilterIcons(next: Partial<FilterIconResolver> = {}) {
+  const prev = resolver;
+  resolver = {
+    resolveOption: next.resolveOption ?? prev.resolveOption ?? (() => null),
+    resolveAll: next.resolveAll ?? prev.resolveAll ?? (() => null),
+  };
 }
 
 /** Extend app resolver without wiping workspace badge-registry icons. */
@@ -30,9 +34,9 @@ export function mergeFilterIconResolver(partial: Partial<FilterIconResolver>) {
 }
 
 export function resolveFilterOptionIcon(filterKey: string, value: string) {
-  return resolver.resolveOption(filterKey, value);
+  return resolver.resolveOption?.(filterKey, value) ?? null;
 }
 
 export function resolveFilterAllIcon(filterKey: string) {
-  return resolver.resolveAll(filterKey) ?? defaultFilterAllIcon(filterKey);
+  return resolver.resolveAll?.(filterKey) ?? defaultFilterAllIcon(filterKey);
 }

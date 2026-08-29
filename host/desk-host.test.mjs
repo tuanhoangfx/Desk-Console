@@ -4,6 +4,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { ingestClipboardText, resetClipboardWatchForTests } from "./clip-watch.mjs";
 import { addClip, addSample, listClips, listHistory, promoteClipToSample, removeClip, dataRoot } from "./store.mjs";
 import { resetHotkeys, validateAccelerator, writeHotkeys } from "./hotkeys.mjs";
@@ -168,6 +169,55 @@ test("runner targets skip storage and stay sorted", () => {
     ["P0004", "P0005", "worker:P0016"],
   );
   assert.equal(rows[2].url, "http://127.0.0.1:3016/health");
+});
+
+test("ops history append and list", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-console-"));
+  process.env.DESK_CONSOLE_DATA = dir;
+  const { appendOpsHistory, readOpsHistory } = await import("./ops-history.mjs");
+  appendOpsHistory({ kind: "task", targetId: "Dev-Backup", action: "run", ok: true, message: "ok" });
+  const entries = readOpsHistory();
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].targetId, "Dev-Backup");
+});
+
+test("ops log path resolves cursor prune", async () => {
+  const { resolveOpsLogPath } = await import("./ops-log-paths.mjs");
+  const file = resolveOpsLogPath("Dev-Cursor-Chat-Auto-Prune", "task");
+  assert.match(file, /cursor-chat-auto-prune\.log$|terminals\/task-dev-cursor-chat-auto-prune\.log$/);
+});
+
+test("ops terminal log append", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-console-"));
+  process.env.DESK_CONSOLE_DATA = dir;
+  const { appendTerminalLine, terminalLogPath } = await import("./ops-terminal.mjs");
+  const file = appendTerminalLine("P0004", "runner", "start test");
+  assert.equal(file, terminalLogPath("P0004", "runner"));
+  assert.match(fs.readFileSync(file, "utf8"), /start test/);
+});
+
+test("runners and tasks screens use DeskDirectoryScreen", () => {
+  const srcRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src");
+  const app = fs.readFileSync(path.join(srcRoot, "App.tsx"), "utf8");
+  const runners = fs.readFileSync(path.join(srcRoot, "features", "runners", "RunnersScreen.tsx"), "utf8");
+  const tasks = fs.readFileSync(path.join(srcRoot, "features", "tasks", "TasksScreen.tsx"), "utf8");
+  const appScreen = fs.readFileSync(path.join(srcRoot, "lib", "app-screen.ts"), "utf8");
+  assert.match(app, /RunnersScreen/);
+  assert.match(app, /TasksScreen/);
+  assert.doesNotMatch(app, /OpsScreen/);
+  assert.match(runners, /DeskDirectoryScreen/);
+  assert.doesNotMatch(runners, /sideRail|RuntimeRail/);
+  assert.match(tasks, /DeskDirectoryScreen/);
+  assert.doesNotMatch(appScreen, /desk-path|migrateDeskAppUrl/);
+});
+
+test("runner stop endpoint", async () => {
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  const res = await fetch(`http://127.0.0.1:${port}/api/runners/UNKNOWN99/stop`, { method: "POST" });
+  assert.equal(res.status, 404);
+  server.close();
 });
 
 test("health endpoint", async () => {

@@ -10,7 +10,6 @@ import { HubAuthSysProgress } from "./HubAuthSysProgress";
 import {
   isHubTechnicalAuthEmail,
   looksLikeEmail,
-  clearHubResolveLoginPrefetch,
   prefetchHubResolveLogin,
   sanitizeHubLoginInput,
   warmHubAuthConnections,
@@ -120,7 +119,6 @@ export function HubAuthGateModal({
         setMessage("Use a real contact email — @infix1.io.vn is retired.");
         return;
       }
-      clearHubResolveLoginPrefetch();
       const result = await onSubmit(login, password, mode, contact ? { contactEmail: contact } : undefined);
       const intent = mode === "signup" ? "signup" : "signin";
       if (result && "error" in result && result.error) {

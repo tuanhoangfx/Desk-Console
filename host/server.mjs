@@ -27,7 +27,11 @@ import {
   removeClip,
 } from "./store.mjs";
 import { hotkeysPayload, resetHotkeys, writeHotkeys } from "./hotkeys.mjs";
-import { listRunners, startRunner } from "./runners.mjs";
+import { listRunners, startRunner, stopRunner } from "./runners.mjs";
+import { listOpsRows, parseOpsRef } from "./ops.mjs";
+import { appendOpsHistory, readOpsHistory } from "./ops-history.mjs";
+import { logLinesToConsoleEntries, tailOpsTerminal } from "./ops-log-paths.mjs";
+import { appendTerminalLine, pollTaskTerminalFeedback } from "./ops-terminal.mjs";
 import {
   DEV_ROOT,
   captureScreenPng,
@@ -89,12 +93,21 @@ async function handle(req, res) {
   }
 
   if (method === "GET" && url.pathname === "/api/health") {
+    let cursorRunning = false;
+    try {
+      const { createRequire } = await import("node:module");
+      const require = createRequire(import.meta.url);
+      const { isCursorProcessRunning } = require(path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs"));
+      cursorRunning = isCursorProcessRunning();
+    } catch {
+      cursorRunning = (await cursorCountAsync()) > 0;
+    }
     json(res, 200, {
       ok: true,
       code: "P0001",
       name: "Desk Console",
       port: PORT,
-      cursorRunning: false,
+      cursorRunning,
     });
     return;
   }
@@ -248,15 +261,102 @@ async function handle(req, res) {
     return;
   }
 
+  if (method === "GET" && url.pathname === "/api/ops") {
+    json(res, 200, { ok: true, rows: await listOpsRows() });
+    return;
+  }
+  if (method === "GET" && url.pathname === "/api/ops/history") {
+    const limit = Math.min(80, Math.max(1, Number(url.searchParams.get("limit") || 40)));
+    const target = url.searchParams.get("target") || "";
+    let entries = readOpsHistory(limit);
+    if (target) {
+      const { kind, targetId } = parseOpsRef(target);
+      entries = entries.filter((e) => e.kind === kind && e.targetId === targetId);
+    }
+    json(res, 200, { ok: true, entries });
+    return;
+  }
+  if (method === "GET" && url.pathname === "/api/ops/logs") {
+    const target = url.searchParams.get("target") || "";
+    const kind = url.searchParams.get("kind") || parseOpsRef(target).kind;
+    const targetId = url.searchParams.get("targetId") || parseOpsRef(target).targetId;
+    const lines = Math.min(400, Math.max(20, Number(url.searchParams.get("lines") || 200)));
+    const tail = tailOpsTerminal(targetId, kind, lines);
+    json(res, 200, {
+      ok: true,
+      path: tail.path,
+      exists: tail.exists,
+      sources: tail.sources,
+      lines: tail.lines,
+      entries: logLinesToConsoleEntries(tail.lines, kind === "runner" ? "runner" : "task"),
+    });
+    return;
+  }
+  if (method === "GET" && url.pathname === "/api/ops/terminal/stream") {
+    const target = url.searchParams.get("target") || "";
+    const kind = url.searchParams.get("kind") || parseOpsRef(target).kind;
+    const targetId = url.searchParams.get("targetId") || parseOpsRef(target).targetId;
+    let byteOffset = 0;
+    const boot = tailOpsTerminal(targetId, kind, 400);
+    byteOffset = boot.lines.join("\n").length;
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.write(": connected\n\n");
+    const pump = () => {
+      try {
+        const tail = tailOpsTerminal(targetId, kind, 400);
+        const text = tail.lines.join("\n");
+        if (text.length > byteOffset) {
+          const chunk = text.slice(byteOffset);
+          byteOffset = text.length;
+          const lines = chunk.split(/\r?\n/).filter((line) => line.length > 0);
+          if (lines.length) res.write(`data: ${JSON.stringify({ lines })}\n\n`);
+        }
+      } catch {
+        /* ignore pump errors */
+      }
+    };
+    pump();
+    const timer = setInterval(pump, 1000);
+    req.on("close", () => clearInterval(timer));
+    return;
+  }
+
   if (method === "GET" && url.pathname === "/api/runners") {
     json(res, 200, { ok: true, rows: await listRunners() });
     return;
   }
-  const runMatch = url.pathname.match(/^\/api\/runners\/([^/]+)\/(start|restart|recover)$/);
+  const runMatch = url.pathname.match(/^\/api\/runners\/([^/]+)\/(start|restart|recover|stop)$/);
   if (method === "POST" && runMatch) {
     const code = decodeURIComponent(runMatch[1]);
     const mode = runMatch[2];
+    if (mode === "stop") {
+      const result = await stopRunner(code);
+      appendTerminalLine(code, "runner", `POST /api/runners/${code}/stop ${result.ok ? result.state : result.error}`);
+      appendOpsHistory({
+        kind: "runner",
+        targetId: code,
+        action: "stop",
+        ok: result.ok,
+        message: result.ok ? `Runner ${code} ${result.state}` : String(result.error),
+      });
+      json(res, result.ok ? 200 : 404, { ok: result.ok, code, mode, ...result });
+      return;
+    }
     const pid = startRunner(code, mode);
+    appendTerminalLine(code, "runner", `POST /api/runners/${code}/${mode} pid=${pid ?? "?"}`);
+    appendOpsHistory({
+      kind: "runner",
+      targetId: code,
+      action: mode,
+      ok: true,
+      message: `Runner ${code} ${mode}`,
+      pid,
+    });
     json(res, 200, { ok: true, pid, code, mode });
     return;
   }
@@ -269,8 +369,34 @@ async function handle(req, res) {
   if (method === "POST" && taskMatch) {
     const name = decodeURIComponent(taskMatch[1]);
     const action = taskMatch[2];
-    if (action === "run") json(res, 200, await runTask(name));
-    else json(res, 200, await setTaskEnabled(name, action === "enable"));
+    try {
+      if (action === "run") {
+        appendTerminalLine(name, "task", `schtasks /Run /TN ${name}`);
+        pollTaskTerminalFeedback(name);
+        const body = await runTask(name);
+        appendOpsHistory({ kind: "task", targetId: name, action: "run", ok: true, message: `Task ${name} started` });
+        json(res, 200, body);
+      } else {
+        const body = await setTaskEnabled(name, action === "enable");
+        appendOpsHistory({
+          kind: "task",
+          targetId: name,
+          action,
+          ok: true,
+          message: `Task ${name} ${action}d`,
+        });
+        json(res, 200, body);
+      }
+    } catch (err) {
+      appendOpsHistory({
+        kind: "task",
+        targetId: name,
+        action,
+        ok: false,
+        message: String(err?.message || err),
+      });
+      json(res, 500, { ok: false, error: String(err?.message || err) });
+    }
     return;
   }
 

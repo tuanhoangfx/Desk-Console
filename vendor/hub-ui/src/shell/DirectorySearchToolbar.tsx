@@ -38,6 +38,11 @@ export type DirectorySearchToolbarProps = {
   total: number;
   countLabel?: string;
   showViewToggle?: boolean;
+  /**
+   * Creation-date Period. `false` hides `workspacePeriod` and the legacy time-range
+   * picker when the directory has no `createdAt`.
+   */
+  showPeriod?: boolean;
   /** Filter by `updatedAt` / activity — Hub catalog, System Overview, … */
   showTimeRange?: boolean;
   timeRange?: TimeRange;
@@ -69,6 +74,7 @@ export function DirectorySearchToolbar({
   total,
   countLabel = "tools",
   showViewToggle = true,
+  showPeriod = true,
   showTimeRange = true,
   timeRange,
   showTablePageSize,
@@ -103,8 +109,8 @@ export function DirectorySearchToolbar({
       {showLifecycle ? (
         <HubDirectoryLifecycleToggle value={lifecycleMode} onChange={onLifecycleModeChange} />
       ) : null}
-      {workspacePeriod ? <HubWorkspacePeriodSelect {...workspacePeriod} /> : null}
-      {showTimeRange ? <HubTimeRangeSelect value={period} /> : null}
+      {showPeriod && workspacePeriod ? <HubWorkspacePeriodSelect {...workspacePeriod} /> : null}
+      {showPeriod && showTimeRange ? <HubTimeRangeSelect value={period} /> : null}
       {resolvedShowTablePageSize ? (
         <HubTablePageSizeSelect value={tablePageSize} onChange={onTablePageSizeChange} />
       ) : null}

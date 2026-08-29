@@ -232,10 +232,18 @@ html.hub-embed .hub-main {
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 1;
+  /* Grow with directory content so sticky header+search pin against .hub-main.
+     `flex:1; min-height:0` boxed the sticky parent to the viewport — chrome
+     scrolled away with the page (Team / long directories). */
+  flex: 1 0 auto;
   min-width: 0;
-  min-height: 0;
+  min-height: auto;
   gap: var(--hub-chrome-content-gap);
+}
+
+.hub-tab-chrome-stack:has(.hub-tab-body-zone--split) {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 /* Flush header + search panel when stacked (no double gap between header and filter) */

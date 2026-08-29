@@ -1,5 +1,242 @@
+## 2026-08-29 - Rollback to v0.1.8 (2026-08-24 known-good)
+
+- Version: `0.1.8`
+- Timestamp: 2026-08-24 05:14 (UTC+7)
+- Type: Rollback
+- Status: Draft
+
+### Changes
+
+- Revert P0001 UI to v0.1.8: Runners + Tasks separate, DeskDirectoryScreen full-width.
+- URL: ?screen=runners / ?screen=tasks (removed path routing).
+
+---
 # Changelog
 
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.28`
+- Timestamp: 2026-08-29 05:19 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.27`
+- Timestamp: 2026-08-29 05:13 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.26`
+- Timestamp: 2026-08-29 05:07 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.25`
+- Timestamp: 2026-08-29 05:01 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.24`
+- Timestamp: 2026-08-29 04:56 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.23`
+- Timestamp: 2026-08-29 04:43 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.22`
+- Timestamp: 2026-08-29 04:39 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.21`
+- Timestamp: 2026-08-29 04:20 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.20`
+- Timestamp: 2026-08-29 04:14 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.19`
+- Timestamp: 2026-08-29 04:06 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.18`
+- Timestamp: 2026-08-29 03:46 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.17`
+- Timestamp: 2026-08-29 03:39 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-29 - Patch bump for completed agent task
+
+- Version: `0.1.16`
+- Timestamp: 2026-08-29 03:27 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-27 - Patch bump for completed agent task
+
+- Version: `0.1.15`
+- Timestamp: 2026-08-27 06:01 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
 ## 2026-08-27 - Patch bump for completed agent task
 
 - Version: `0.1.14`
