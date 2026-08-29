@@ -6,9 +6,12 @@
   "gitTag": "v0.1.8-stable",
   "productType": "Desktop",
   "backup": {
-    "dir": "dist-desktop/known-good",
-    "capturedAt": "2026-08-29T06:45:04.391Z",
-    "note": "Run pnpm desktop:dist before snapshot to copy installer into backup dir"
+    "dir": "dist-desktop/known-good/v0.1.8-stable",
+    "capturedAt": "2026-08-29T07:05:00.000Z",
+    "installer": "Desk Console Setup 0.1.8.exe",
+    "installerSha512": "679d72438c7c01bb666cf2e5e7f1fcde9cb647d67c3e035008ddcb89f3567772fe62c459becac6eba5a4b9939820a6ad1e87abb3078f3663d102d8f56d930697",
+    "unpacked": "win-unpacked",
+    "note": "Built via assemble-unpacked + prepackaged NSIS (EPERM rename workaround on win-unpacked.tmp)"
   },
   "notes": "Restore: git checkout v0.1.8-stable · pnpm install · pnpm dev",
   "restore": {

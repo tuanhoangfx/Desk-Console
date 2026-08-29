@@ -104,7 +104,7 @@
     "ssot": "src/lib/display-prefs-registry.ts"
   },
   "release": {
-    "version": "0.1.8"
+    "version": "0.1.9"
   },
   "knownGood": {
     "config": "config/known-good.json",
@@ -112,7 +112,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-08-24T05:14:00.000+07:00",
+  "manifestUpdatedAt": "2026-08-29T07:02:07.328Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
