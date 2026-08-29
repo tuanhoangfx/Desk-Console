@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "label": "stable-2026-08-24",
+  "version": "0.1.8",
+  "gitCommit": "54f280c03339ecbfb82e8d57d5ddfb0fb00c32ed",
+  "gitTag": "v0.1.8-stable",
+  "productType": "Desktop",
+  "backup": {
+    "dir": "dist-desktop/known-good",
+    "capturedAt": "2026-08-29T06:45:04.391Z",
+    "note": "Run pnpm desktop:dist before snapshot to copy installer into backup dir"
+  },
+  "notes": "Restore: git checkout v0.1.8-stable · pnpm install · pnpm dev",
+  "restore": {
+    "gitCheckout": "v0.1.8-stable",
+    "verify": "node host/desk-host.test.mjs",
+    "purgeRuntime": null
+  }
+}
