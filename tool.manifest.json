@@ -11,7 +11,7 @@
   "type": "Desktop",
   "owner": "Tool",
   "status": "WIP",
-  "summary": "Standalone desktop host for clips, screenshots, Vite/worker runners, and Dev-* scheduled tasks.",
+  "summary": "Standalone desktop host for clips, Vite/worker runners, and Dev-* scheduled tasks.",
   "stack": [
     "Electron",
     "React",
@@ -22,7 +22,10 @@
   "uiShell": {
     "golden": "P0020",
     "mainMode": "directory",
-    "splitScreens": [],
+    "splitScreens": [
+      "runners",
+      "tasks"
+    ],
     "userFooter": "workspace"
   },
   "uiScreens": [
@@ -30,25 +33,24 @@
       "screen": "clips",
       "template": "directory",
       "golden": "P0004/users",
+      "status": "wip",
       "notes": "Clipboard / quick-save inbox. Local JSON store."
-    },
-    {
-      "screen": "captures",
-      "template": "directory",
-      "golden": "P0004/users",
-      "notes": "Screenshot directory (screen / window)."
     },
     {
       "screen": "runners",
       "template": "directory",
-      "golden": "P0004/users",
-      "notes": "Vite/worker port runners — Start · Restart · Recover · Stop."
+      "layout": "split-workspace",
+      "golden": "P0001/runners",
+      "status": "wip",
+      "notes": "Vite/worker port runners — Start/Stop row · bulk Restart."
     },
     {
       "screen": "tasks",
       "template": "directory",
-      "golden": "P0004/users",
-      "notes": "Windows schtasks Dev-* — Run · Enable · Disable."
+      "layout": "split-workspace",
+      "golden": "P0001/tasks",
+      "status": "wip",
+      "notes": "Windows schtasks Dev-* — Start/Stop row · Console rail."
     },
     {
       "screen": "system",
@@ -104,7 +106,7 @@
     "ssot": "src/lib/display-prefs-registry.ts"
   },
   "release": {
-    "version": "0.1.9"
+    "version": "0.1.63"
   },
   "knownGood": {
     "config": "config/known-good.json",
@@ -112,7 +114,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-08-29T07:02:07.328Z",
+  "manifestUpdatedAt": "2026-08-30T19:29:26.759Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
