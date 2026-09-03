@@ -17,8 +17,9 @@ export function hubFilterTriggerClass(
   active: boolean,
   extra = "",
   typoClass: string = HUB_FILTER_DROPDOWN_TRIGGER_TYPO_CLASS,
+  gapClass: "hub-inline-gap-comfort" | "hub-inline-gap-name" = "hub-inline-gap-comfort",
 ) {
-  return `hub-filter-trigger inline-flex h-[var(--hub-control-h)] max-w-full items-center hub-inline-gap-comfort rounded-lg border px-3 ${typoClass} transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+  return `hub-filter-trigger inline-flex h-[var(--hub-control-h)] max-w-full items-center ${gapClass} rounded-lg border px-3 ${typoClass} transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
     active
       ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-200"
       : "border-white/10 bg-[var(--panel-2)] text-[var(--text)] hover:bg-white/5"
@@ -96,6 +97,7 @@ export const HubFilterDropdownTrigger = forwardRef<HTMLButtonElement, HubFilterD
         title={title}
         data-has-value={hasValue === undefined ? undefined : hasValue ? "true" : "false"}
         className={hubFilterTriggerClass(active, className, typoClass)}
+        style={{ gap: "var(--hub-inline-gap-name, 8px)" }}
       >
         {icon !== false ? (
           icon ?? (
@@ -109,7 +111,7 @@ export const HubFilterDropdownTrigger = forwardRef<HTMLButtonElement, HubFilterD
             </span>
           )
         ) : null}
-        <span className="hub-filter-trigger__label min-w-0 max-w-[12rem] truncate leading-none">{label}</span>
+        <span className="hub-filter-trigger__label min-w-0 max-w-[12rem] truncate leading-none">{`\u00A0${label}`}</span>
 
         <ChevronDown
           size={compactIconSize(12)}
@@ -198,6 +200,21 @@ export const HUB_FILTER_OPTION_EMOJI_CLASS = "shrink-0 leading-none";
 
 /** CSS custom property — set on :root or [data-hub-screen] to resize all inline emojis. */
 export const HUB_INLINE_EMOJI_SIZE_CSS_VAR = "--hub-inline-emoji-size";
+
+/** Dingbats that must stay text (♀) — everything else is color emoji (headers / FilterBar). */
+const HUB_FILTER_TEXT_PRESENTATION_EMOJI = /^(?:♀|♂|\u2640|\u2642)$/u;
+
+export function hubFilterEmojiUsesColorPresentation(emoji: string): boolean {
+  const glyph = emoji.trim();
+  if (!glyph) return false;
+  if (HUB_FILTER_TEXT_PRESENTATION_EMOJI.test(glyph)) return false;
+  return true;
+}
+
+export function hubFilterEmojiToneClass(emoji: string, color?: boolean): string {
+  const useColor = color === true || (color !== false && hubFilterEmojiUsesColorPresentation(emoji));
+  return useColor ? "hub-filter-option-emoji--color" : "hub-filter-option-emoji--sticker";
+}
 
 export function hubFilterOptionEmojiClass(extra = ""): string {
   return `hub-filter-option-emoji ${HUB_FILTER_OPTION_EMOJI_CLASS}${extra ? ` ${extra}` : ""}`;
@@ -303,29 +320,46 @@ export function HubFilterDropdownPanelSearch({
   createActionAriaLabel = "Add",
 }: HubFilterDropdownPanelSearchProps) {
   const showCreate = Boolean(onCreateAction);
-  const showClear = Boolean(onClearSelection) && clearSelectionEnabled;
+  /** Optional dropdowns always paint Clear (X); mute it until a value exists. */
+  const showClear = Boolean(onClearSelection);
   const showTrailing = showCreate || showClear;
   return (
     <div className="border-b border-white/5 p-2">
       <div className={`flex min-w-0 items-center${showTrailing ? " gap-2" : ""}`}>
         <div className="relative min-w-0 flex-1">
           <input
-            type="search"
+            type="text"
+            role="searchbox"
+            inputMode="search"
+            enterKeyHint="search"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="field h-[var(--hub-control-h)] w-full min-w-0 text-xs"
-            style={{ paddingLeft: 10, paddingRight: 10 }}
+            className="field hub-filter-dropdown-search h-[var(--hub-control-h)] w-full min-w-0 text-xs"
+            style={{ paddingLeft: 10, paddingRight: value ? 28 : 10 }}
+            aria-label={placeholder}
             {...HUB_NO_SPELLCHECK_PROPS}
           />
+          {value ? (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              aria-label="Clear search"
+              title="Clear search"
+              className="absolute right-1 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded text-[var(--muted)] hover:bg-white/10 hover:text-[var(--text)]"
+            >
+              <X size={compactIconSize(12)} aria-hidden />
+            </button>
+          ) : null}
         </div>
         {showClear ? (
           <button
             type="button"
             onClick={onClearSelection}
+            disabled={!clearSelectionEnabled}
             aria-label={clearSelectionLabel}
             title={clearSelectionLabel}
-            className={HUB_FILTER_PANEL_CLEAR_BTN_CLASS}
+            className={`${HUB_FILTER_PANEL_CLEAR_BTN_CLASS}${clearSelectionEnabled ? "" : " opacity-40"}`}
           >
             <X size={compactIconSize(14)} aria-hidden />
           </button>
