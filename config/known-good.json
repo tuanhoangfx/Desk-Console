@@ -1,21 +1,18 @@
 {
   "schemaVersion": 1,
-  "label": "stable-2026-08-24",
-  "version": "0.1.8",
-  "gitCommit": "54f280c03339ecbfb82e8d57d5ddfb0fb00c32ed",
-  "gitTag": "v0.1.8-stable",
+  "label": "stable-2.1.1",
+  "version": "2.1.1",
+  "gitCommit": "7f9f5da6f56e6054814be00a6394ba88045c18cf",
+  "gitTag": "v2.1.1-stable",
   "productType": "Desktop",
   "backup": {
-    "dir": "dist-desktop/known-good/v0.1.8-stable",
-    "capturedAt": "2026-08-29T07:05:00.000Z",
-    "installer": "Desk Console Setup 0.1.8.exe",
-    "installerSha512": "679d72438c7c01bb666cf2e5e7f1fcde9cb647d67c3e035008ddcb89f3567772fe62c459becac6eba5a4b9939820a6ad1e87abb3078f3663d102d8f56d930697",
-    "unpacked": "win-unpacked",
-    "note": "Built via assemble-unpacked + prepackaged NSIS (EPERM rename workaround on win-unpacked.tmp)"
+    "dir": "dist-desktop/known-good",
+    "capturedAt": "2026-09-04T12:05:35.011Z",
+    "note": "Run pnpm desktop:dist then snapshot-known-good.mjs --with-artifacts"
   },
   "notes": "Restore: git checkout v0.1.8-stable · pnpm install · pnpm dev",
   "restore": {
-    "gitCheckout": "v0.1.8-stable",
+    "gitCheckout": "v2.1.1-stable",
     "verify": "node host/desk-host.test.mjs",
     "purgeRuntime": null
   }
