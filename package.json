@@ -1,6 +1,6 @@
 {
   "name": "desk-console",
-  "version": "2.1.2",
+  "version": "2.1.1",
   "private": true,
   "description": "Standalone desktop host for clips, runners, and Dev-* tasks.",
   "author": "Desk Console",
