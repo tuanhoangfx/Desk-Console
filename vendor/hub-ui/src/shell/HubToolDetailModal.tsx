@@ -1,124 +1,31 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Loader2 } from "lucide-react";
 import { HubDetailModal, type HubDetailModalSize } from "./HubDetailModal";
 import { HubAccountDetailAdmBody } from "./HubAccountDetailAdmBody";
 import { HUB_DETAIL_MODAL_SAVING_LABEL } from "./hubToolDetailModalFooter";
+import {
+  HUB_TOOL_DETAIL_BODY_SCROLL_CLASS,
+  HUB_TOOL_DETAIL_SCROLL_ROOT,
+  HUB_TOOL_DETAIL_TITLE_ID,
+} from "./hubToolDetailModalChrome";
 
-export const HUB_TOOL_DETAIL_TITLE_ID = "hub-tool-detail-modal-title";
-/** Scroll container when modal has TOC — content column only. */
-export const HUB_TOOL_DETAIL_SCROLL_CLASS = "hub-tool-detail-modal__scroll";
-export const HUB_TOOL_DETAIL_SCROLL_ROOT = ".hub-tool-detail-modal__scroll";
-/** Fallback single-column body (no TOC). */
-export const HUB_TOOL_DETAIL_BODY_SCROLL_CLASS = "modal-shell__scroll modal-shell__scroll--user-access";
-
-export type HubToolDetailModalTocLayoutProps = {
-  toc: ReactNode;
-  children: ReactNode;
-  className?: string;
-};
-
-/** TOC left · content right — scroll isolated to content column (aligned tops). */
-export function HubToolDetailModalTocLayout({ toc, children, className = "" }: HubToolDetailModalTocLayoutProps) {
-  return (
-    <div className={`hub-tool-detail-modal__layout${className ? ` ${className}` : ""}`}>
-      <aside className="hub-tool-detail-modal__toc">{toc}</aside>
-      <div className="hub-tool-detail-modal__content">
-        <div className={HUB_TOOL_DETAIL_SCROLL_CLASS}>
-          <div className="hub-tool-detail-modal__scroll-inner">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export type HubToolDetailModalPrimaryActionProps = {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  busy?: boolean;
-  /** Shown instead of `label` while `busy` (default: Please wait…). */
-  busyLabel?: string;
-  danger?: boolean;
-  /** Emerald create CTA — matches directory `New` bulk action. */
-  variant?: "default" | "create";
-  icon?: LucideIcon;
-};
-
-export function HubToolDetailModalPrimaryAction({
-  label,
-  onClick,
-  disabled,
-  busy,
-  busyLabel = "Please wait…",
-  danger,
-  variant = "default",
-  icon: Icon,
-}: HubToolDetailModalPrimaryActionProps) {
-  return (
-    <button
-      type="button"
-      className={[
-        "hub-tool-detail-modal__confirm",
-        danger ? "hub-tool-detail-modal__confirm--danger" : "",
-        variant === "create" ? "hub-tool-detail-modal__confirm--create" : "",
-        busy ? "hub-tool-detail-modal__confirm--busy" : "",
-        disabled && !busy ? "hub-tool-detail-modal__confirm--disabled" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      disabled={disabled || busy}
-      onClick={onClick}
-      aria-label={busy ? busyLabel : label}
-      aria-busy={busy || undefined}
-    >
-      {busy ? (
-        <Loader2 size={16} className="hub-tool-detail-modal__confirm-icon--busy animate-spin" aria-hidden />
-      ) : Icon ? (
-        <Icon size={16} aria-hidden />
-      ) : null}
-      <span>{busy ? busyLabel : label}</span>
-    </button>
-  );
-}
-
-/** Accent tone for cross-entity footer nav (View orders / customer / catalog). */
-export type HubToolDetailModalSecondaryTone = "emerald" | "sky" | "violet" | "amber" | "rose";
-
-export type HubToolDetailModalSecondaryActionProps = {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  /** Required — Layout-3 / form footer SSOT (Close=X, Reset=RotateCcw, …). */
-  icon: LucideIcon;
-  /** Optional accent — hover brightens border (not neutral gray wash). */
-  tone?: HubToolDetailModalSecondaryTone;
-};
-
-export function HubToolDetailModalSecondaryAction({
-  label,
-  onClick,
-  disabled,
-  icon: Icon,
-  tone,
-}: HubToolDetailModalSecondaryActionProps) {
-  return (
-    <button
-      type="button"
-      className={[
-        "hub-tool-detail-modal__secondary",
-        tone ? `hub-tool-detail-modal__secondary--${tone}` : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <Icon size={16} aria-hidden />
-      <span>{label}</span>
-    </button>
-  );
-}
+export {
+  HUB_TOOL_DETAIL_BODY_SCROLL_CLASS,
+  HUB_TOOL_DETAIL_SCROLL_CLASS,
+  HUB_TOOL_DETAIL_SCROLL_ROOT,
+  HUB_TOOL_DETAIL_TITLE_ID,
+} from "./hubToolDetailModalChrome";
+export {
+  HubToolDetailModalTocLayout,
+  type HubToolDetailModalTocLayoutProps,
+} from "./HubToolDetailModalTocLayout";
+export {
+  HubToolDetailModalPrimaryAction,
+  HubToolDetailModalSecondaryAction,
+  type HubToolDetailModalPrimaryActionProps,
+  type HubToolDetailModalSecondaryActionProps,
+  type HubToolDetailModalSecondaryTone,
+} from "./HubToolDetailModalActions";
 
 export type HubToolDetailModalProps = {
   open?: boolean;

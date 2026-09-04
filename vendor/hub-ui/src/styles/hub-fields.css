@@ -1,3 +1,13 @@
+/* Native search cancel fights Hub Clear (X) — directory + dropdown search use the Lucide X. */
+input.field[type="search"]::-webkit-search-cancel-button,
+input.field[type="search"]::-webkit-search-decoration,
+input.hub-filter-dropdown-search::-webkit-search-cancel-button,
+input.hub-filter-dropdown-search::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 .field {
   width: 100%;
   padding: 8px 10px;
@@ -145,7 +155,50 @@ select.hub-filter-select-native option,
   font-weight: 500;
 }
 
-/* Clear filters — rose SSOT (do not inherit --text from host theme overrides). */
+/*
+ * Filter / bulk / Clear — icon + label share one optical midline.
+ * Cause: inline SVG baseline gap under the glyph; color emoji em-box sits low on Windows.
+ */
+.hub-filter-trigger__label,
+.hub-bulk-action-btn__label {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.hub-filter-trigger svg,
+.hub-bulk-action-btn svg,
+.hub-filter-clear-btn svg {
+  display: block;
+}
+
+.hub-bulk-action-btn__icon {
+  display: inline-grid;
+  place-items: center;
+  width: var(--hub-directory-header-glyph-px, 13px);
+  height: var(--hub-directory-header-glyph-px, 13px);
+  line-height: 0;
+}
+
+.hub-filter-clear-btn__icon {
+  display: inline-grid;
+  place-items: center;
+  width: var(--hub-directory-header-glyph-px, 13px);
+  height: var(--hub-directory-header-glyph-px, 13px);
+  line-height: 0;
+  overflow: visible;
+}
+
+/*
+ * 🧹 (and other Clear color emoji) — Segoe ink sits low in the em-box vs Latin "Clear".
+ * Slot is 13px (title/filter glyph); nudge lifts the painted broom onto the label midline.
+ */
+.hub-filter-clear-btn__icon .hub-filter-option-emoji--color {
+  font-size: var(--hub-directory-header-glyph-px, 13px);
+  transform: translateY(-2px);
+}
+
+/* Clear — rose SSOT (do not inherit --text from host theme overrides). */
 .hub-filter-clear-btn {
   color: #fecdd3 !important; /* rose-200 */
   border-color: rgb(244 63 94 / 0.3) !important;

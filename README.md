@@ -10,10 +10,9 @@ Standalone Windows host for workspace ops. **Not** Stealth (P0003) and **not** G
 ## V1
 
 - **Clips** — save clipboard / paste inbox (replaces relying on Win+V alone)
-- **Captures** — full virtual-screen PNG
 - **Runners** — Start / Restart / Recover via `ensure-dev-product`
 - **Tasks** — `Dev-*` scheduled tasks + Cursor GC
-- Hotkeys: `Ctrl+Alt+V` · `Ctrl+Alt+S`
+- Hotkeys: paste picker (default `Ctrl+Shift+Q`, no Alt / no Ctrl+Shift+V)
 
 ## Commands
 

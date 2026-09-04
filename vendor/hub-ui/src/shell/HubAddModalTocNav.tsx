@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { HubTocSectionNav, type HubTocNavItem } from "./HubTocSectionNav";
-import { HUB_TOOL_DETAIL_SCROLL_ROOT } from "./HubToolDetailModal";
+import { HUB_TOOL_DETAIL_SCROLL_ROOT } from "./hubToolDetailModalChrome";
 
 import type { ReactNode } from "react";
 

@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { Save, Trash2 } from "lucide-react";
 import {
   HubToolDetailModalPrimaryAction,
-} from "./HubToolDetailModal";
+} from "./HubToolDetailModalActions";
 import { HUB_DETAIL_MODAL_SAVING_LABEL } from "./hubToolDetailModalFooter";
 
 export type HubToolDetailModalFooterActionsProps = {

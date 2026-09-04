@@ -32,6 +32,8 @@ export type DirectorySearchToolbarProps = {
    */
   lifecycleMode?: HubDirectoryLifecycleMode;
   onLifecycleModeChange?: (mode: HubDirectoryLifecycleMode) => void;
+  /** Replaces default Live/Trash toggle (e.g. P0004 Users adds Waiting). */
+  lifecycleToggle?: ReactNode;
   countIcon?: LucideIcon;
   countBrandIcon?: HubBrandIconId;
   shown: number;
@@ -68,6 +70,7 @@ export function DirectorySearchToolbar({
   onViewModeChange,
   lifecycleMode,
   onLifecycleModeChange,
+  lifecycleToggle,
   countIcon,
   countBrandIcon,
   shown,
@@ -99,7 +102,8 @@ export function DirectorySearchToolbar({
   });
   const resultCountVisible = shouldShowHubDirectoryResultCount(resultCountGuard);
   const showLifecycle =
-    lifecycleMode != null && typeof onLifecycleModeChange === "function";
+    lifecycleToggle != null ||
+    (lifecycleMode != null && typeof onLifecycleModeChange === "function");
   return (
     <>
       {leading}
@@ -107,7 +111,9 @@ export function DirectorySearchToolbar({
         <ViewToggle value={viewMode} onChange={onViewModeChange} />
       ) : null}
       {showLifecycle ? (
-        <HubDirectoryLifecycleToggle value={lifecycleMode} onChange={onLifecycleModeChange} />
+        lifecycleToggle ?? (
+          <HubDirectoryLifecycleToggle value={lifecycleMode!} onChange={onLifecycleModeChange!} />
+        )
       ) : null}
       {showPeriod && workspacePeriod ? <HubWorkspacePeriodSelect {...workspacePeriod} /> : null}
       {showPeriod && showTimeRange ? <HubTimeRangeSelect value={period} /> : null}

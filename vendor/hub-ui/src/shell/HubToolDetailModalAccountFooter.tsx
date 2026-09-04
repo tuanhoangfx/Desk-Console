@@ -4,7 +4,7 @@ import { Trash2, X } from "lucide-react";
 import {
   HubToolDetailModalPrimaryAction,
   HubToolDetailModalSecondaryAction,
-} from "./HubToolDetailModal";
+} from "./HubToolDetailModalActions";
 import {
   HUB_DETAIL_MODAL_CLOSE_LABEL,
   HUB_DETAIL_MODAL_SAVE_LABEL,
@@ -86,6 +86,7 @@ export function HubToolDetailModalAccountFooter({
           onClick={onClose}
           disabled={closeDisabled ?? busy}
           icon={closeIcon}
+          close
         />
         {onDelete ? (
           <span className="hub-tool-detail-modal__delete-wrap">

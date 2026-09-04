@@ -3,6 +3,7 @@ import type { HubGlyphComponent } from "../types/filter-badge";
 import { AppTabHeader, type TabHeaderMetaItem, type TabHeaderStatItem, hubMetaActivityAtString } from "./AppTabHeader";
 import { HubVersionReleaseNotes } from "./HubVersionReleaseNotes";
 import { applyHubListVersionReleaseNotesMeta } from "./hub-list-chrome-version-meta";
+import { extractHubReleaseNotesSemver } from "../lib/hub-version-release-notes-core";
 import { useHubChromePrefs } from "./HubTabChrome";
 import type { HubVersionDesktopUpdate } from "./HubVersionUpdateStatusIcon";
 
@@ -11,6 +12,8 @@ export type HubListChromeHeaderProps = {
   title: string;
   titleIcon: HubGlyphComponent;
   titleIconClass?: string;
+  /** Sheet-parity emoji — overrides Lucide when set (HubTabTitleIcon SSOT). */
+  titleEmojiGlyph?: string;
   metaItems?: TabHeaderMetaItem[];
   /** Tool code — release-notes badge beside the first (version) meta item (WorkspaceTabHeader parity). */
   versionReleaseNotesCode?: string;
@@ -36,6 +39,7 @@ export function HubListChromeHeader({
   title,
   titleIcon,
   titleIconClass,
+  titleEmojiGlyph,
   metaItems = [],
   versionReleaseNotesCode,
   versionReleaseNotesBundleStale = false,
@@ -55,7 +59,7 @@ export function HubListChromeHeader({
     const badge = (
       <HubVersionReleaseNotes
         code={versionReleaseNotesCode}
-        version={metaItems[0].value}
+        version={extractHubReleaseNotesSemver(metaItems[0].value)}
         publishedAt={hubMetaActivityAtString(metaItems[0].activityAt)}
         bundleStale={versionReleaseNotesBundleStale}
         onBundleReload={versionReleaseNotesOnBundleReload}
@@ -76,6 +80,7 @@ export function HubListChromeHeader({
       ariaLabel={ariaLabel}
       titleIcon={titleIcon}
       titleIconClass={titleIconClass}
+      titleEmojiGlyph={titleEmojiGlyph}
       title={title}
       metaItems={resolvedMetaItems}
       centerStats={centerStats}

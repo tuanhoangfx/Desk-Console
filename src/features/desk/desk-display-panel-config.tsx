@@ -1,15 +1,24 @@
 import { useMemo } from "react";
 import {
   asDirectoryTableColumnPresetManagerProp,
-  DirectoryTableColumnsSettings,
+  DirectoryTableLegacyDisplaySettings,
   type HubDirectoryDisplayPanelProps,
 } from "@tool-workspace/hub-ui";
 import type { AppScreen } from "../../lib/app-screen";
 import { SCREEN_DISPLAY_PREFS } from "../../lib/display-prefs-registry";
-import { DESK_COL_ITEMS, deskColumnPresets, deskTablePrefs } from "./desk-table-prefs";
+import { deskDefaultSortRowsFor, deskPrimaryDefaultSort } from "./desk-display-sort";
+import {
+  DESK_COL_ITEMS,
+  deskColumnPresetsFor,
+  deskDirectoryScreenOrClips,
+  deskTablePrefsFor,
+} from "./desk-table-prefs";
 
 export function useDeskDisplayPanelConfig(screen: AppScreen): HubDirectoryDisplayPanelProps | null {
   const defs = SCREEN_DISPLAY_PREFS[screen];
+  const tableScreen = deskDirectoryScreenOrClips(screen);
+  const tablePrefs = deskTablePrefsFor(tableScreen);
+  const columnPresets = deskColumnPresetsFor(tableScreen);
   return useMemo(() => {
     if (!defs) return null;
     return {
@@ -21,8 +30,17 @@ export function useDeskDisplayPanelConfig(screen: AppScreen): HubDirectoryDispla
       defaultFilterKeys: new Set(defs.defaultFilterKeys ?? ["status"]),
       filtersFromUrl: true,
       getScreen: () => screen,
-      tableColumnPresets: asDirectoryTableColumnPresetManagerProp(deskColumnPresets),
-      tablePanel: <DirectoryTableColumnsSettings items={DESK_COL_ITEMS} prefs={deskTablePrefs} showReset />,
+      tableColumnPresets: asDirectoryTableColumnPresetManagerProp(columnPresets),
+      tablePanel: (
+        <DirectoryTableLegacyDisplaySettings
+          id={tableScreen}
+          items={DESK_COL_ITEMS}
+          prefs={tablePrefs}
+          primaryDefault={deskPrimaryDefaultSort(screen)}
+          sortRows={deskDefaultSortRowsFor(screen)}
+          showReset
+        />
+      ),
     };
-  }, [defs, screen]);
+  }, [columnPresets, defs, screen, tablePrefs, tableScreen]);
 }

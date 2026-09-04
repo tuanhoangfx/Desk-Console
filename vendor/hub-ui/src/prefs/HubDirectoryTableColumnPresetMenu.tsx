@@ -157,6 +157,8 @@ export function HubDirectoryTableColumnPresetMenu<K extends string>({
         value={search}
         onChange={setSearch}
         placeholder={filterDropdownPanelSearchPlaceholder("presets")}
+        onClearSelection={pickDefault}
+        clearSelectionEnabled={label !== "Default"}
       />
       <div className={HUB_FILTER_DROPDOWN_LIST_CLASS}>
         {showDefaultRow ? (

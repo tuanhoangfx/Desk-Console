@@ -1,9 +1,43 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { appendTerminalLine, listProductDevLogCandidates, terminalLogPath } from "./ops-terminal.mjs";
+import {
+  appendTerminalLine,
+  listProductDevLogCandidates,
+  terminalLogPath,
+} from "./ops-terminal.mjs";
 
 const TEMP = os.tmpdir();
+const HOST_STAMP_RE = /^\[[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\]]+\]\s*/;
+
+/** Strip host appendTerminalLine ISO prefix before normalize/classify. */
+export function stripOpsConsoleHostStamp(line) {
+  return String(line || "").replace(HOST_STAMP_RE, "");
+}
+
+/**
+ * Host tail normalize — tag raw ensure-dev / vite stdout for CRT V5 chips + colors.
+ * Mirrors hub-ui hubConsoleCmd/Ok/Meta prefixes at read time (live terminal file only).
+ */
+export function normalizeOpsConsoleTailLine(line) {
+  const body = stripOpsConsoleHostStamp(line).trimEnd();
+  if (!body) return String(line || "");
+  if (/^\$|^→|^\[spawn\]/i.test(body)) return body;
+  if (/^\d{2}:\d{2}:\d{2}\s+\[vite\]/i.test(body)) return body;
+  if (/\bpage reload\b|\bhmr update\b/i.test(body)) return `→ ${body}`;
+  if (/\bVITE\b.*\bready in\b/i.test(body) || /^➜\s+Local:/i.test(body)) return `→ ${body}`;
+  if (/^listening on\s+http/i.test(body)) return `→ ${body}`;
+  if (/^ensure-dev|^recover\s/i.test(body)) return `$ node Tool/scripts/${body}`;
+  if (/^task\b|^runner\b|^schtasks\b/i.test(body)) return `$ ${body}`;
+  if (/^exit\s+\d+/i.test(body)) return `→ ${body}`;
+  if (/^last\s+run\b/i.test(body)) return `→ ${body}`;
+  if (/^POST \/api\//i.test(body)) return `→ ${body}`;
+  return body;
+}
+
+export function normalizeOpsConsoleTail(lines) {
+  return (Array.isArray(lines) ? lines : []).map(normalizeOpsConsoleTailLine);
+}
 
 /** SSOT map: ops target id → log file (hidden nodew / schtasks output). */
 const TASK_LOGS = [
@@ -86,14 +120,22 @@ export function tailLogFile(filePath, maxLines = 200) {
   }
 }
 
-export function tailOpsTerminal(targetId, kind, maxLines = 300) {
+/** Live process output only — Desk Terminal rail (no legacy vite/dev log merge). */
+export function tailOpsTerminalLive(targetId, kind, maxLines = 300) {
+  const file = terminalLogPath(targetId, kind);
+  const tail = tailLogFile(file, maxLines);
+  return { path: file, exists: tail.exists, lines: normalizeOpsConsoleTail(tail.lines), sources: [file] };
+}
+
+export function tailOpsTerminal(targetId, kind, maxLines = 300, { liveOnly = true } = {}) {
+  if (liveOnly) return tailOpsTerminalLive(targetId, kind, maxLines);
   const sources = resolveOpsLogSources(targetId, kind);
   const merged = [];
   for (const file of sources) {
     const tail = tailLogFile(file, maxLines);
     if (tail.lines.length) merged.push(...tail.lines);
   }
-  const lines = merged.slice(-maxLines);
+  const lines = normalizeOpsConsoleTail(merged.slice(-maxLines));
   const primary = sources.find((f) => fs.existsSync(f)) || sources[0] || "";
   return { path: primary, exists: lines.length > 0 || Boolean(primary && fs.existsSync(primary)), lines, sources };
 }

@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { compactIconSize } from "../ui-scale";
+import { useCompactIconSize } from "../ui-scale";
 
 export const HUB_SIDEBAR_FOOTER_BTN_CLASS =
   "hub-sidebar-chrome-type flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors text-[var(--muted)] hover:bg-white/5 hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60";
@@ -38,7 +38,7 @@ export function HubSidebarFooterButton({
   iconFadeIn = false,
   dataHubSidebarUser = false,
 }: HubSidebarFooterButtonProps) {
-  const px = compactIconSize(iconSize);
+  const px = useCompactIconSize(iconSize);
   const iconMotion = iconFadeIn ? "transition-opacity duration-150" : "";
   const trimmedSrc = iconSrc?.trim() || "";
   const [imgBroken, setImgBroken] = useState(false);
@@ -71,6 +71,8 @@ export function HubSidebarFooterButton({
       ) : (
         <Icon
           size={px}
+          aria-hidden
+          suppressHydrationWarning
           className={`shrink-0 ${iconMotion} ${iconClass} ${loading ? "anim-spin" : ""}`}
         />
       )}

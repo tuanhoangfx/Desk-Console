@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { compactIconSize } from "../ui-scale";
+import { useCompactIconSize } from "../ui-scale";
 
 export type HubHeaderPanelButtonProps = {
   icon: LucideIcon;
@@ -29,6 +29,7 @@ export function HubHeaderPanelButton({
   compact = false,
   onClick,
 }: HubHeaderPanelButtonProps) {
+  const iconPx = useCompactIconSize(sidebarRow ? 15 : 14);
   const triggerClass = sidebarRow
     ? "relative flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-[var(--muted)] transition-colors hover:bg-white/5 hover:text-[var(--text)]"
     : HUB_HEADER_PANEL_BTN_CLASS;
@@ -41,7 +42,7 @@ export function HubHeaderPanelButton({
       title={title ?? label}
       aria-label={title ?? label}
     >
-      <Icon size={compactIconSize(sidebarRow ? 15 : 14)} className={`shrink-0 ${iconClassName}`} aria-hidden />
+      <Icon size={iconPx} className={`shrink-0 ${iconClassName}`} aria-hidden suppressHydrationWarning />
       {sidebarRow || !compact ? (
         <span className={sidebarRow ? "flex-1 text-left" : "hidden sm:inline"}>{label}</span>
       ) : null}

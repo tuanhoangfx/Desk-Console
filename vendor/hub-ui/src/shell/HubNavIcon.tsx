@@ -11,11 +11,21 @@ export type HubNavIconProps = {
   brandIcon?: HubBrandIconId;
   /** Raster/SVG mark — overrides Lucide + brand when set. */
   iconSrc?: string;
+  /** Sheet-parity emoji — overrides Lucide when set. */
+  emojiGlyph?: string;
 };
 
-/** Sidebar nav glyph — Lucide tone icon, shared brand mark, or custom SVG. */
-export function HubNavIcon({ icon: Icon, iconTone, active, brandIcon, iconSrc }: HubNavIconProps) {
+/** Sidebar nav glyph — emoji sticker, Lucide tone icon, shared brand mark, or custom SVG. */
+export function HubNavIcon({ icon: Icon, iconTone, active, brandIcon, iconSrc, emojiGlyph }: HubNavIconProps) {
   const px = compactIconSize(HUB_CHROME_ICON_PX);
+
+  if (emojiGlyph) {
+    return (
+      <span className="hub-users-th-emoji shrink-0 leading-none" style={{ fontSize: px }} aria-hidden>
+        {emojiGlyph}
+      </span>
+    );
+  }
 
   if (iconSrc) {
     return (

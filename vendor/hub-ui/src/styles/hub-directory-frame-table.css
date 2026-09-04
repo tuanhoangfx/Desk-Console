@@ -102,13 +102,28 @@
   line-height: 1.2;
 }
 
-/* Inline table wrap — content height only; pager flush below rows (no flex gap). */
+/* Split pane + natural density (no panel-fill) — same wrap chrome as panel-fill / Clips:
+ * overflow-y hidden on wrap (no vertical scrollbar beside thead → no color seam).
+ * Horizontal overflow only when rem table wider than pane. */
 .hub-directory-frame:not(.hub-directory-frame--panel-fill):not(.hub-split-directory-pane--fixed-rows)
   .hub-split-directory-pane__body
   .hub-paginated-table-shell
   > .hub-users-table-wrap:not(.hub-directory-table-split):not(.hub-directory-table-scroll--flex-pane) {
-  flex: 0 0 auto;
-  min-height: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+  background: var(--hub-directory-pane-surface, var(--panel));
+}
+
+.hub-directory-frame:not(.hub-directory-frame--panel-fill):not(.hub-split-directory-pane--fixed-rows)
+  table.hub-directory-frame-table
+  tbody
+  tr:not(.hub-users-row--pad) {
+  height: auto;
+  max-height: none;
 }
 
 /* fixedRows — exact N rows, pager below (workflow rail) */
@@ -179,12 +194,18 @@
   overflow: hidden;
 }
 
+/* Same paint as non-panel-fill / Clips: never vertical scrollbar beside thead (color seam).
+ * Horizontal only when rem min-width exceeds pane (P0001 Desk rem tracks). */
 .hub-directory-frame.hub-directory-frame--panel-fill
   .hub-paginated-table-shell
   > .hub-users-table-wrap.hub-directory-table-scroll--flex-pane {
   flex: 1 1 0;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+  background: var(--hub-directory-pane-surface, var(--panel));
 }
 
 .hub-directory-frame.hub-directory-frame--panel-fill
@@ -192,7 +213,11 @@
   > .hub-users-table-wrap:not(.hub-directory-table-split) {
   flex: 1 1 0;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+  background: var(--hub-directory-pane-surface, var(--panel));
 }
 
 .hub-directory-frame.hub-directory-frame--panel-fill

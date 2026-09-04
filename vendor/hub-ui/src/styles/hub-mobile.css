@@ -462,7 +462,8 @@ html.hub-embed #hub-boot-loader.hub-boot-loader--pane::before {
     overflow: visible !important;
   }
 
-  .hub-modal-close {
+  /* Edge hang — skip frameless Electron picker (`.desk-picker-close`): window has no backdrop pad. */
+  .hub-modal-close:not(.desk-picker-close) {
     top: -0.55rem !important;
     right: -0.55rem !important;
     z-index: 40;

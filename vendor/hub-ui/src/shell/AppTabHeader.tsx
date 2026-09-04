@@ -370,9 +370,13 @@ export function AppTabHeader({
         dividerBelow ? " border-b border-white/5" : ""
       }`;
   const hasCenterStats = Boolean(centerContent) || centerStats.length > 0;
+  const sparseCenter = !hasCenterStats && !statusSlot;
 
   return (
-    <header className={chromeClass} aria-label={ariaLabel}>
+    <header
+      className={`${chromeClass}${sparseCenter ? " app-tab-header--sparse" : ""}`}
+      aria-label={ariaLabel}
+    >
       <div className="app-tab-header__start flex min-w-0 items-center justify-self-start gap-x-2.5 overflow-hidden">
         {titleMenu?.length ? (
           <TitleWithMenu

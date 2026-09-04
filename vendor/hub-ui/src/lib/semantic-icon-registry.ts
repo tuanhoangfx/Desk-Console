@@ -237,6 +237,7 @@ const REGISTRY: Record<SemanticIconKey, SemanticIconMeta> = {
   "filter.project": { icon: FolderOpen, className: "text-indigo-300", tone: "indigo" },
   "filter.priority": { icon: Star, className: "text-amber-400/90", tone: "amber" },
   "filter.creator": { icon: Users, className: "text-sky-300", tone: "sky" },
+  "filter.team": { icon: Users, className: "text-sky-300", tone: "sky" },
   "filter.category": { icon: Layers, className: "text-indigo-400", tone: "indigo" },
   "filter.deploy": { icon: Rocket, className: "text-sky-400", tone: "sky" },
   "filter.drift": { icon: AlertTriangle, className: "text-rose-400", tone: "rose" },

@@ -14,6 +14,8 @@ export type HubSidebarNavScreenButtonProps = {
   icon: LucideIcon;
   iconTone: NavIconTone;
   brandIcon?: HubBrandIconId;
+  /** Sheet-parity emoji — replaces Lucide nav icon when set. */
+  emojiGlyph?: string;
   active: boolean;
   badge?: number;
   onClick: () => void;
@@ -27,6 +29,7 @@ export function HubSidebarNavScreenButton({
   icon,
   iconTone,
   brandIcon,
+  emojiGlyph,
   active,
   badge,
   onClick,
@@ -50,7 +53,7 @@ export function HubSidebarNavScreenButton({
           className={`absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r ${navActiveBarClass(iconTone)}`}
         />
       ) : null}
-      <HubNavIcon icon={icon} iconTone={iconTone} active={active} brandIcon={brandIcon} />
+      <HubNavIcon icon={icon} iconTone={iconTone} active={active} brandIcon={brandIcon} emojiGlyph={emojiGlyph} />
       <span className="flex-1 text-left">{label}</span>
       {badge != null && badge > 0 ? (
         <span className="min-w-[1.125rem] rounded-full bg-amber-500/25 px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums text-amber-200">

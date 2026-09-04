@@ -73,7 +73,7 @@ table.hub-users-table.hub-users-table--directory {
   min-width: 48rem;
   --hub-table-body-size: 12px;
   --hub-table-body-line-height: 1.45;
-  --hub-directory-glyph-label-gap: 5px;
+  --hub-directory-glyph-label-gap: 8px;
   --hub-directory-header-glyph-px: 13px;
 }
 
@@ -360,14 +360,14 @@ table.hub-users-table[data-hub-directory-select] .hub-users-th-btn {
 
 table.hub-users-table.hub-users-table--directory .hub-users-th-heading,
 table.hub-users-table[data-hub-directory-select] .hub-users-th-heading {
-  gap: var(--hub-directory-glyph-label-gap, 5px);
+  gap: var(--hub-directory-glyph-label-gap, 8px);
   flex: 1 1 auto;
   min-width: 0;
 }
 
 table.hub-users-table.hub-users-table--directory .hub-users-th-label,
 table.hub-users-table[data-hub-directory-select] .hub-users-th-label {
-  gap: var(--hub-directory-glyph-label-gap, 5px);
+  gap: var(--hub-directory-glyph-label-gap, 8px);
   min-width: 0;
   overflow: hidden;
   /* Sort icon must not steal flex space from the column title. */
@@ -444,37 +444,68 @@ table.hub-users-table[data-hub-directory-select] thead .hub-users-th-text {
  */
 
 /*
- * Glyph column headers — keep short labels sized to content so flex+ellipsis does not
- * clip before JS measures the real <th> budget. Long text-only headers stay default flex.
+ * Glyph column headers — pack icon+label for JS fit (icon-only when <th> is too narrow).
+ * min-width: 0 — NOT max-content: narrow cols (P0003 E0001 3.25rem) overflow-clip looked
+ * like label far left + icon far right (7.1.9 regression). Spacing = NBSP-only (HubTableColumnHeader).
  */
-table.hub-users-table[data-hub-directory-select] thead th:has(
+:is(
+  table.hub-users-table.hub-users-table--directory,
+  table.hub-users-table[data-hub-directory-select]
+) thead th:has(
   .hub-users-th-emoji,
   .hub-users-th-icon,
   .hub-chrome-brand-icon-bare,
   img.hub-users-th-icon--image
 ) .hub-users-th-heading,
-table.hub-users-table[data-hub-directory-select] thead th:has(
+:is(
+  table.hub-users-table.hub-users-table--directory,
+  table.hub-users-table[data-hub-directory-select]
+) thead th:has(
   .hub-users-th-emoji,
   .hub-users-th-icon,
   .hub-chrome-brand-icon-bare,
   img.hub-users-th-icon--image
 ) .hub-users-th-label {
   flex: 0 1 auto;
-  min-width: max-content;
-  overflow: visible;
+  min-width: 0;
+  max-width: 100%;
   width: auto;
+  overflow: hidden;
+  gap: 0;
 }
 
-table.hub-users-table[data-hub-directory-select] thead th:has(
+:is(
+  table.hub-users-table.hub-users-table--directory,
+  table.hub-users-table[data-hub-directory-select]
+) thead th:has(
   .hub-users-th-emoji,
   .hub-users-th-icon,
   .hub-chrome-brand-icon-bare,
   img.hub-users-th-icon--image
 ) .hub-users-th-text:not(.hub-users-th-text--measure) {
-  flex: 0 0 auto;
-  min-width: max-content;
-  overflow: visible;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   text-overflow: clip;
+}
+
+:is(
+  table.hub-users-table.hub-users-table--directory,
+  table.hub-users-table[data-hub-directory-select]
+) .hub-users-th-emoji {
+  margin-right: 0;
+}
+
+:is(
+  table.hub-users-table.hub-users-table--directory,
+  table.hub-users-table[data-hub-directory-select]
+) .hub-users-th-heading > .hub-users-th-emoji + .hub-users-th-text,
+:is(
+  table.hub-users-table.hub-users-table--directory,
+  table.hub-users-table[data-hub-directory-select]
+) .hub-users-th-heading > .inline-flex + .hub-users-th-text {
+  padding-left: 0;
 }
 
 /* JS fit — never clip header labels; icon-only when measured overflow. */

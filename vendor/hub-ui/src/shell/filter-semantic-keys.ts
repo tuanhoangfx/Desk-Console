@@ -41,6 +41,8 @@ export const FILTER_BAR_SEMANTIC_KEY: Record<string, SemanticIconLookupKey> = {
   ownership: "filter.ownership",
   website: "filter.website",
   rating: "filter.rating",
+  team: "filter.team",
+  audience: "filter.team",
 };
 
 export function semanticFilterAllIcon(filterKey: string): FilterIconMeta | null {

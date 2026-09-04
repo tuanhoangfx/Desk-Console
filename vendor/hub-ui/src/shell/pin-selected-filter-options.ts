@@ -36,3 +36,23 @@ export function pinSelectedFilterOptions<T extends PinableFilterOption>(
   }
   return pinned.length === 0 ? options.slice() : [...pinned, ...rest];
 }
+
+/**
+ * Keep ticked values visible when the catalog is empty or stale
+ * (Teams window facets omit Plan Package → "6 selected" + "No matches").
+ */
+export function appendMissingSelectedFilterOptions<T extends PinableFilterOption & { label?: string }>(
+  options: readonly T[],
+  selected: readonly string[],
+): T[] {
+  if (!selected.length) return options.slice();
+  const have = new Set(options.map((option) => option.value));
+  const extra: T[] = [];
+  for (const raw of selected) {
+    const value = raw.trim();
+    if (!value || have.has(value)) continue;
+    have.add(value);
+    extra.push({ value, label: value } as T);
+  }
+  return extra.length ? [...extra, ...options] : options.slice();
+}

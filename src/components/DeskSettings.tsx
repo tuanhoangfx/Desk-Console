@@ -9,7 +9,7 @@ import {
 import { readAppScreen } from "../lib/app-screen";
 import { SCREEN_DISPLAY_PREFS } from "../lib/display-prefs-registry";
 import { DeskHotkeysSettings } from "./DeskHotkeysSettings";
-import { DESK_COL_ITEMS, deskColumnPresets, deskTablePrefs } from "../features/desk/desk-table-prefs";
+import { DESK_COL_ITEMS, deskColumnPresetsFor, deskDirectoryScreenOrClips, deskTablePrefsFor } from "../features/desk/desk-table-prefs";
 
 type Props = { sidebarRow?: boolean };
 
@@ -23,17 +23,21 @@ export function DeskSettings({ sidebarRow = false }: Props) {
     return () => window.removeEventListener("popstate", sync);
   }, []);
 
+  const tableScreen = deskDirectoryScreenOrClips(screen);
+  const tablePrefs = deskTablePrefsFor(tableScreen);
+  const columnPresets = deskColumnPresetsFor(tableScreen);
+
   useEffect(() => {
     const sync = () => setColumnTick((n) => n + 1);
-    window.addEventListener(deskTablePrefs.changeEvent, sync);
-    return () => window.removeEventListener(deskTablePrefs.changeEvent, sync);
-  }, []);
+    window.addEventListener(tablePrefs.changeEvent, sync);
+    return () => window.removeEventListener(tablePrefs.changeEvent, sync);
+  }, [tablePrefs.changeEvent]);
 
   const cfg = SCREEN_DISPLAY_PREFS[screen];
   const tableActiveCount = useMemo(() => {
     void columnTick;
-    return deskTablePrefs.read().size;
-  }, [columnTick]);
+    return tablePrefs.read().size;
+  }, [columnTick, tablePrefs]);
 
   return (
     <HubDisplayPrefs
@@ -56,8 +60,8 @@ export function DeskSettings({ sidebarRow = false }: Props) {
       patchPrefs={patchHubListPrefs}
       getScreen={() => screen}
       tableActiveCount={tableActiveCount}
-      tableColumnPresets={asDirectoryTableColumnPresetManagerProp(deskColumnPresets)}
-      tablePanel={<DirectoryTableColumnsSettings items={DESK_COL_ITEMS} prefs={deskTablePrefs} showReset />}
+      tableColumnPresets={asDirectoryTableColumnPresetManagerProp(columnPresets)}
+      tablePanel={<DirectoryTableColumnsSettings items={DESK_COL_ITEMS} prefs={tablePrefs} showReset />}
       toolSections={[
         {
           id: "desk-hotkeys",

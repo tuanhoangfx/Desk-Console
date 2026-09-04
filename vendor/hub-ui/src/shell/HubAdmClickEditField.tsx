@@ -417,7 +417,7 @@ export type HubAdmClickFilterFieldProps = {
   className?: string;
   disabled?: boolean;
   panelSearchAsync?: HubSingleFilterDropdownProps["panelSearchAsync"];
-  /** Reset selection to empty — Clear beside panel search (true blank, not a fake “None” option). Default on. */
+  /** Reset selection to empty — Clear (X) beside panel search, muted until a value is set (true blank, not a fake “None” option). Default on. */
   allowClear?: boolean;
   clearLabel?: string;
   /** Panel header “+” — sits beside Clear (e.g. Plan Package → Add Material). */

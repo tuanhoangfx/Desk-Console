@@ -1,0 +1,8 @@
+3912|rustdesk.exe|"C:\Program Files\RustDesk\RustDesk.exe" --service
+6004|rustdesk.exe|"C:\Program Files\RustDesk\RustDesk.exe" --server
+7796|UltraViewer_Desktop.exe|UltraViewer_Desktop.exe -pwd:peufni
+11144|UltraViewer_Desktop.exe|UltraViewer_Desktop.exe  -pid:7796 -debughwnd:-1
+14048|rustdesk.exe|"C:\Program Files\RustDesk\rustdesk.exe" --tray
+66344|electron.exe|E:\Dev\node_modules\.pnpm\electron@37.10.3\node_modules\electron\dist\electron.exe .
+79796|electron.exe|"E:\Dev\node_modules\.pnpm\electron@37.10.3\node_modules\electron\dist\electron.exe" --type=gpu-process --user-data-dir="C:\Users\CzP\AppData\Roaming\desk-console-dev" --gpu-preferences=UAAAAAAAAADgAAAEAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAAAAAA
+79544|electron.exe|"E:\Dev\node_modules\.pnpm\electron@37.10.3\node_modules\electron\dist\electron.exe" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=none --user-data-dir="C:\Users\CzP\AppData\Roaming\desk-

@@ -1,5 +1,6 @@
 /* Hub app shell — P0004 p0008-globals parity */
 @import "./hub-directory-card-leading.css";
+@import "./hub-segment-toggle.css";
 
 :root,
 .theme-hub {
@@ -45,6 +46,10 @@
   --hub-analytics-caption-size: var(--hub-kpi-label-size);
   --hub-inline-emoji-size: var(--hub-directory-header-glyph-px, 13px);
   --hub-analytics-caption-emoji-size: var(--hub-inline-emoji-size);
+  --hub-inline-gap-tight: 4px;
+  --hub-inline-gap-meta: 5px;
+  --hub-inline-gap-comfort: 6px;
+  --hub-inline-gap-name: 8px;
   --hub-chart-label-size: var(--hub-table-body-size);
   /* Chart panel title = 80% of directory header (12px → 9.6px); keep 600 / --text. */
   --hub-chart-panel-title-size: calc(var(--hub-table-header-size, 12px) * 0.8);
@@ -61,6 +66,19 @@
   );
   --hub-charts-band-min-h: var(--hub-chart-card-min-h);
   --hub-donut-size: 4rem;
+}
+
+.hub-inline-gap-tight {
+  gap: var(--hub-inline-gap-tight, 4px);
+}
+.hub-inline-gap-meta {
+  gap: var(--hub-inline-gap-meta, 5px);
+}
+.hub-inline-gap-comfort {
+  gap: var(--hub-inline-gap-comfort, 6px);
+}
+.hub-inline-gap-name {
+  gap: var(--hub-inline-gap-name, 8px);
 }
 
 .hub-chrome-type--micro {

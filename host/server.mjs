@@ -11,34 +11,31 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { startClipboardWatch } from "./clip-watch.mjs";
 import {
-  addCapture,
   addClip,
   addSample,
-  capturesDir,
   ensureSampleSeed,
   findClip,
-  listCaptures,
   listClipRows,
   listClips,
-  patchCapture,
   patchClip,
   promoteClipToSample,
-  removeCapture,
   removeClip,
+  restoreClip,
+  softDeleteClip,
+  dataRoot,
 } from "./store.mjs";
 import { hotkeysPayload, resetHotkeys, writeHotkeys } from "./hotkeys.mjs";
 import { listRunners, startRunner, stopRunner } from "./runners.mjs";
 import { listOpsRows, parseOpsRef } from "./ops.mjs";
 import { appendOpsHistory, readOpsHistory } from "./ops-history.mjs";
-import { logLinesToConsoleEntries, tailOpsTerminal } from "./ops-log-paths.mjs";
-import { appendTerminalLine, pollTaskTerminalFeedback } from "./ops-terminal.mjs";
+import { logLinesToConsoleEntries, normalizeOpsConsoleTailLine, tailOpsTerminal } from "./ops-log-paths.mjs";
+import { appendTerminalLine, appendTaskSchtasksOutput, opsConsoleCmd, opsConsoleMeta, opsConsoleOk, pollTaskTerminalFeedback } from "./ops-terminal.mjs";
 import {
   DEV_ROOT,
-  captureScreenPng,
-  cropPng,
   cursorCountAsync,
   listDevTasks,
   pasteToForegroundHwndAsync,
+  primeClipboardIgnore,
   readClipboardTextAsync,
   runTask,
   setTaskEnabled,
@@ -107,7 +104,22 @@ async function handle(req, res) {
       code: "P0001",
       name: "Desk Console",
       port: PORT,
+      dataRoot: dataRoot(),
+      syncPlane: "local",
       cursorRunning,
+    });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/meta") {
+    json(res, 200, {
+      ok: true,
+      code: "P0001",
+      port: PORT,
+      dataRoot: dataRoot(),
+      syncPlane: "local",
+      accountLabel: "Local",
+      stores: ["clips.json", "samples.json", "hotkeys.json"],
     });
     return;
   }
@@ -131,7 +143,8 @@ async function handle(req, res) {
 
   if (method === "GET" && url.pathname === "/api/clips") {
     const kind = url.searchParams.get("kind");
-    const rows = listClipRows();
+    const lifecycle = url.searchParams.get("lifecycle") === "trash" ? "trash" : "live";
+    const rows = listClipRows({ lifecycle });
     json(res, 200, {
       ok: true,
       rows: kind === "history" || kind === "sample" ? rows.filter((row) => row.kind === kind) : rows,
@@ -159,6 +172,12 @@ async function handle(req, res) {
     json(res, 200, { ok: true, row: addSample({ name: body.name, text }) });
     return;
   }
+  if (method === "POST" && url.pathname === "/api/clips/clipboard/prime") {
+    const body = await readBody(req).catch(() => ({}));
+    primeClipboardIgnore(body?.text);
+    json(res, 200, { ok: true });
+    return;
+  }
   if (method === "POST" && url.pathname === "/api/clips/picker/arm") {
     const body = await readBody(req).catch(() => ({}));
     const hwnd = String(body?.hwnd || "").trim();
@@ -166,11 +185,30 @@ async function handle(req, res) {
     json(res, 200, { ok: true, hwnd: armedHwnd });
     return;
   }
-  const clipMatch = url.pathname.match(/^\/api\/clips\/([^/]+)(?:\/(pin|copy|paste|sample))?$/);
+  const clipMatch = url.pathname.match(/^\/api\/clips\/([^/]+)(?:\/(pin|copy|paste|sample|restore|forever))?$/);
   if (clipMatch) {
     const id = decodeURIComponent(clipMatch[1]);
     const action = clipMatch[2];
     if (method === "DELETE" && !action) {
+      const row = findClip(id);
+      if (!row) {
+        json(res, 404, { ok: false });
+        return;
+      }
+      if (row.deletedAt) {
+        json(res, removeClip(id) ? 200 : 404, { ok: true });
+        return;
+      }
+      const trashed = softDeleteClip(id);
+      json(res, trashed ? 200 : 404, { ok: Boolean(trashed), row: trashed });
+      return;
+    }
+    if (method === "POST" && action === "restore") {
+      const row = restoreClip(id);
+      json(res, row ? 200 : 404, { ok: Boolean(row), row });
+      return;
+    }
+    if (method === "DELETE" && action === "forever") {
       json(res, removeClip(id) ? 200 : 404, { ok: true });
       return;
     }
@@ -193,72 +231,18 @@ async function handle(req, res) {
       }
       await writeClipboardTextAsync(row.text);
       let pasted = false;
-      if (action === "paste" && armedHwnd) {
-        pasted = await pasteToForegroundHwndAsync(armedHwnd);
+      let error = "";
+      if (action === "paste") {
+        if (!armedHwnd) {
+          error = "No target window — focus the field first, then open the paste picker.";
+        } else {
+          pasted = await pasteToForegroundHwndAsync(armedHwnd);
+          if (!pasted) error = "Could not paste to previous window";
+        }
       }
-      json(res, 200, { ok: true, pasted });
+      json(res, 200, { ok: true, pasted, error: error || undefined });
       return;
     }
-  }
-
-  if (method === "GET" && url.pathname === "/api/captures") {
-    json(res, 200, { ok: true, rows: listCaptures() });
-    return;
-  }
-  if (method === "POST" && url.pathname === "/api/captures") {
-    const body = await readBody(req);
-    const mode = body.mode === "window" ? "window" : body.mode === "region" ? "region" : "screen";
-    const fileName = `${Date.now()}-${mode}.png`;
-    const dest = path.join(capturesDir(), fileName);
-    captureScreenPng(dest);
-    const st = fs.statSync(dest);
-    json(res, 200, { ok: true, row: addCapture({ mode, fileName, bytes: st.size }) });
-    return;
-  }
-  const capFile = url.pathname.match(/^\/api\/captures\/([^/]+)\/file$/);
-  if (method === "GET" && capFile) {
-    const id = decodeURIComponent(capFile[1]);
-    const row = listCaptures().find((r) => r.id === id);
-    if (!row) {
-      json(res, 404, { ok: false });
-      return;
-    }
-    const file = path.join(capturesDir(), row.fileName);
-    if (!fs.existsSync(file)) {
-      json(res, 404, { ok: false, error: "file missing" });
-      return;
-    }
-    res.writeHead(200, { "Content-Type": "image/png", "Access-Control-Allow-Origin": "*" });
-    fs.createReadStream(file).pipe(res);
-    return;
-  }
-  const capCrop = url.pathname.match(/^\/api\/captures\/([^/]+)\/crop$/);
-  if (method === "POST" && capCrop) {
-    const id = decodeURIComponent(capCrop[1]);
-    const row = listCaptures().find((r) => r.id === id);
-    if (!row) {
-      json(res, 404, { ok: false, error: "not found" });
-      return;
-    }
-    const body = await readBody(req);
-    const src = path.join(capturesDir(), row.fileName);
-    const fileName = `${Date.now()}-region.png`;
-    const dest = path.join(capturesDir(), fileName);
-    cropPng(src, dest, body);
-    const st = fs.statSync(dest);
-    try {
-      fs.unlinkSync(src);
-    } catch {
-      /* keep dest */
-    }
-    const next = patchCapture(id, { mode: "region", fileName, bytes: st.size });
-    json(res, 200, { ok: true, row: next });
-    return;
-  }
-  const capDel = url.pathname.match(/^\/api\/captures\/([^/]+)$/);
-  if (method === "DELETE" && capDel) {
-    json(res, removeCapture(decodeURIComponent(capDel[1])) ? 200 : 404, { ok: true });
-    return;
   }
 
   if (method === "GET" && url.pathname === "/api/ops") {
@@ -313,7 +297,10 @@ async function handle(req, res) {
         if (text.length > byteOffset) {
           const chunk = text.slice(byteOffset);
           byteOffset = text.length;
-          const lines = chunk.split(/\r?\n/).filter((line) => line.length > 0);
+          const lines = chunk
+            .split(/\r?\n/)
+            .filter((line) => line.length > 0)
+            .map(normalizeOpsConsoleTailLine);
           if (lines.length) res.write(`data: ${JSON.stringify({ lines })}\n\n`);
         }
       } catch {
@@ -336,7 +323,7 @@ async function handle(req, res) {
     const mode = runMatch[2];
     if (mode === "stop") {
       const result = await stopRunner(code);
-      appendTerminalLine(code, "runner", `POST /api/runners/${code}/stop ${result.ok ? result.state : result.error}`);
+      appendTerminalLine(code, "runner", result.ok ? opsConsoleOk(`stop ${code} ${result.state}`) : opsConsoleCmd(`stop ${code} ${result.error}`));
       appendOpsHistory({
         kind: "runner",
         targetId: code,
@@ -348,7 +335,7 @@ async function handle(req, res) {
       return;
     }
     const pid = startRunner(code, mode);
-    appendTerminalLine(code, "runner", `POST /api/runners/${code}/${mode} pid=${pid ?? "?"}`);
+    appendTerminalLine(code, "runner", opsConsoleOk(`${mode} ${code} pid=${pid ?? "?"}`));
     appendOpsHistory({
       kind: "runner",
       targetId: code,
@@ -371,9 +358,10 @@ async function handle(req, res) {
     const action = taskMatch[2];
     try {
       if (action === "run") {
-        appendTerminalLine(name, "task", `schtasks /Run /TN ${name}`);
+        appendTerminalLine(name, "task", opsConsoleCmd(`schtasks /Run /TN "${name}"`));
         pollTaskTerminalFeedback(name);
         const body = await runTask(name);
+        appendTaskSchtasksOutput(name, body.stdout, body.stderr);
         appendOpsHistory({ kind: "task", targetId: name, action: "run", ok: true, message: `Task ${name} started` });
         json(res, 200, body);
       } else {

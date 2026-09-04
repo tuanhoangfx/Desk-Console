@@ -16,7 +16,9 @@ import {
 import { HubHeaderPanelButton } from "../shell/HubHeaderPanelButton";
 import { HUB_SETTINGS_ICON_CLASS } from "../shell/hub-typography";
 import { HubKeyboardShortcutsPanel } from "../keyboard/HubKeyboardShortcutsPanel";
-import { HubToolDetailModal, HubToolDetailModalSecondaryAction, HUB_TOOL_DETAIL_SCROLL_ROOT } from "../shell/HubToolDetailModal";
+import { HubToolDetailModal } from "../shell/HubToolDetailModal";
+import { HubToolDetailModalSecondaryAction } from "../shell/HubToolDetailModalActions";
+import { HUB_TOOL_DETAIL_SCROLL_ROOT } from "../shell/hubToolDetailModalChrome";
 import { HubToolDetailSection, HUB_TOOL_DETAIL_SECTIONS_CLASS } from "../shell/HubToolDetailSection";
 import { HubTocSectionNav, type HubTocNavItem } from "../shell/HubTocSectionNav";
 import { registerHubSettingsOpen } from "../keyboard/hub-keyboard-shortcuts";

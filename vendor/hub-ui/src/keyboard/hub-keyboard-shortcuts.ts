@@ -77,6 +77,13 @@ export function registerHubSettingsOpen(open: () => void): () => void {
   };
 }
 
+/** Programmatically open the tab Settings panel (e.g. export flow → output prefs). */
+export function triggerHubSettingsOpen(): boolean {
+  if (!settingsOpenFn) return false;
+  settingsOpenFn();
+  return true;
+}
+
 export function registerHubPageShortcuts(screenId: string, handlers: HubPageShortcutHandlers): () => void {
   handlersByScreen.set(screenId, handlers);
   ensureHubKeyboardListener();

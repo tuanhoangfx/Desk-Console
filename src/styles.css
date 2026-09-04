@@ -77,3 +77,26 @@ body:has(.hub-app.theme-hub) {
 .desk-picker-drag {
   -webkit-app-region: drag;
 }
+
+.desk-picker-no-drag {
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+
+/* Frameless Electron picker (440px) hits hub-mobile hang (`top:-0.55rem !important`).
+ * Window has no backdrop pad — hanging X is clipped by OS and not clickable.
+ * Inset + no-drag child of header so Electron hit-test reaches the button. */
+.desk-picker-frame.hub-modal-frame {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.desk-picker-frame .hub-modal-close.desk-picker-close {
+  position: absolute;
+  z-index: 50;
+  top: 0.45rem !important;
+  right: 0.45rem !important;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}

@@ -1,22 +1,28 @@
-/* postcss-import basedir = Vite project root (P0001-Desk-Console), not this file.
- * ../../../packages → E:\packages\... (missing). ../../packages → E:\Dev\packages\... */
-@import "../../vendor/hub-ui/src/styles/hub-fonts.css";
-@import "../../vendor/hub-ui/src/styles/hub-theme-tokens.css";
-@import "../../vendor/hub-ui/src/styles/hub-appearance.css";
-@import "../../vendor/hub-ui/src/styles/hub-check-indicator.css";
-@import "../../vendor/hub-ui/src/styles/hub-fields.css";
-@import "../../vendor/hub-ui/src/styles/hub-shell-layout.css";
-@import "../../vendor/hub-ui/src/styles/hub-mobile.css";
-@import "../../vendor/hub-ui/src/styles/hub-filter-brand-icon.css";
-@import "../../vendor/hub-ui/src/styles/hub-directory-bulk-rail.css";
-@import "../../vendor/hub-ui/src/styles/hub-directory-toolbar-selection.css";
-@import "../../vendor/hub-ui/src/styles/hub-split-scroll.css";
-@import "../../vendor/hub-ui/src/styles/hub-split-directory-pane.css";
-@import "../../vendor/hub-ui/src/styles/hub-app-tab-header.css";
-@import "../../vendor/hub-ui/src/styles/hub-users-table.css";
-@import "../../vendor/hub-ui/src/styles/hub-directory-table.css";
-@import "../../vendor/hub-ui/src/styles/hub-table-controls.css";
-@import "../../vendor/hub-ui/src/styles/hub-table-cell.css";
-@import "../../vendor/hub-ui/src/styles/hub-modal.css";
-@import "../../vendor/hub-ui/src/styles/hub-auth-gate.css";
-@import "../../vendor/hub-ui/src/styles/hub-runtime-rail.css";
+/* postcss-import basedir = Vite project root (P0001-Desk-Console).
+ * Dev SSOT: ../../../../packages/hub-ui (matches vite alias). Vendor = offline fallback only. */
+@import "../../../../packages/hub-ui/src/styles/hub-fonts.css";
+@import "../../../../packages/hub-ui/src/styles/hub-theme-tokens.css";
+@import "../../../../packages/hub-ui/src/styles/hub-appearance.css";
+@import "../../../../packages/hub-ui/src/styles/hub-check-indicator.css";
+@import "../../../../packages/hub-ui/src/styles/hub-fields.css";
+@import "../../../../packages/hub-ui/src/styles/hub-shell-layout.css";
+@import "../../../../packages/hub-ui/src/styles/hub-mobile.css";
+@import "../../../../packages/hub-ui/src/styles/hub-filter-brand-icon.css";
+@import "../../../../packages/hub-ui/src/styles/hub-directory-bulk-rail.css";
+@import "../../../../packages/hub-ui/src/styles/hub-directory-toolbar-selection.css";
+@import "../../../../packages/hub-ui/src/styles/hub-split-scroll.css";
+@import "../../../../packages/hub-ui/src/styles/hub-split-directory-pane.css";
+@import "../../../../packages/hub-ui/src/styles/hub-app-tab-header.css";
+@import "../../../../packages/hub-ui/src/styles/hub-users-table.css";
+@import "../../../../packages/hub-ui/src/styles/hub-directory-table.css";
+@import "../../../../packages/hub-ui/src/styles/hub-directory-frame-table.css";
+@import "../../../../packages/hub-ui/src/styles/hub-table-controls.css";
+@import "../../../../packages/hub-ui/src/styles/hub-table-cell.css";
+@import "../../../../packages/hub-ui/src/styles/hub-modal.css";
+@import "../../../../packages/hub-ui/src/styles/hub-account-detail-modal.css";
+@import "../../../../packages/hub-ui/src/styles/hub-auth-gate.css";
+@import "../../../../packages/hub-ui/src/styles/hub-runtime-rail.css";
+@import "../../../../packages/hub-ui/src/styles/hub-profile-split-layout.css";
+@import "../../../../packages/hub-ui/src/styles/hub-console-crt.css";
+@import "../features/desk/desk-profile-layout.css";
+@import "../features/desk/desk-directory-table.css";

@@ -1,0 +1,30 @@
+/* Hub segment toggle — active tones (not Tailwind-purged). */
+.hub-segment-toggle button[data-active-tone="indigo"] {
+  background: rgb(99 102 241 / 0.2);
+  color: rgb(199 210 254);
+}
+
+.hub-segment-toggle button[data-active-tone="sky"] {
+  background: rgb(14 165 233 / 0.2);
+  color: rgb(186 230 253);
+}
+
+.hub-segment-toggle button[data-active-tone="orange"] {
+  background: rgb(249 115 22 / 0.2);
+  color: rgb(254 215 170);
+}
+
+.hub-segment-toggle button[data-active-tone="emerald"] {
+  background: rgb(16 185 129 / 0.2);
+  color: rgb(167 243 208);
+}
+
+.hub-segment-toggle button[data-active-tone="amber"] {
+  background: rgb(245 158 11 / 0.22);
+  color: rgb(253 230 138);
+}
+
+.hub-segment-toggle button[data-active-tone="rose"] {
+  background: rgb(244 63 94 / 0.22);
+  color: rgb(254 205 211);
+}

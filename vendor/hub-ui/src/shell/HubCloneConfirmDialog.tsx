@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { CopyPlus, Layers, UserRound, X } from "lucide-react";
+import { HubToolDetailModal } from "./HubToolDetailModal";
 import {
-  HubToolDetailModal,
   HubToolDetailModalPrimaryAction,
   HubToolDetailModalSecondaryAction,
-} from "./HubToolDetailModal";
+} from "./HubToolDetailModalActions";
 import { HubAdmClickFilterField, HubAdmInlineFieldLabel } from "./HubAdmClickEditField";
 import { HubDetailFieldsGroup } from "./HubDetailFieldsScope";
 import type { FilterOption } from "./FilterBar";

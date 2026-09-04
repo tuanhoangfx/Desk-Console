@@ -1,3 +1,645 @@
+# Changelog
+
+## 2026-09-04 - Patch bump for completed agent task (release)
+
+- Version: `2.1.1`
+- Timestamp: 2026-09-04 18:58 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Release Major bump (P0001): 1.1.1 → 2.1.1 (MAJOR+1, MINOR=1, PATCH=1).
+
+### Verification
+
+- pending
+
+---
+## 2026-09-04 - Patch bump for completed agent task (release)
+
+- Version: `1.1.1`
+- Timestamp: 2026-09-04 18:55 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Release Major bump (P0001): 0.1.66 → 1.1.1 (MAJOR+1, MINOR=1, PATCH=1).
+
+### Verification
+
+- pending
+
+---
+## 2026-09-04 - Patch bump for completed agent task
+
+- Version: `0.1.66`
+- Timestamp: 2026-09-04 02:54 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-09-04 - Patch bump for completed agent task
+
+- Version: `0.1.65`
+- Timestamp: 2026-09-04 02:50 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-09-04 - Patch bump for completed agent task
+
+- Version: `0.1.64`
+- Timestamp: 2026-09-04 02:45 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-31 - Patch bump for completed agent task
+
+- Version: `0.1.63`
+- Timestamp: 2026-08-31 02:29 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-31 - Patch bump for completed agent task
+
+- Version: `0.1.62`
+- Timestamp: 2026-08-31 02:13 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-31 - Patch bump for completed agent task
+
+- Version: `0.1.61`
+- Timestamp: 2026-08-31 02:09 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-31 - Patch bump for completed agent task
+
+- Version: `0.1.60`
+- Timestamp: 2026-08-31 01:59 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.59`
+- Timestamp: 2026-08-30 23:16 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.58`
+- Timestamp: 2026-08-30 23:09 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.57`
+- Timestamp: 2026-08-30 23:04 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.56`
+- Timestamp: 2026-08-30 23:04 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.55`
+- Timestamp: 2026-08-30 22:48 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.54`
+- Timestamp: 2026-08-30 22:43 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.53`
+- Timestamp: 2026-08-30 22:23 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.52`
+- Timestamp: 2026-08-30 22:10 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.51`
+- Timestamp: 2026-08-30 22:08 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.50`
+- Timestamp: 2026-08-30 22:04 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.49`
+- Timestamp: 2026-08-30 21:59 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.48`
+- Timestamp: 2026-08-30 21:52 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.47`
+- Timestamp: 2026-08-30 21:51 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.46`
+- Timestamp: 2026-08-30 21:50 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.45`
+- Timestamp: 2026-08-30 21:46 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.44`
+- Timestamp: 2026-08-30 21:33 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.43`
+- Timestamp: 2026-08-30 21:32 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.42`
+- Timestamp: 2026-08-30 21:31 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.41`
+- Timestamp: 2026-08-30 21:16 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.40`
+- Timestamp: 2026-08-30 21:15 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.39`
+- Timestamp: 2026-08-30 21:15 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.38`
+- Timestamp: 2026-08-30 21:13 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.37`
+- Timestamp: 2026-08-30 21:04 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.36`
+- Timestamp: 2026-08-30 21:02 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.35`
+- Timestamp: 2026-08-30 20:59 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.34`
+- Timestamp: 2026-08-30 20:55 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.33`
+- Timestamp: 2026-08-30 20:52 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.32`
+- Timestamp: 2026-08-30 20:46 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.31`
+- Timestamp: 2026-08-30 20:44 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.30`
+- Timestamp: 2026-08-30 15:48 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-08-30 - Patch bump for completed agent task
+
+- Version: `0.1.29`
+- Timestamp: 2026-08-30 15:27 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
 ## 2026-08-29 - Rollback to v0.1.8 (2026-08-24 known-good)
 
 - Version: `0.1.8`

@@ -133,7 +133,7 @@ export function HubSharePopover({
           title="Save share settings"
           tone="emerald"
           disabled={saving || (!dirty && access === committedAccess)}
-          iconSpinning={saving}
+          iconPulsing={saving}
           onClick={onSave}
         />
       </div>

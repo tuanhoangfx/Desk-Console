@@ -31,7 +31,7 @@ const urls = [
   "http://127.0.0.1:5180/@fs/E:/Dev/packages/hub-ui/src/styles/hub-fonts.css",
   "http://127.0.0.1:5180/@fs/E:/Dev/packages/hub-ui/src/styles/hub-shell-layout.css",
   "http://127.0.0.1:5180/src/main.tsx",
-  "http://127.0.0.1:5180/?screen=clips",
+  "http://127.0.0.1:5180/clips",
   "http://127.0.0.1:6010/api/health",
 ];
 
@@ -58,7 +58,7 @@ if (process.argv.includes("--stealth")) {
     timeout: 15_000,
   });
   const profile = JSON.parse(assign.stdout || "{}").profile || "9990";
-  const targetUrl = "http://127.0.0.1:5180/?screen=clips";
+  const targetUrl = "http://127.0.0.1:5180/clips";
   const raw = await stealthBrowser.listProfiles();
   const list = Array.isArray(raw) ? raw : raw?.profiles || [];
   const hit = list.find((p) => String(p.name || "").trim() === profile) || list.find((p) => String(p.id) === profile);

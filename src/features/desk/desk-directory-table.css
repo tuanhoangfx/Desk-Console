@@ -1,0 +1,84 @@
+/* P0001 Desk directory — rem-pinned columns + fluid Detail absorber (P0005 / P0020 SSOT).
+ * Fixed tracks do not shift across pager pages; Detail grows when pane is wider than min-width. */
+
+table.hub-users-table.hub-directory-frame-table.hub-users-table--desk-directory {
+  width: 100%;
+  min-width: calc(36px + 57.25rem);
+  table-layout: fixed;
+}
+
+table.hub-users-table--desk-directory col.hub-users-col--select,
+table.hub-users-table--desk-directory th.hub-users-col--select,
+table.hub-users-table--desk-directory td.hub-users-col--select {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--name,
+table.hub-users-table--desk-directory th.hub-desk-col--name,
+table.hub-users-table--desk-directory td.hub-desk-col--name {
+  width: 20rem;
+  min-width: 20rem;
+  max-width: 20rem;
+  text-align: left;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--run,
+table.hub-users-table--desk-directory th.hub-desk-col--run,
+table.hub-users-table--desk-directory td.hub-desk-col--run {
+  width: 6.5rem;
+  min-width: 6.5rem;
+  max-width: 6.5rem;
+  text-align: center;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--status,
+table.hub-users-table--desk-directory th.hub-desk-col--status,
+table.hub-users-table--desk-directory td.hub-desk-col--status {
+  width: 9rem;
+  min-width: 9rem;
+  max-width: 9rem;
+  text-align: center;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--detail,
+table.hub-users-table--desk-directory th.hub-desk-col--detail,
+table.hub-users-table--desk-directory td.hub-desk-col--detail {
+  width: auto;
+  min-width: 22rem;
+  text-align: left;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--updated,
+table.hub-users-table--desk-directory th.hub-desk-col--updated,
+table.hub-users-table--desk-directory td.hub-desk-col--updated {
+  width: 6.25rem;
+  min-width: 6.25rem;
+  max-width: 6.25rem;
+  text-align: center;
+}
+
+table.hub-users-table--desk-directory td {
+  overflow: hidden;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+table.hub-users-table--desk-directory td.hub-desk-col--name .hub-directory-copy-wrap,
+table.hub-users-table--desk-directory td.hub-desk-col--detail .hub-directory-copy-wrap,
+table.hub-users-table--desk-directory td.hub-desk-col--name .hub-directory-copy-control,
+table.hub-users-table--desk-directory td.hub-desk-col--detail .hub-directory-copy-control {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+table.hub-users-table--desk-directory td.hub-desk-col--name .hub-directory-copy-control__value,
+table.hub-users-table--desk-directory td.hub-desk-col--detail .hub-directory-copy-control__value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { compactIconSize } from "../ui-scale";
+import "../styles/hub-segment-toggle.css";
 
 /** Active chip fill — default indigo (ViewToggle). Per-option override for Code/Image etc. */
-export type HubSegmentActiveTone = "indigo" | "sky" | "orange" | "emerald";
+export type HubSegmentActiveTone = "indigo" | "sky" | "orange" | "emerald" | "amber" | "rose";
 
 export type HubSegmentToggleOption<T extends string = string> = {
   value: T;
@@ -24,6 +25,8 @@ const ACTIVE_TONE_CLASS: Record<HubSegmentActiveTone, string> = {
   sky: "bg-sky-500/20 text-sky-200",
   orange: "bg-orange-500/20 text-orange-200",
   emerald: "bg-emerald-500/20 text-emerald-200",
+  amber: "bg-amber-500/20 text-amber-200",
+  rose: "bg-rose-500/20 text-rose-200",
 };
 
 export function hubSegmentActiveToneClass(tone: HubSegmentActiveTone = "indigo"): string {
@@ -61,6 +64,7 @@ export function HubSegmentToggle<T extends string>({
             className={`flex h-full items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors ${
               active ? activeClass : "text-[var(--muted)] hover:text-[var(--text)]"
             }`}
+            data-active-tone={active ? (opt.activeTone ?? "indigo") : undefined}
           >
             {opt.icon}
             <span className="hub-segment-toggle__label">{opt.label}</span>

@@ -198,12 +198,16 @@ export function crmOrderUsageHitAllowedForSubject(
   hit: CrmOrderUsageHit,
 ): boolean {
   const identity = usageHitIdentitySet(hit);
-  if (subjectKeysInIdentity({ account: subject.account, mailRecover: "" }, identity)) return true;
-
   const linked = [...new Set((hit.linkedVaultIds ?? []).map((id) => id.trim()).filter(Boolean))];
   const vaultId = subject.id?.trim() ?? "";
   const recoverHit = subjectKeysInIdentity({ account: "", mailRecover: subject.mailRecover }, identity);
   const mailboxCount = countCrmOrderDetailMailboxes(hit.details ?? "");
+
+  if (subjectKeysInIdentity({ account: subject.account, mailRecover: "" }, identity)) {
+    if (!linked.length) return true;
+    if (vaultId && linked.includes(vaultId)) return true;
+    return false;
+  }
 
   if (vaultId && linked.includes(vaultId) && linked.length > 1 && mailboxCount <= 1) {
     return false;

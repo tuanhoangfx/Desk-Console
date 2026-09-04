@@ -105,6 +105,11 @@ function compareHubEntityLogAtDesc(a: string, b: string): number {
 const defaultIsNoOp = (change: HubEntityLogChange): boolean =>
   (change.before?.trim() ?? "") === (change.after?.trim() ?? "");
 
+/** Legacy messages encode deltas with `→` or ASCII `->` (SQL/import sometimes used ASCII). */
+export function hubEntityLogMessageHasDeltaArrow(message: string): boolean {
+  return message.includes("→") || message.includes("->");
+}
+
 /** Structured changes (preferred) else parsed legacy message deltas, no-ops dropped. */
 export function resolveHubEntityLogEntryChanges(
   entry: HubEntityLogEntry,
@@ -113,7 +118,7 @@ export function resolveHubEntityLogEntryChanges(
   const isNoOp = options.isNoOpChange ?? defaultIsNoOp;
   const structured = (entry.changes ?? []).filter((change) => !isNoOp(change));
   if (structured.length) return structured;
-  if (!options.parseMessage || !entry.message.includes("→")) return [];
+  if (!options.parseMessage || !hubEntityLogMessageHasDeltaArrow(entry.message)) return [];
   return options.parseMessage(entry.message).filter((change) => !isNoOp(change));
 }
 

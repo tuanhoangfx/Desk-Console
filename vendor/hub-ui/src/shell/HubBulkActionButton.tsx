@@ -75,11 +75,14 @@ export type HubBulkActionButtonProps = {
   disabled?: boolean;
   selectedCount?: number;
   iconSpinning?: boolean;
+  /** Busy pulse on icon — no spin (Update modal / Encode checking SSOT). */
+  iconPulsing?: boolean;
   onClick: () => void;
   /** Popover hint on label — replaces native `title` when set. */
   labelHint?: HubDirectoryColumnHintContent;
   /** Custom label node (e.g. fixed-width Select/Unselect) — still uses `label` for a11y text. */
   labelNode?: ReactNode;
+  className?: string;
 };
 
 /** Golden bulk-action CTA — filter row 2 (New, Edit, Delete, Open selected, …). */
@@ -92,9 +95,11 @@ export function HubBulkActionButton({
   disabled = false,
   selectedCount,
   iconSpinning = false,
+  iconPulsing = false,
   onClick,
   labelHint,
   labelNode,
+  className = "",
 }: HubBulkActionButtonProps) {
   const labelNodeInner = labelNode ?? <span>{label}</span>;
   const labelContent = (
@@ -117,10 +122,10 @@ export function HubBulkActionButton({
       onClick={onClick}
       title={labelHint ? undefined : title}
       aria-label={label}
-      className={`${shellClass} ${toneClass}`}
+      className={`${shellClass} ${toneClass}${className ? ` ${className}` : ""}`}
     >
       <span
-        className={`shrink-0 [&_svg]:size-[13px] [&_svg]:opacity-100 ${disabled ? "" : "opacity-90"} ${iconSpinning ? "[&_svg]:animate-spin" : ""}`}
+        className={`hub-bulk-action-btn__icon shrink-0 [&_svg]:size-[13px] [&_svg]:opacity-100 ${disabled ? "" : "opacity-90"} ${iconSpinning ? "[&_svg]:animate-spin" : ""}${iconPulsing ? " hub-bulk-action-btn__icon--pulse" : ""}`}
       >
         {icon}
       </span>

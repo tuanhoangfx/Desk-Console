@@ -475,8 +475,13 @@ export function FilterBar({
       onClick={clearAll}
       className="hub-filter-clear-btn inline-flex h-[var(--hub-control-h)] shrink-0 items-center hub-inline-gap-comfort rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 text-xs font-medium text-rose-200 transition-colors hover:bg-rose-500/20"
       title="Clear search and all filters"
+      aria-label="Clear filters"
     >
-      Clear filters
+      {/* 🧹 kept — optical center via .hub-filter-clear-btn__icon (Windows emoji em-box). */}
+      <span className="hub-filter-clear-btn__icon" aria-hidden>
+        <span className={hubFilterOptionEmojiClass(hubFilterEmojiToneClass("🧹", true))}>🧹</span>
+      </span>
+      <span className="hub-filter-trigger__label">Clear</span>
       <span className="hub-filter-clear-btn__count grid h-4 min-w-[var(--hub-count-badge-min-w)] place-items-center rounded-full bg-rose-500/80 px-1 text-[9px] font-bold text-white">
         {activeCount}
       </span>
@@ -1054,7 +1059,7 @@ export type HubMultiFilterDropdownProps = {
   triggerLabel?: string;
   usePortal?: boolean;
   panelScope?: string;
-  /** Directory toolbar — compact `text-xs` trigger + panel rows (HubSplitDirectoryFilterBar SSOT). */
+  /** Directory toolbar — tighter inline gap only (`hub-inline-gap-name`). Typography stays golden `text-sm`. */
   toolbarChrome?: boolean;
   /**
    * Keep already-selected rows visible while panel search does not match them.
@@ -1077,7 +1082,8 @@ export function HubMultiFilterDropdown({
   toolbarChrome = false,
   pinSelected = true,
 }: HubMultiFilterDropdownProps) {
-  const compactDropdown = panelScope === "twofa" || toolbarChrome;
+  /** twofa vault only — directory FilterBar must keep golden `text-sm` panel rows (regression guard). */
+  const compactDropdown = panelScope === "twofa";
   const directoryValueTypo = hubFilterUsesDirectoryValueTypo(panelScope);
   const rowClass = hubFilterDropdownRowClass(compactDropdown, directoryValueTypo);
   const triggerTypo = directoryValueTypo

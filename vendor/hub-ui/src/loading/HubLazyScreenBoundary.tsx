@@ -24,6 +24,12 @@ export class HubLazyScreenBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(`[Hub ${this.props.label}]`, error, info.componentStack);
+    try {
+      const w = window as Window & { __HUB_LAST_RENDER_ERROR?: string };
+      w.__HUB_LAST_RENDER_ERROR = `${error.stack || error.message}\n${info.componentStack || ""}`;
+    } catch {
+      /* ignore */
+    }
   }
 
   private retry = () => {

@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { buildSemanticTocIcon } from "../lib/semantic-icon-registry";
 import { HubHeaderPanelButton } from "./HubHeaderPanelButton";
-import { HubToolDetailModal, HUB_TOOL_DETAIL_SCROLL_ROOT } from "./HubToolDetailModal";
+import { HubToolDetailModal } from "./HubToolDetailModal";
+import { HUB_TOOL_DETAIL_SCROLL_ROOT } from "./hubToolDetailModalChrome";
 import { HubToolDetailSection, HUB_TOOL_DETAIL_SECTIONS_CLASS } from "./HubToolDetailSection";
 import { HubTocSectionNav, type HubTocNavItem } from "./HubTocSectionNav";
 import { markAllNotifySeen, markNotifySeenId, mergeNotifySeenIds, pruneNotifySeenIds, readNotifySeenIds } from "./hub-notify-seen";

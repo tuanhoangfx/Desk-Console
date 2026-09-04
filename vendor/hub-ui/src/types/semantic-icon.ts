@@ -145,6 +145,7 @@ export type SemanticIconKey =
   | "filter.project"
   | "filter.priority"
   | "filter.creator"
+  | "filter.team"
   | "filter.category"
   | "filter.deploy"
   | "filter.drift"

@@ -22,6 +22,16 @@
   --hub-search-min-w: 180px;
   --hub-count-badge-min-w: 14px;
   --hub-metric-badge-h: 22px;
+  /* Release modal chips — kind badge + Check/Download CTA (P0010 Update chip SSOT). */
+  --hub-release-chip-font-size: var(--hub-header-chrome-font-size, 12px);
+  --hub-release-chip-font-weight: 600;
+  --hub-release-chip-line-height: 1.2;
+  --hub-release-chip-padding-y: 0.1875rem;
+  --hub-release-chip-padding-x: 0.4375rem;
+  --hub-release-chip-gap: 0.3125rem;
+  --hub-release-chip-icon-size: 12px;
+  --hub-release-chip-min-height: var(--hub-metric-badge-h, 22px);
+  --hub-release-chip-radius: 0.375rem;
   --hub-directory-card-icon-box-px: 22px;
   --hub-directory-card-glyph-px: 14px;
   --hub-directory-header-glyph-px: 13px;

@@ -107,6 +107,23 @@ table.hub-users-table {
   flex-shrink: 0;
   font-size: 13px;
   line-height: 1;
+  margin-right: 0.2em;
+}
+
+.hub-users-th-heading > .hub-users-th-emoji + .hub-users-th-text,
+.hub-users-th-heading > .inline-flex + .hub-users-th-text {
+  padding-left: 0.15em;
+}
+
+.twofa-directory-label-row {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.twofa-directory-emoji {
+  margin-right: 0.2em;
 }
 
 .hub-users-th-label {
@@ -176,6 +193,7 @@ table.hub-users-table {
 .hub-users-col--tools { text-align: center; }
 .hub-users-col--created { text-align: center; }
 .hub-users-col--activity { text-align: center; }
+.hub-users-col--last-active { text-align: center; }
 .hub-users-col--actions { text-align: center; }
 
 /* Hub tools table (same skin as Users) */
@@ -385,6 +403,14 @@ table.hub-users-table.hub-users-table--users-credentials td.hub-users-col--tools
   text-align: center;
 }
 
+table.hub-users-table.hub-users-table--users-credentials col.hub-users-col--request,
+table.hub-users-table.hub-users-table--users-credentials th.hub-users-col--request,
+table.hub-users-table.hub-users-table--users-credentials td.hub-users-col--request {
+  width: 7.5rem;
+  min-width: 7.5rem;
+  text-align: center;
+}
+
 table.hub-users-table.hub-users-table--users-credentials col.hub-users-col--created,
 table.hub-users-table.hub-users-table--users-credentials th.hub-users-col--created,
 table.hub-users-table.hub-users-table--users-credentials td.hub-users-col--created {
@@ -402,8 +428,9 @@ table.hub-users-table.hub-users-table--users-credentials td.hub-users-col--activ
 table.hub-users-table.hub-users-table--users-credentials col.hub-users-col--last-active,
 table.hub-users-table.hub-users-table--users-credentials th.hub-users-col--last-active,
 table.hub-users-table.hub-users-table--users-credentials td.hub-users-col--last-active {
-  width: 7.5rem;
-  min-width: 7.5rem;
+  width: 10rem;
+  min-width: 10rem;
+  text-align: center;
 }
 
 .hub-users-col--agent-kind {
@@ -1788,8 +1815,8 @@ table.hub-users-table--route-access-modal .hub-users-th-label {
   white-space: nowrap;
 }
 
-table.hub-users-table--route-access-modal .hub-users-th-icon {
-  display: none;
+table.hub-users-table--route-access-modal .hub-users-th-heading {
+  gap: var(--hub-inline-gap-name, 8px);
 }
 
 table.hub-users-table--route-access-modal .hub-users-th-text {

@@ -37,17 +37,27 @@ export function readHubUserZoomPct(): HubUserZoomPct {
   }
 }
 
-export function applyHubUserZoomPct(pct: number): HubUserZoomPct {
-  const snapped = snapToStep(pct);
-  if (typeof document !== "undefined") {
+/** Inline style only when zoom ≠ CSS default — avoids Next.js `<html>` hydration drift. */
+export function syncHubUserZoomDom(snapped: HubUserZoomPct): void {
+  if (typeof document === "undefined") return;
+  if (snapped === HUB_USER_ZOOM_DEFAULT) {
+    document.documentElement.style.removeProperty("--hub-user-zoom-pct");
+  } else {
     document.documentElement.style.setProperty("--hub-user-zoom-pct", String(snapped));
   }
+}
+
+export function applyHubUserZoomPct(pct: number): HubUserZoomPct {
+  const snapped = snapToStep(pct);
+  syncHubUserZoomDom(snapped);
   try {
     localStorage.setItem(STORAGE_KEY, String(snapped));
   } catch {
     /* ignore */
   }
-  window.dispatchEvent(new CustomEvent("hub-user-zoom-change", { detail: { pct: snapped } }));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("hub-user-zoom-change", { detail: { pct: snapped } }));
+  }
   return snapped;
 }
 
@@ -76,6 +86,16 @@ export function initHubUserZoom() {
   if (!migrateZoomDefaultOnce()) {
     applyHubUserZoomPct(readHubUserZoomPct());
   }
+}
+
+/**
+ * Blocking boot script for Next.js `<html>` — apply stored zoom before React hydrates.
+ * Pair with `suppressHydrationWarning` on `<html>` when non-default zoom is possible.
+ */
+export function hubUserZoomBootScript(): string {
+  const steps = HUB_USER_ZOOM_STEPS.join(",");
+  const def = HUB_USER_ZOOM_DEFAULT;
+  return `(function(){try{var k=${JSON.stringify(STORAGE_KEY)},lk="tool-hub:user-zoom-pct",s=[${steps}],d=${def},r=localStorage.getItem(k),l=localStorage.getItem(lk),n=r?Number(r):l?Number(l):d;if(!Number.isFinite(n))n=d;var b=s[0],bd=1/0;for(var i=0;i<s.length;i++){var t=Math.abs(n-s[i]);if(t<bd){b=s[i];bd=t;}}if(b!==d)document.documentElement.style.setProperty("--hub-user-zoom-pct",String(b));}catch(e){}})();`;
 }
 
 export function hubUserZoomStepIndex(pct: HubUserZoomPct): number {

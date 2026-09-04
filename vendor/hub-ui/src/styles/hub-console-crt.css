@@ -1,0 +1,145 @@
+/* Hub SSOT — Console CRT V5 (Desk P0001). Four-tone palette — accent / muted / ok / err only. */
+
+:root {
+  --hub-crt-bg: #0a0f14;
+  --hub-crt-text: #94a3b8;
+  --hub-crt-muted: #64748b;
+  --hub-crt-accent: #7dd3fc;
+  --hub-crt-ok: #86efac;
+  --hub-crt-warn: #fcd34d;
+  --hub-crt-err: #f87171;
+}
+
+.hub-console-crt-wrap {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hub-console-crt-wrap::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.14) 3px
+  );
+  border-radius: inherit;
+}
+
+.hub-runtime-console-code.hub-console-crt,
+pre.hub-console-crt {
+  position: relative;
+  z-index: 0;
+  font-family: var(--font-mono, ui-monospace, "Cascadia Code", "Consolas", monospace);
+  font-size: var(--hub-runtime-term-font-size, 0.6875rem);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 2;
+  border-radius: 0.5rem;
+  color: var(--hub-crt-text);
+  background: var(--hub-crt-bg);
+}
+
+.hub-console-crt__line {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hub-console-crt .hub-console-crt__tok {
+  color: inherit;
+}
+
+/* Chips — subtle; only ok/warn/err stand out */
+.hub-console-crt__chip {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0 0.25rem;
+  border-radius: 0.2rem;
+  background: rgba(100, 116, 139, 0.14);
+  color: var(--hub-crt-muted);
+  font-size: 0.58rem;
+  text-transform: lowercase;
+  vertical-align: baseline;
+}
+
+.hub-console-crt__chip--cmd,
+.hub-console-crt__chip--meta,
+.hub-console-crt__chip--plain {
+  background: rgba(100, 116, 139, 0.14);
+  color: var(--hub-crt-muted);
+}
+
+.hub-console-crt__chip--ok {
+  background: rgba(134, 239, 172, 0.12);
+  color: var(--hub-crt-ok);
+}
+
+.hub-console-crt__chip--warn {
+  background: rgba(252, 211, 77, 0.12);
+  color: var(--hub-crt-warn);
+}
+
+.hub-console-crt__chip--err {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--hub-crt-err);
+}
+
+/* Inline body — 4 tones (text · muted · accent · state) */
+.hub-console-crt .hub-console-crt__seg--plain,
+.hub-console-crt .hub-console-crt__seg--key,
+.hub-console-crt .hub-console-crt__seg--cmd,
+.hub-console-crt .hub-console-crt__seg--num,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--plain,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--key,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--cmd,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--num {
+  color: var(--hub-crt-text);
+}
+
+.hub-console-crt .hub-console-crt__seg--ts,
+.hub-console-crt .hub-console-crt__seg--tag,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--ts,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--tag {
+  color: var(--hub-crt-muted);
+}
+
+.hub-console-crt .hub-console-crt__seg--path,
+.hub-console-crt .hub-console-crt__seg--arrow,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--path,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--arrow {
+  color: var(--hub-crt-accent);
+}
+
+.hub-console-crt .hub-console-crt__seg--ok,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--ok {
+  color: var(--hub-crt-ok);
+}
+
+.hub-console-crt .hub-console-crt__seg--warn,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--warn {
+  color: var(--hub-crt-warn);
+}
+
+.hub-console-crt .hub-console-crt__seg--err,
+.hub-runtime-rail-surface .hub-console-crt .hub-console-crt__seg--err {
+  color: var(--hub-crt-err);
+}
+
+.hub-console-crt__empty,
+.hub-console-crt__preview {
+  color: var(--hub-crt-muted);
+}
+
+.hub-console-crt__preview {
+  opacity: 0.72;
+}

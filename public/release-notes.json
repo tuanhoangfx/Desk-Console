@@ -1,6 +1,55 @@
 {
-  "generatedAt": "2026-08-28T22:19:05.503Z",
+  "generatedAt": "2026-09-04T11:58:02.009Z",
   "entries": [
+    {
+      "version": "2.1.1",
+      "date": "2026-09-04",
+      "at": "2026-09-04T18:58:00+07:00",
+      "title": "Patch bump for completed agent task (release)",
+      "bullets": [
+        "Release Major bump (P0001): 1.1.1 → 2.1.1 (MAJOR+1, MINOR=1, PATCH=1).",
+        "Release Major bump (P0001): 0.1.66 → 1.1.1 (MAJOR+1, MINOR=1, PATCH=1)."
+      ],
+      "kind": "improve",
+      "userTitle": "Patch bump for completed agent task",
+      "userSummary": "",
+      "userHighlights": [
+        "Release Major bump : 1.1.1 → 2.1.1 .",
+        "Release Major bump : 0.1.66 → 1.1.1 ."
+      ]
+    },
+    {
+      "version": "0.1.66",
+      "date": "2026-09-04",
+      "at": "2026-09-04T02:54:00+07:00",
+      "title": "Patch bump for completed agent task",
+      "bullets": [
+        "Automatic patch bump after completed P0001 task."
+      ],
+      "kind": "improve",
+      "userTitle": "Patch bump for completed agent task",
+      "userSummary": "",
+      "userHighlights": [
+        "Automatic patch bump after completed P0001 task."
+      ]
+    },
+    {
+      "version": "0.1.8",
+      "date": "2026-08-29",
+      "at": "2026-08-24T05:14:00+07:00",
+      "title": "Rollback to v0.1.8 (2026-08-24 known-good)",
+      "bullets": [
+        "Revert P0001 UI to v0.1.8: Runners + Tasks separate, DeskDirectoryScreen full-width.",
+        "URL: ?screen=runners / ?screen=tasks (removed path routing)."
+      ],
+      "kind": "improve",
+      "userTitle": "Rollback to v0.1.8",
+      "userSummary": "",
+      "userHighlights": [
+        "Revert P0001 UI to v0.1.8: Runners + Tasks separate, Desk Directory Screen full-width.",
+        "URL: ?screen=runners ?screen=tasks ."
+      ]
+    },
     {
       "version": "0.1.28",
       "date": "2026-08-29",

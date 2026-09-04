@@ -18,6 +18,8 @@ export type HubDirectoryBulkMoreAction = {
   selectedCount?: number;
   /** Spin the Lucide icon (Sync / Save busy). */
   iconSpinning?: boolean;
+  /** Pulse the Lucide icon — no spin (Checking / Update modal SSOT). */
+  iconPulsing?: boolean;
   /** Lucide tone — Groups / Export / Import SSOT (not muted white). */
   iconClassName?: string;
   onClick: () => void;
@@ -88,7 +90,7 @@ export function HubDirectoryBulkMoreMenu({
               >
                 <Icon
                   size={14}
-                  className={`shrink-0 ${action.iconClassName ?? "opacity-80"}${action.iconSpinning ? " animate-spin" : ""}`}
+                  className={`shrink-0 ${action.iconClassName ?? "opacity-80"}${action.iconSpinning ? " animate-spin" : action.iconPulsing ? " hub-directory-bulk-more__icon--pulse" : ""}`}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">{action.label}</span>

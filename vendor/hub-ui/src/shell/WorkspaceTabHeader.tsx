@@ -11,6 +11,7 @@ import { buildVersionMetaItems } from "./workspace-tab-header-meta";
 import { HubVersionReleaseNotes } from "./HubVersionReleaseNotes";
 import type { HubVersionDesktopUpdate } from "./HubVersionUpdateStatusIcon";
 import { HubDirectoryQueryPendingChip } from "./HubDirectoryQueryPendingChip";
+import { extractHubReleaseNotesSemver } from "../lib/hub-version-release-notes-core";
 
 export type WorkspaceTabHeaderProps = {
   ariaLabel: string;
@@ -30,7 +31,7 @@ export type WorkspaceTabHeaderProps = {
   /** ISO release/deploy time — activity dot + relative/stale label in header meta */
   publishedAt?: string | null;
   versionLive?: boolean;
-  /** Update / freshness icon beside version label (HubVersionUpdateStatusIcon). */
+  /** @deprecated Use `versionReleaseNotesCode` — HubVersionReleaseNotes owns the sole update icon. */
   versionAfter?: ReactNode;
   /**
    * Tool code (e.g. "P0020") — HubVersionReleaseNotes beside version meta.
@@ -98,7 +99,7 @@ export function WorkspaceTabHeader({
       versionReleaseNotesCode && items[0] ? (
         <HubVersionReleaseNotes
           code={versionReleaseNotesCode}
-          version={items[0].value}
+          version={extractHubReleaseNotesSemver(items[0].value)}
           publishedAt={hubMetaActivityAtString(publishedAt ?? items[0].activityAt)}
           bundleStale={versionReleaseNotesBundleStale}
           onBundleReload={versionReleaseNotesOnBundleReload}

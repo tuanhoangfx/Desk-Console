@@ -1,0 +1,228 @@
+/* Hub golden — profile directory + workflow/runtime rail split (P0003 Profiles SSOT). */
+
+.stealth-profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 30rem);
+  gap: var(--hub-chrome-content-gap, 0.75rem);
+  min-height: 0;
+}
+
+.stealth-profile-directory-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hub-main.hub-main--profiles,
+.hub-main.hub-main--workflow,
+.hub-main.hub-main--runners,
+.hub-main.hub-main--tasks {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Visited tab panels use [hidden]; flex rules below must not resurrect them (P0001 Tasks/System stack bug). */
+.hub-main > [data-hub-screen][hidden] {
+  display: none !important;
+}
+
+.hub-main--profiles > div:not([hidden]),
+.hub-main--profiles .hub-tab-chrome-stack,
+.hub-main--profiles .hub-tab-content-zone,
+.hub-main--profiles .hub-tab-body-zone--split,
+.hub-main--profiles .stealth-profile-layout,
+.hub-main--workflow > div:not([hidden]),
+.hub-main--workflow .hub-tab-chrome-stack,
+.hub-main--workflow .hub-tab-content-zone,
+.hub-main--workflow .hub-tab-body-zone--split,
+.hub-main--workflow .stealth-profile-layout,
+.hub-main--workflow .stealth-scripts-workspace__body,
+.hub-main--workflow .script-builder,
+.hub-main--workflow .script-workflows,
+.hub-main--workflow .script-editor-stack,
+.hub-main--system > div:not([hidden]),
+.hub-main--system .hub-tab-chrome-stack,
+.hub-main--system .hub-tab-content-zone,
+.hub-main--system .hub-tab-body-zone--split,
+.hub-main--system .stealth-profile-layout,
+.hub-main--system .stealth-system-backup-workspace__body,
+.hub-main--system .stealth-system-extensions-workspace__body,
+.hub-main--runners > div:not([hidden]),
+.hub-main--runners .hub-inactive-tab-content--active,
+.hub-main--tasks > div:not([hidden]),
+.hub-main--tasks .hub-inactive-tab-content--active {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tailwind `flex` on layout root must not collapse the 2-column grid. */
+.hub-main--profiles .stealth-profile-layout,
+.hub-main--workflow .stealth-profile-layout,
+.hub-main--system .stealth-profile-layout,
+.hub-main--runners .stealth-profile-layout,
+.hub-main--tasks .stealth-profile-layout {
+  display: grid;
+}
+
+.stealth-profile-directory-pane .hub-split-directory-pane,
+.stealth-profile-directory-frame.hub-split-directory-pane {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.stealth-profile-directory-frame .hub-split-directory-pane__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stealth-profile-directory-frame.hub-directory-frame--panel-fill .hub-split-directory-pane__body > div {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.stealth-profile-directory-frame .hub-split-directory-pane__body .hub-users-table-wrap:not(.hub-directory-table-split),
+.stealth-profile-directory-frame .hub-split-directory-pane__body .hub-directory-table-split.hub-directory-table-scroll--flex-pane {
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+/* Right rail — workflow slot + History/Console stack */
+.stealth-workflow-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding-right: 0;
+}
+
+/* Desk P0001 — Console · History · Log = 4:3:3 (P0003 workflow+history+console golden). */
+.stealth-workflow-rail.desk-ops-three-rail {
+  display: grid;
+  grid-template-rows: 4fr 3fr 3fr;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding-right: 0;
+}
+
+.stealth-workflow-rail.desk-ops-three-rail > .desk-runtime-console,
+.stealth-workflow-rail.desk-ops-three-rail > .stealth-runtime-history,
+.stealth-workflow-rail.desk-ops-three-rail > .desk-runtime-log {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.stealth-workflow-rail:not(.desk-ops-three-rail) > .hub-split-directory-pane {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.stealth-workflow-rail:not(.desk-ops-three-rail) > .desk-runtime-console.stealth-runtime-console {
+  flex: 0 0 auto;
+  min-height: 9rem;
+  max-height: 38%;
+  height: auto;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.stealth-workflow-rail > .stealth-runtime-stack {
+  flex: 1 1 0;
+  display: grid;
+  grid-template-rows: minmax(4.5rem, 1fr) minmax(5rem, 1fr);
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+}
+
+.stealth-workflow-rail.stealth-runtime-rail-only {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding-right: 0;
+}
+
+.stealth-workflow-rail.stealth-runtime-rail-only > .stealth-runtime-stack {
+  flex: 1 1 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stealth-workflow-rail > .stealth-runtime-stack .stealth-runtime-history,
+.stealth-workflow-rail > .stealth-runtime-stack .stealth-runtime-console,
+.stealth-workflow-rail > .stealth-runtime-stack .desk-runtime-log {
+  min-height: 0;
+  height: 100%;
+}
+
+.stealth-runtime-history,
+.stealth-runtime-console,
+.desk-runtime-log {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stealth-runtime-history > div:last-child,
+.stealth-runtime-console > div:last-child,
+.desk-runtime-log > div:last-child,
+.desk-runtime-console > div:last-child {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stealth-runtime-stack .stealth-runtime-history header,
+.stealth-runtime-stack .stealth-runtime-console header,
+.stealth-runtime-stack .desk-runtime-log header {
+  padding: 0.5rem 0.75rem;
+}
+
+.stealth-runtime-stack .stealth-runtime-history > div:last-child,
+.stealth-runtime-stack .stealth-runtime-console > div:last-child {
+  padding: 0.5rem 0.75rem;
+}
+
+.stealth-runtime-stack .stealth-runtime-history__body,
+.stealth-runtime-stack .stealth-console-log,
+.stealth-runtime-stack .desk-runtime-log__body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (max-width: 1200px) {
+  .stealth-profile-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 26rem);
+  }
+}

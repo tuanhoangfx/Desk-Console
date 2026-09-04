@@ -103,6 +103,32 @@ function runPsAsync(args, opts = {}) {
   });
 }
 
+function spawnWinAsync(cmd, args, timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { windowsHide: true, cwd: DEV_ROOT });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve({ ok: false, stdout, stderr });
+    }, timeoutMs);
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve({ ok: false, stdout, stderr });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ ok: code === 0, stdout, stderr });
+    });
+  });
+}
+
 export function writeClipboardText(text) {
   const value = String(text ?? "");
   ignoreClipboardText = value;
@@ -133,6 +159,10 @@ export function shouldIgnoreClipboardText(text) {
   return Boolean(ignoreClipboardText) && text === ignoreClipboardText;
 }
 
+export function primeClipboardIgnore(text) {
+  ignoreClipboardText = String(text ?? "");
+}
+
 const HWND_PS = `Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -147,15 +177,7 @@ export function captureForegroundHwnd() {
   return String(r.stdout || "").trim();
 }
 
-export function pasteToForegroundHwnd(hwnd) {
-  const handle = String(hwnd || "").trim();
-  if (!handle || handle === "0") return false;
-  const r = winSpawn(
-    "powershell",
-    [
-      "-NoProfile",
-      "-Command",
-      `Add-Type @"
+const PASTE_PS = `Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 public class DeskPaste {
@@ -163,13 +185,38 @@ public class DeskPaste {
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int n);
 }
 "@
-$h = [IntPtr][int64]${handle}
+$h = [IntPtr][int64]HWND
 [DeskPaste]::ShowWindow($h, 9) | Out-Null
 [DeskPaste]::SetForegroundWindow($h) | Out-Null
 Start-Sleep -Milliseconds 90
 Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.SendKeys]::SendWait('^v')`,
-    ],
+[System.Windows.Forms.SendKeys]::SendWait('^v')`;
+
+const PASTE_PY = path.join(HOST_DIR, "scripts", "paste-foreground.py");
+
+function pasteForegroundPsCommand(handle) {
+  return PASTE_PS.replace("HWND", handle);
+}
+
+function pasteToForegroundHwndViaPython(handle) {
+  if (!fs.existsSync(PASTE_PY)) return false;
+  const r = winSpawn("python", [PASTE_PY, handle], { timeout: 1_200 });
+  return r.status === 0;
+}
+
+async function pasteToForegroundHwndViaPythonAsync(handle) {
+  if (!fs.existsSync(PASTE_PY)) return false;
+  const r = await spawnWinAsync("python", [PASTE_PY, handle], 1200);
+  return r.ok;
+}
+
+export function pasteToForegroundHwnd(hwnd) {
+  const handle = String(hwnd || "").trim();
+  if (!handle || handle === "0") return false;
+  if (pasteToForegroundHwndViaPython(handle)) return true;
+  const r = winSpawn(
+    "powershell",
+    ["-NoProfile", "-Command", pasteForegroundPsCommand(handle)],
     { timeout: 2_500 },
   );
   return r.status === 0;
@@ -178,101 +225,9 @@ Add-Type -AssemblyName System.Windows.Forms
 export async function pasteToForegroundHwndAsync(hwnd) {
   const handle = String(hwnd || "").trim();
   if (!handle || handle === "0") return false;
-  const r = await runPsAsync(
-    [
-      `Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class DeskPaste {
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
-  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int n);
-}
-"@
-$h = [IntPtr][int64]${handle}
-[DeskPaste]::ShowWindow($h, 9) | Out-Null
-[DeskPaste]::SetForegroundWindow($h) | Out-Null
-Start-Sleep -Milliseconds 90
-Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.SendKeys]::SendWait('^v')`,
-    ],
-    { timeoutMs: 2500 },
-  );
+  if (await pasteToForegroundHwndViaPythonAsync(handle)) return true;
+  const r = await runPsAsync([pasteForegroundPsCommand(handle)], { timeoutMs: 2500 });
   return r.ok;
-}
-
-export function captureScreenPng(destPath) {
-  fs.mkdirSync(path.dirname(destPath), { recursive: true });
-  const destLit = destPath.replace(/'/g, "''");
-  const ps = `
-Add-Type -AssemblyName System.Windows.Forms,System.Drawing
-$b = [System.Windows.Forms.SystemInformation]::VirtualScreen
-$bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
-$g = [System.Drawing.Graphics]::FromImage($bmp)
-$g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-$bmp.Save('${destLit}', [System.Drawing.Imaging.ImageFormat]::Png)
-$g.Dispose(); $bmp.Dispose()
-`;
-  const r = winSpawn("powershell", ["-NoProfile", "-Command", ps], { timeout: 45_000 });
-  if (r.status !== 0 || !fs.existsSync(destPath)) {
-    throw new Error((r.stderr || r.stdout || "capture failed").trim().slice(0, 400));
-  }
-  return destPath;
-}
-
-export function cropPng(srcPath, destPath, box) {
-  if (!fs.existsSync(srcPath)) throw new Error("source missing");
-  const srcLit = srcPath.replace(/'/g, "''");
-  const destLit = destPath.replace(/'/g, "''");
-  const x = Math.max(0, Math.round(Number(box.x) || 0));
-  const y = Math.max(0, Math.round(Number(box.y) || 0));
-  const width = Math.max(1, Math.round(Number(box.width) || 0));
-  const height = Math.max(1, Math.round(Number(box.height) || 0));
-  const ps = `
-Add-Type -AssemblyName System.Drawing
-$img = [System.Drawing.Image]::FromFile('${srcLit}')
-try {
-  $x = [Math]::Min([Math]::Max(0, ${x}), $img.Width - 1)
-  $y = [Math]::Min([Math]::Max(0, ${y}), $img.Height - 1)
-  $w = [Math]::Min(${width}, $img.Width - $x)
-  $h = [Math]::Min(${height}, $img.Height - $y)
-  if ($w -lt 1 -or $h -lt 1) { throw 'empty crop' }
-  $rect = New-Object System.Drawing.Rectangle $x, $y, $w, $h
-  $crop = $img.Clone($rect, $img.PixelFormat)
-  try { $crop.Save('${destLit}', [System.Drawing.Imaging.ImageFormat]::Png) }
-  finally { $crop.Dispose() }
-} finally { $img.Dispose() }
-`;
-  const r = winSpawn("powershell", ["-NoProfile", "-Command", ps], { timeout: 45_000 });
-  if (r.status !== 0 || !fs.existsSync(destPath)) {
-    throw new Error((r.stderr || r.stdout || "crop failed").trim().slice(0, 400));
-  }
-  return destPath;
-}
-
-function spawnWinAsync(cmd, args, timeoutMs = 8000) {
-  return new Promise((resolve) => {
-    const child = spawn(cmd, args, { windowsHide: true, cwd: DEV_ROOT });
-    let stdout = "";
-    let stderr = "";
-    const timer = setTimeout(() => {
-      child.kill();
-      resolve({ ok: false, stdout, stderr });
-    }, timeoutMs);
-    child.stdout?.on("data", (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += chunk;
-    });
-    child.on("error", () => {
-      clearTimeout(timer);
-      resolve({ ok: false, stdout, stderr });
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      resolve({ ok: code === 0, stdout, stderr });
-    });
-  });
 }
 
 export function parseSchtasksListVerbose(text) {
@@ -357,7 +312,7 @@ export async function runTask(taskName) {
   const r = await spawnWinAsync("schtasks", ["/Run", "/TN", name], 4000);
   tasksCache.at = 0;
   if (!r.ok) throw new Error((r.stderr || r.stdout || "run failed").trim());
-  return { ok: true, name };
+  return { ok: true, name, stdout: String(r.stdout || ""), stderr: String(r.stderr || "") };
 }
 
 export async function setTaskEnabled(taskName, enabled) {

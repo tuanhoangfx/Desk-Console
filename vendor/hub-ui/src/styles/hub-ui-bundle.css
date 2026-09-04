@@ -23,6 +23,8 @@
 @import "./hub-table-controls.css";
 @import "./hub-table-cell.css";
 @import "./hub-split-directory-pane.css";
+@import "./hub-profile-split-layout.css";
+@import "./hub-console-crt.css";
 @import "./hub-directory-frame-table.css";
 @import "./hub-modal.css";
 @import "./hub-add-modal.css";

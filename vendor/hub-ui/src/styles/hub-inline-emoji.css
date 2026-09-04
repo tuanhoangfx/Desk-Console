@@ -11,9 +11,43 @@
 
 .hub-filter-option-emoji,
 .hub-analytics-caption__emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: var(--hub-inline-emoji-size, var(--hub-directory-header-glyph-px, 13px));
   line-height: 1;
   flex-shrink: 0;
+}
+
+/*
+ * Windows Segoe color emoji sit low in the em-box vs Latin labels (leading-none).
+ * Filter triggers: -1.5px. Clear 🧹: stronger nudge in hub-fields (.hub-filter-clear-btn__icon).
+ * Nudge only color presentation — sticker/text dingbats stay unshifted.
+ */
+.hub-filter-trigger .hub-filter-option-emoji--color {
+  transform: translateY(-1.5px);
+}
+
+/*
+ * Directory thead + pictorial stickers — Segoe *color* emoji (Hub golden).
+ * Cấm font-variant-emoji: text on headers — Windows vẽ outline xám (giống Lucide).
+ * `--sticker` = dingbat only (♀) — text presentation.
+ */
+.hub-users-th-emoji,
+.hub-filter-option-emoji--color,
+.hub-kpi-strip .hub-kpi-tile__emoji {
+  font-variant-emoji: emoji;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", system-ui, sans-serif;
+}
+
+.hub-filter-option-emoji--sticker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1em;
+  font-variant-emoji: text;
+  font-family: "Segoe UI Symbol", "Segoe UI", system-ui, sans-serif;
+  color: inherit;
 }
 
 /* Legacy legend glyph class — same token until all rows use hub-filter-option-emoji */

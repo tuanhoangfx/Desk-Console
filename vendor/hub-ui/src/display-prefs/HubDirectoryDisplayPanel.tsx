@@ -58,7 +58,10 @@ export type HubDirectoryDisplayPanelProps = Pick<
    * Defaulted below (`DEFAULT_READ_PREFS` / `DEFAULT_PATCH_PREFS`) — optional here so callers
    * that want the shared hub-list-prefs store can just omit them (P0010, P0014).
    */
-  Partial<Pick<HubDisplayPrefsProps, "readPrefs" | "patchPrefs">>;
+  Partial<Pick<HubDisplayPrefsProps, "readPrefs" | "patchPrefs">> & {
+  /** Directory rail — icon + chevron only (P0021 Audio / P0005 narrow toolbar SSOT). */
+  triggerIconOnly?: boolean;
+};
 
 function parseSet(raw: string | null): Set<string> | null {
   if (raw === null) return null;
@@ -137,6 +140,7 @@ export function HubDirectoryDisplayPanel({
   tableSectionFirst,
   showPageSize = true,
   sectionHints,
+  triggerIconOnly = false,
 }: HubDirectoryDisplayPanelProps & { showPageSize?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -562,12 +566,15 @@ export function HubDirectoryDisplayPanel({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`inline-flex h-[var(--hub-control-h)] items-center gap-1.5 rounded-lg border border-white/10 bg-[var(--panel-2)] px-3 ${HUB_DIRECTORY_TOOLBAR_TYPO_CLASS} text-[var(--text)] transition-colors hover:bg-white/5`}
+        className={`inline-flex h-[var(--hub-control-h)] items-center rounded-lg border border-white/10 bg-[var(--panel-2)] ${HUB_DIRECTORY_TOOLBAR_TYPO_CLASS} text-[var(--text)] transition-colors hover:bg-white/5 ${
+          triggerIconOnly ? "hub-filter-chip--icon-only gap-0.5 px-[0.4rem]" : "gap-1.5 px-3"
+        }`}
         title="Display options"
+        aria-label="Display"
         aria-expanded={open}
       >
         <DisplayTriggerIcon size={compactIconSize(13)} className={`shrink-0 opacity-90 ${displayIconClass}`} aria-hidden />
-        <span className="hub-filter-trigger__label">Display</span>
+        {triggerIconOnly ? null : <span className="hub-filter-trigger__label">Display</span>}
         <ChevronDown size={compactIconSize(12)} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {tableColumnPresets ? (

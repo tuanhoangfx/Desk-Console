@@ -80,6 +80,15 @@
   max-width: 100%;
 }
 
+/* No center KPI rail — title/meta left, ops right (P0001 Runners/Tasks, Clips, …). */
+.app-tab-header--sparse {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.app-tab-header--sparse .app-tab-header-center-stats {
+  display: none;
+}
+
 .app-tab-header-stat-emoji {
   font-size: 0.8125rem;
   line-height: 1;

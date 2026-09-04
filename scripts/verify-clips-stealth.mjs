@@ -10,7 +10,7 @@ const assign = spawnSync(process.execPath, ["Tool/scripts/assign-agent-stealth-p
   timeout: 15_000,
 });
 const profile = JSON.parse(assign.stdout || "{}").profile || "9990";
-const targetUrl = "http://127.0.0.1:5180/?screen=clips&clipsrange=all";
+const targetUrl = "http://127.0.0.1:5180/clips?clipsrange=all";
 const raw = await stealthBrowser.listProfiles();
 const list = Array.isArray(raw) ? raw : raw?.profiles || [];
 const hit = list.find((p) => String(p.name || "").trim() === profile);
@@ -137,10 +137,10 @@ for (let i = 0; i < 8; i++) {
   );
   if (picker?.hasPaste && (picker.hasSamples || picker.hasHistory || picker.hasSeed)) break;
 }
-const screens = ["clips", "captures", "runners", "tasks", "system"];
+const screens = ["clips", "runners", "tasks", "system"];
 const byScreen = {};
 for (const screen of screens) {
-  await session.send("Page.navigate", { url: `http://127.0.0.1:5180/?screen=${screen}` });
+  await session.send("Page.navigate", { url: `http://127.0.0.1:5180/${screen}` });
   await new Promise((r) => setTimeout(r, 1200));
   byScreen[screen] = await cdpEvaluate(
     session.send,

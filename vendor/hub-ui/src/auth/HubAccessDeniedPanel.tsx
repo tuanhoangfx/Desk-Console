@@ -14,6 +14,11 @@ export type HubAccessDeniedPanelProps = {
   onRecheck?: () => void;
   recheckLabel?: string;
   recheckBusy?: boolean;
+  /** Live user — queue Hub Admin review for this tool (fail-open when RPC migrate misses). */
+  onRequestAccess?: () => void;
+  requestAccessLabel?: string;
+  requestAccessBusy?: boolean;
+  requestAccessDone?: boolean;
   headerLeading?: ReactNode;
   toolInfo?: HubAuthToolInfo;
   /** Portal to document.body with auth-gate backdrop (default true). */
@@ -30,6 +35,10 @@ export function HubAccessDeniedPanel({
   onRecheck,
   recheckLabel = "Check access again",
   recheckBusy = false,
+  onRequestAccess,
+  requestAccessLabel = "Request access",
+  requestAccessBusy = false,
+  requestAccessDone = false,
   headerLeading,
   toolInfo,
   portal = true,
@@ -50,6 +59,16 @@ export function HubAccessDeniedPanel({
         <p className="auth-gate-denied__message">{message}</p>
       </div>
       <div className="auth-gate-denied__actions">
+        {onRequestAccess ? (
+          <button
+            type="button"
+            className="auth-gate-submit auth-gate-submit--recheck"
+            onClick={onRequestAccess}
+            disabled={requestAccessBusy || requestAccessDone}
+          >
+            <span>{requestAccessBusy ? "Sending…" : requestAccessDone ? "Request sent" : requestAccessLabel}</span>
+          </button>
+        ) : null}
         {onRecheck ? (
           <button
             type="button"

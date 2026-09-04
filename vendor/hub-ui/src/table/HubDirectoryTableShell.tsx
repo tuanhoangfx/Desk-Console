@@ -81,7 +81,11 @@ export type HubDirectoryTableShellProps<TItem, TSortKey extends string> = {
   hideWhenSinglePage?: boolean;
   /** Server-side page slice — see HubPaginatedTableShell.serverPagination. */
   serverPagination?: HubServerPaginationControl;
-  /** Pad tbody with empty rows up to page size (stable directory height). */
+  /**
+   * Pad tbody empty rows up to `pageSize` for **the current page** (panel-fill SSOT).
+   * Required whenever the frame uses `panelFillRows` — otherwise few data rows absorb
+   * `table { height: 100% }` and row height jumps with filter/page length.
+   */
   padBodyRowsToPageSize?: boolean;
   /** Extra classes on HubPaginatedTableShell root (sheet grid: flex column). */
   paginatedShellClassName?: string;

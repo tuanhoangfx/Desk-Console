@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { deskApi, type DeskHotkeys } from "../lib/api";
 import { acceleratorFromKeyboardEvent, formatHotkeyLabel } from "../lib/hotkeys";
 
-type Role = "picker" | "capture";
+type Role = "picker";
 
 const ROLES: { role: Role; label: string; hint: string }[] = [
   { role: "picker", label: "Paste picker", hint: "Opens the History + Samples modal" },
-  { role: "capture", label: "Screen capture", hint: "Saves a screenshot into Captures" },
 ];
 
 export function DeskHotkeysSettings() {
@@ -28,6 +27,13 @@ export function DeskHotkeysSettings() {
 
   useEffect(() => {
     void load();
+    void window.deskConsole?.rebindHotkeys?.().then((data) => {
+      if (data?.boundPicker && data?.picker && data.boundPicker !== data.picker) {
+        setNote(
+          `Listening on ${formatHotkeyLabel(data.boundPicker)} — ${formatHotkeyLabel(data.picker)} is busy (Cursor/OS)`,
+        );
+      }
+    });
     if (!window.deskConsole?.loginItem) return;
     void window.deskConsole.loginItem().then((data) => {
       if (typeof data.openAtLogin === "boolean") setOpenAtLogin(data.openAtLogin);
@@ -43,6 +49,16 @@ export function DeskHotkeysSettings() {
         return;
       }
       event.preventDefault();
+      if (event.altKey) {
+        setListening(null);
+        setError("Do not use Alt — it jumps Cursor/Chrome tabs. Default is Ctrl+Shift+Q.");
+        return;
+      }
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "v") {
+        setListening(null);
+        setError("Ctrl+Shift+V collides with Cursor/Chrome. Default is Ctrl+Shift+Q.");
+        return;
+      }
       const acc = acceleratorFromKeyboardEvent(event);
       if (!acc) return;
       setListening(null);
@@ -74,7 +90,10 @@ export function DeskHotkeysSettings() {
 
   return (
     <div className="space-y-3 text-xs leading-relaxed text-[var(--muted)]">
-      <p>Click Record, then press the shortcut. Applies immediately while Desk Console is in the tray. Win+V stays with Windows.</p>
+      <p>
+        Click Record, then press the shortcut. Default <strong>Ctrl+Shift+Q</strong> — no Alt, no Ctrl+Shift+V
+        (those jump Cursor/Chrome tabs). Win+V stays with Windows. Ctrl+C / Ctrl+V stay copy/paste.
+      </p>
       {ROLES.map((item) => (
         <div key={item.role} className="flex items-center gap-2">
           <div className="min-w-0 flex-1">

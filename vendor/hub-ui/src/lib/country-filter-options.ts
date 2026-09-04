@@ -1,6 +1,13 @@
 import type { FilterOption } from "../shell/FilterBar";
 import { HUB_COUNTRY_CATALOG } from "./country-catalog";
-import { flagsApiUrl } from "./locale-flag";
+import { countryCodeForLocale, flagsApiUrl } from "./locale-flag";
+
+function hubFlagFilterIcon(countryCode: string): Pick<FilterOption, "iconSrc" | "iconShell"> {
+  return {
+    iconSrc: flagsApiUrl(countryCode, "flat", 24),
+    iconShell: "bare",
+  };
+}
 
 export function buildHubCountryFilterOptions(extraValues: readonly string[] = []): FilterOption[] {
   const seen = new Set<string>();
@@ -12,7 +19,7 @@ export function buildHubCountryFilterOptions(extraValues: readonly string[] = []
     options.push({
       value: entry.code,
       label: entry.name,
-      iconSrc: flagsApiUrl(entry.code, "flat", 24),
+      ...hubFlagFilterIcon(entry.code),
     });
   }
 
@@ -35,6 +42,17 @@ export function hubCountryFilterOption(code: string): FilterOption | null {
   return {
     value: entry.code,
     label: entry.name,
-    iconSrc: flagsApiUrl(entry.code, "flat", 24),
+    ...hubFlagFilterIcon(entry.code),
+  };
+}
+
+/** Locale / region filter row — same `iconSrc` + flagsapi SSOT as P0020 country / P0005 brand filters. */
+export function hubLocaleFlagFilterOption(locale: string, label?: string): FilterOption {
+  const iso = countryCodeForLocale(locale).toUpperCase();
+  const country = HUB_COUNTRY_CATALOG.find((row) => row.code === iso);
+  return {
+    value: locale,
+    label: label ?? country?.name ?? locale,
+    ...hubFlagFilterIcon(iso),
   };
 }

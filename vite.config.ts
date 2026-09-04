@@ -6,24 +6,36 @@ import { defineConfig } from "vite";
 import { hubAppVersionPlugin } from "../scripts/embed-app-version.mjs";
 
 const toolRoot = path.dirname(fileURLToPath(import.meta.url));
-const hubUiSrc = path.resolve(toolRoot, "vendor/hub-ui/src");
-const hubIdentitySrc = path.resolve(toolRoot, "vendor/hub-identity/src");
+const vendorHubUi = path.resolve(toolRoot, "vendor/hub-ui/src");
+const vendorIdentity = path.resolve(toolRoot, "vendor/hub-identity/src");
 const packagesHubUi = path.resolve(toolRoot, "../../packages/hub-ui/src");
 const packagesIdentity = path.resolve(toolRoot, "../../packages/hub-identity/src");
-const uiSrc = fs.existsSync(path.join(hubUiSrc, "index.ts")) ? hubUiSrc : packagesHubUi;
-const identitySrc = fs.existsSync(path.join(hubIdentitySrc, "index.ts"))
-  ? hubIdentitySrc
-  : packagesIdentity;
 
-export default defineConfig({
-  base: "./",
+/** Monorepo dev: prefer fresh packages; vendor is offline/build fallback. */
+function pickHubSrc(preferred: string, fallback: string): string {
+  if (fs.existsSync(path.join(preferred, "index.ts"))) return preferred;
+  if (fs.existsSync(path.join(fallback, "index.ts"))) return fallback;
+  return preferred;
+}
+
+const uiSrc = pickHubSrc(packagesHubUi, vendorHubUi);
+const identitySrc = pickHubSrc(packagesIdentity, vendorIdentity);
+
+const deskApiPort =
+  process.env.DESK_API_PORT ||
+  (process.env.DESK_DEV_ISOLATED === "0" ? "6010" : "6011");
+
+/** serve: `base: '/'` so hard-refresh on `/clips` resolves assets. build: `./` for Electron file://. */
+export default defineConfig(({ command }) => ({
+  base: command === "serve" ? "/" : "./",
   plugins: [react(), hubAppVersionPlugin({ root: toolRoot })],
+  appType: "spa",
   server: {
     host: "127.0.0.1",
     port: 5180,
     strictPort: true,
     proxy: {
-      "/api": "http://127.0.0.1:6010",
+      "/api": `http://127.0.0.1:${deskApiPort}`,
     },
     fs: {
       allow: [toolRoot, uiSrc, identitySrc, path.resolve(toolRoot, "../..")],
@@ -42,4 +54,4 @@ export default defineConfig({
       { find: /^@tool-workspace\/hub-identity\/(.+)$/, replacement: `${identitySrc}/$1` },
     ],
   },
-});
+}));

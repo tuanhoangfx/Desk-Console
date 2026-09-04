@@ -30,7 +30,23 @@ export type HubReleaseNoteEntry = {
 };
 
 /** Feed written by `Tool/scripts/generate-release-notes.mjs` into each product `public/`. */
-export const HUB_RELEASE_NOTES_URL = "/release-notes.json";
+export const HUB_RELEASE_NOTES_FILENAME = "release-notes.json";
+
+/** @deprecated Prefer `hubReleaseNotesFetchUrl()` — absolute `/` breaks Electron `file://` dist loads. */
+export const HUB_RELEASE_NOTES_URL = `/${HUB_RELEASE_NOTES_FILENAME}`;
+
+/** Resolve fetch URL — respects Vite `base` (`./` desktop dist vs `/` dev server). */
+export function hubReleaseNotesFetchUrl(baseUrl?: string): string {
+  const fromEnv =
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    typeof import.meta.env.BASE_URL === "string"
+      ? import.meta.env.BASE_URL
+      : "";
+  const base = (baseUrl ?? fromEnv) || "/";
+  const normalized = base.endsWith("/") ? base : `${base}/`;
+  return `${normalized}${HUB_RELEASE_NOTES_FILENAME}`;
+}
 
 export function hubReleaseNotesSeenKey(code: string): string {
   return `hub:release-notes-seen:${code}`;
@@ -40,6 +56,13 @@ export function normalizeReleaseNotesVersion(version: string | null | undefined)
   return String(version ?? "")
     .trim()
     .replace(/^v/i, "");
+}
+
+/** Strip header meta noise (`v1.2.3 · 3m ago`) → semver token for running-bundle match. */
+export function extractHubReleaseNotesSemver(version: string | null | undefined): string {
+  const raw = normalizeReleaseNotesVersion(version);
+  const match = raw.match(/^(\d+(?:\.\d+)*(?:-[0-9A-Za-z.]+)?)/);
+  return match?.[1] ?? raw.split(/\s+/)[0] ?? raw;
 }
 
 const CONVENTIONAL_PREFIX =
@@ -198,6 +221,31 @@ export function ensureHubReleaseNotesIncludeCurrent(
     userHighlights: ["Maintenance and polish since the last documented release."],
   };
   return [stub, ...notNewerThanCurrent];
+}
+
+/** Insert GitHub pending version when electron-updater reports a build not yet in the feed. */
+export function ensureHubReleaseNotesIncludePendingUpdate(
+  entries: readonly HubReleaseNoteEntry[],
+  currentVersion: string,
+  pendingVersion: string | null | undefined,
+): HubReleaseNoteEntry[] {
+  const pending = normalizeReleaseNotesVersion(pendingVersion);
+  const cur = normalizeReleaseNotesVersion(currentVersion);
+  if (!pending || !cur || compareSemver(pending, cur) <= 0) return [...entries];
+  if (entries.some((e) => normalizeReleaseNotesVersion(e.version) === pending)) return [...entries];
+  const today = new Date().toISOString().slice(0, 10);
+  const stub: HubReleaseNoteEntry = {
+    version: pending,
+    date: today,
+    at: new Date().toISOString(),
+    title: `Update v${pending}`,
+    bullets: [],
+    kind: "improve",
+    userTitle: "Update available",
+    userSummary: "Download from Update Release to install this build.",
+    userHighlights: [],
+  };
+  return [stub, ...entries];
 }
 
 /**

@@ -20,3 +20,14 @@ test("picker-store paints samples then history from disk", () => {
   assert.equal(snap.rows[1].kind, "history");
   assert.match(snap.labels.picker, /Ctrl/);
 });
+
+test("picker-store remaps Alt and Ctrl+Shift+V labels to Ctrl+Shift+Q", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-picker-"));
+  process.env.DESK_CONSOLE_DATA = dir;
+  fs.writeFileSync(path.join(dir, "hotkeys.json"), JSON.stringify({ picker: "CommandOrControl+Alt+V" }));
+  fs.writeFileSync(path.join(dir, "clips.json"), JSON.stringify([]));
+  fs.writeFileSync(path.join(dir, "samples.json"), JSON.stringify([]));
+  assert.equal(readPickerSnapshot().labels.picker, "Ctrl+Shift+Q");
+  fs.writeFileSync(path.join(dir, "hotkeys.json"), JSON.stringify({ picker: "CommandOrControl+Shift+V" }));
+  assert.equal(readPickerSnapshot().labels.picker, "Ctrl+Shift+Q");
+});

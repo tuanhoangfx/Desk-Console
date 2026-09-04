@@ -1,0 +1,131 @@
+/* P0001 Desk — split profile layout (Runners · Tasks). P0003/P0020 golden parity. */
+
+.hub-main.hub-main--runners,
+.hub-main.hub-main--tasks {
+  padding-bottom: 0;
+  scroll-padding-top: 0;
+  scrollbar-gutter: auto;
+}
+
+.hub-main--runners .hub-split-workspace > div,
+.hub-main--tasks .hub-split-workspace > div,
+.hub-main--runners .hub-tab-chrome-stack,
+.hub-main--tasks .hub-tab-chrome-stack {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hub-main--runners .hub-tab-content-zone,
+.hub-main--tasks .hub-tab-content-zone {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 0;
+}
+
+.hub-main--runners .hub-split-workspace .app-tab-header,
+.hub-main--tasks .hub-split-workspace .app-tab-header {
+  margin-bottom: 0;
+}
+
+.hub-main--runners .hub-split-workspace .hub-tab-body-zone--split,
+.hub-main--tasks .hub-split-workspace .hub-tab-body-zone--split {
+  margin-top: 0;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: var(--hub-chrome-content-gap, 0.75rem);
+  box-sizing: border-box;
+}
+
+.hub-split-workspace {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.hub-tab-body-zone--split > .hub-split-workspace__body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--hub-chrome-content-gap, 0.75rem);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.desk-ops-workspace__body > .stealth-profile-layout {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/*
+ * Warm tab switch SSOT — park keep-alive panels without display:none.
+ * display:none on ~700-node directories forced 0.5–1.5s reflow (Stealth raf2).
+ * Parked panels stay laid out off-flow; active stays in flex.
+ * Must override hub-profile-split-layout `.hub-main--* > div:not([hidden])`.
+ */
+.hub-main {
+  position: relative;
+}
+
+.hub-main > .desk-tab-panel--parked {
+  position: absolute !important;
+  inset: 0;
+  z-index: 0;
+  display: flex !important;
+  flex-direction: column;
+  flex: none !important;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  content-visibility: hidden;
+  contain: layout style paint;
+}
+
+/*
+ * Split tabs (Runners/Tasks) — fill pane, clip (panel-fill + rail).
+ * Directory tabs (Clips/System) — grow with content so `.hub-main`
+ * `overflow-y: auto` can scroll and HubTablePager stays reachable (P0004 SSOT).
+ */
+.hub-main.hub-main--runners > .desk-tab-panel--active,
+.hub-main.hub-main--tasks > .desk-tab-panel--active {
+  position: relative;
+  z-index: 1;
+  display: flex !important;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  visibility: visible;
+}
+
+.hub-main:not(.hub-main--runners):not(.hub-main--tasks) > .desk-tab-panel--active {
+  position: relative;
+  z-index: 1;
+  display: flex !important;
+  flex: 1 0 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  height: auto;
+  min-width: 0;
+  overflow: visible;
+  visibility: visible;
+}
+

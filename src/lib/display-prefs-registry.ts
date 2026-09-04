@@ -18,20 +18,15 @@ export const SCREEN_DISPLAY_PREFS: Partial<
   clips: {
     kpis: [
       { key: "total", label: "Total" },
-      { key: "history", label: "History" },
-      { key: "sample", label: "Samples" },
+      { key: "createdToday", label: "Created today" },
+      { key: "createdThisWeek", label: "Created this week" },
     ],
     charts: [],
-    filters: [{ key: "status", label: "Store", emoji: "📋" }],
-    defaultKpiKeys: ["total", "history", "sample"],
-    defaultChartKeys: [],
-    defaultFilterKeys: ["status"],
-  },
-  captures: {
-    kpis: [{ key: "total", label: "Total" }],
-    charts: [],
-    filters: [{ key: "status", label: "Status", emoji: "🚦" }],
-    defaultKpiKeys: ["total"],
+    filters: [
+      { key: "status", label: "Status", emoji: "📋" },
+      { key: "project", label: "Project", emoji: "📁" },
+    ],
+    defaultKpiKeys: ["total", "createdToday", "createdThisWeek"],
     defaultChartKeys: [],
     defaultFilterKeys: ["status"],
   },

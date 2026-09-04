@@ -1,10 +1,10 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { resolveDeskDataRoot } = require("../host/lib/data-root.cjs");
 
 function dataRoot() {
-  if (process.env.DESK_CONSOLE_DATA) return path.resolve(process.env.DESK_CONSOLE_DATA);
-  return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "desk-console");
+  return resolveDeskDataRoot();
 }
 
 function readJson(file, fallback) {
@@ -46,12 +46,12 @@ function readHotkeys() {
   } catch {
     raw = {};
   }
-  const picker = String(raw.picker || "CommandOrControl+Alt+V");
-  const capture = String(raw.capture || "CommandOrControl+Alt+S");
+  const pickerRaw = String(raw.picker || "CommandOrControl+Shift+Q");
+  const retired = /(^|\+)alt(\+|$)/i.test(pickerRaw) || /shift\+v$/i.test(pickerRaw);
+  const picker = retired ? "CommandOrControl+Shift+Q" : pickerRaw;
   return {
     picker,
-    capture,
-    labels: { picker: formatHotkeyLabel(picker), capture: formatHotkeyLabel(capture) },
+    labels: { picker: formatHotkeyLabel(picker) },
   };
 }
 

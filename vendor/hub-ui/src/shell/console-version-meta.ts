@@ -15,7 +15,7 @@ export function buildConsoleVersionMetaItems(
     builtAtIso?: string;
     changelogPublishedAt?: string;
     extra?: TabHeaderMetaItem[];
-    /** Icon/control after version label (update status SSOT). */
+    /** @deprecated Use `versionReleaseNotesCode` on the header wrapper instead. */
     versionAfter?: TabHeaderMetaItem["after"];
   },
 ): TabHeaderMetaItem[] {

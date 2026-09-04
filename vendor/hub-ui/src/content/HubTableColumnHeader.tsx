@@ -57,6 +57,9 @@ export function HubTableColumnHeader({
   const displayText =
     hasSeparateGlyph || embeddedGlyph ? hubTableLabelTextForGlyph(safeLabel) : safeLabel;
   const showGlyph = Boolean(resolvedEmoji || headerImageSrc || role || IconProp || brandIcon || embeddedGlyph);
+  /** Flex gap can collapse; leading NBSP on the label is the glyph↔text space SSOT. */
+  const spacedDisplayText =
+    showGlyph && displayText.trim() ? `\u00A0${displayText}` : displayText;
 
   const iconOnly = useHubTableColumnHeaderFit(
     { headingRef, glyphRef, textMeasureRef },
@@ -68,7 +71,7 @@ export function HubTableColumnHeader({
 
   const text = (
     <span className="hub-users-th-text" title={label} aria-hidden={iconOnly || undefined}>
-      {displayText}
+      {spacedDisplayText}
     </span>
   );
 
@@ -78,7 +81,7 @@ export function HubTableColumnHeader({
       className="hub-users-th-text hub-users-th-text--measure"
       aria-hidden
     >
-      {displayText}
+      {spacedDisplayText}
     </span>
   ) : null;
 

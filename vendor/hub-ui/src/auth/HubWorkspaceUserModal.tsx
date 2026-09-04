@@ -1,10 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import { KeyRound, LogOut, StickyNote } from "lucide-react";
 import type { ReactNode } from "react";
-import {
-  HubToolDetailModal,
-  HubToolDetailModalPrimaryAction,
-} from "../shell/HubToolDetailModal";
+import { HubToolDetailModal } from "../shell/HubToolDetailModal";
+import { HubToolDetailModalPrimaryAction } from "../shell/HubToolDetailModalActions";
 import { HubToolDetailModalAccountFooter } from "../shell/HubToolDetailModalAccountFooter";
 import { HubAccountDetailAdmScaffold } from "../shell/HubAccountDetailAdmScaffold";
 import { HubTocSectionNav } from "../shell/HubTocSectionNav";

@@ -15,7 +15,8 @@
 .hub-filter-select-panel,
 .hub-directory-display-panel,
 .hub-directory-display-panel__body,
-.hub-toc-nav {
+.hub-toc-nav,
+.hub-directory-popover--value {
   scrollbar-width: thin;
   scrollbar-color: var(--hub-split-scroll-thumb, #2a3158) var(--hub-split-scroll-track, transparent);
 }
@@ -33,7 +34,8 @@
 .hub-runtime-term__body::-webkit-scrollbar,
 .hub-filter-select-panel::-webkit-scrollbar,
 .hub-directory-display-panel__body::-webkit-scrollbar,
-.hub-toc-nav::-webkit-scrollbar {
+.hub-toc-nav::-webkit-scrollbar,
+.hub-directory-popover--value::-webkit-scrollbar {
   width: var(--hub-split-scroll-size, 10px);
   height: var(--hub-split-scroll-size, 10px);
 }
@@ -61,7 +63,8 @@
 .hub-runtime-term__body::-webkit-scrollbar-track,
 .hub-filter-select-panel::-webkit-scrollbar-track,
 .hub-directory-display-panel__body::-webkit-scrollbar-track,
-.hub-toc-nav::-webkit-scrollbar-track {
+.hub-toc-nav::-webkit-scrollbar-track,
+.hub-directory-popover--value::-webkit-scrollbar-track {
   background: var(--hub-split-scroll-track, transparent);
 }
 
@@ -79,7 +82,8 @@
 .hub-runtime-term__body::-webkit-scrollbar-thumb,
 .hub-filter-select-panel::-webkit-scrollbar-thumb,
 .hub-directory-display-panel__body::-webkit-scrollbar-thumb,
-.hub-toc-nav::-webkit-scrollbar-thumb {
+.hub-toc-nav::-webkit-scrollbar-thumb,
+.hub-directory-popover--value::-webkit-scrollbar-thumb {
   background: var(--hub-split-scroll-thumb, #2a3158);
   border-radius: var(--hub-split-scroll-radius, 6px);
 }
@@ -98,7 +102,8 @@
 .hub-runtime-term__body::-webkit-scrollbar-thumb:hover,
 .hub-filter-select-panel::-webkit-scrollbar-thumb:hover,
 .hub-directory-display-panel__body::-webkit-scrollbar-thumb:hover,
-.hub-toc-nav::-webkit-scrollbar-thumb:hover {
+.hub-toc-nav::-webkit-scrollbar-thumb:hover,
+.hub-directory-popover--value::-webkit-scrollbar-thumb:hover {
   background: var(--hub-split-scroll-thumb-hover, #3a4178);
 }
 
@@ -116,7 +121,8 @@
 .hub-runtime-term__body::-webkit-scrollbar-corner,
 .hub-filter-select-panel::-webkit-scrollbar-corner,
 .hub-directory-display-panel__body::-webkit-scrollbar-corner,
-.hub-toc-nav::-webkit-scrollbar-corner {
+.hub-toc-nav::-webkit-scrollbar-corner,
+.hub-directory-popover--value::-webkit-scrollbar-corner {
   background: var(--panel, #121830);
 }
 

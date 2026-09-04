@@ -3,7 +3,7 @@ import type { HubDirectoryColumnHintContent } from "../table/HubDirectoryColumnH
 import { HubDirectoryColumnHint } from "../table/HubDirectoryColumnHint";
 import { scrollToHubTocSection } from "./hub-toc-scroll";
 import { useHubTocNavActive, useHubTocNavHighlight } from "./HubTocSectionHighlight";
-import { HUB_TOOL_DETAIL_SCROLL_ROOT } from "./HubToolDetailModal";
+import { HUB_TOOL_DETAIL_SCROLL_ROOT } from "./hubToolDetailModalChrome";
 
 export type HubTocNavItem = {
   /** DOM id on `HubToolDetailSection` (or prefixed id when `sectionIdPrefix` is set). */

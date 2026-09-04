@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Check, Trash2, X, type LucideIcon } from "lucide-react";
+import { HubToolDetailModal } from "./HubToolDetailModal";
 import {
-  HubToolDetailModal,
   HubToolDetailModalPrimaryAction,
   HubToolDetailModalSecondaryAction,
-} from "./HubToolDetailModal";
+} from "./HubToolDetailModalActions";
 
 export type HubConfirmTone = "danger" | "warning" | "info";
 

@@ -1,4 +1,4 @@
-import { DirectorySearchToolbar, type HubViewMode } from "@tool-workspace/hub-ui";
+import { DirectorySearchToolbar, type HubDirectoryLifecycleMode, type HubViewMode } from "@tool-workspace/hub-ui";
 import type { LucideIcon } from "lucide-react";
 import type { AppScreen } from "../lib/app-screen";
 import { DeskDisplayBandToolbar } from "./DeskDisplayBandToolbar";
@@ -14,6 +14,8 @@ type Props = {
   showResultCount?: boolean;
   /** Creation-date period — hide when the tab has no createdAt (runners / tasks). */
   showPeriod?: boolean;
+  lifecycleMode?: HubDirectoryLifecycleMode;
+  onLifecycleModeChange?: (mode: HubDirectoryLifecycleMode) => void;
 };
 
 /** Golden FilterBar row-1 — ViewToggle · Period · Display (P0005 Orders / P0020 Services). */
@@ -27,6 +29,8 @@ export function DeskDirectorySearchToolbar({
   countLabel,
   showResultCount,
   showPeriod = true,
+  lifecycleMode,
+  onLifecycleModeChange,
 }: Props) {
   return (
     <DirectorySearchToolbar
@@ -34,6 +38,8 @@ export function DeskDirectorySearchToolbar({
       showTimeRange={false}
       viewMode={viewMode}
       onViewModeChange={onViewModeChange}
+      lifecycleMode={lifecycleMode}
+      onLifecycleModeChange={onLifecycleModeChange}
       countIcon={countIcon}
       shown={shown}
       total={total}

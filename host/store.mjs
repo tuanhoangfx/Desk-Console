@@ -1,12 +1,13 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const { resolveDeskDataRoot } = require("./lib/data-root.cjs");
 
 export function dataRoot() {
-  const override = process.env.DESK_CONSOLE_DATA;
-  if (override) return path.resolve(override);
-  return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "desk-console");
+  return resolveDeskDataRoot();
 }
 
 function ensureDir(dir) {
@@ -46,15 +47,31 @@ export const SEED_SAMPLES = [
   { name: "Follow up", text: "Following up on this — happy to jump on a call if useful." },
   { name: "Received", text: "Got it, thanks. I'll review and reply shortly." },
   { name: "Workspace", text: "E:\\Dev" },
-  { name: "Clips UI", text: "http://127.0.0.1:5180/?screen=clips" },
+  { name: "Clips UI", text: "http://127.0.0.1:5180/clips" },
 ];
 
 const HISTORY_CAP = 500;
 const SAMPLE_CAP = 200;
 
+const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function inferClipProject(text) {
+  const raw = String(text || "");
+  const code = raw.match(/\bP\d{4}\b/);
+  if (code) return code[0];
+  const folder = raw.match(/Tool[\\/]P\d{4}[^\\/]*/i);
+  if (folder) {
+    const fromFolder = folder[0].match(/P\d{4}/i);
+    if (fromFolder) return fromFolder[0].toUpperCase();
+  }
+  return "";
+}
+
 function normalizeClip(row, kind) {
   const text = String(row?.text || "");
   const createdAt = row?.createdAt || nowIso();
+  const deletedAt = row?.deletedAt ? String(row.deletedAt) : null;
+  const project = String(row?.project || inferClipProject(text) || "").trim();
   return {
     id: String(row?.id || newId()),
     name: String(row?.name || "").trim(),
@@ -62,19 +79,23 @@ function normalizeClip(row, kind) {
     kind,
     pinned: Boolean(row?.pinned),
     source: String(row?.source || (kind === "sample" ? "sample" : "clipboard")),
+    project,
     createdAt,
     updatedAt: row?.updatedAt || createdAt,
+    deletedAt,
   };
 }
 
-export function capturesMetaPath() {
-  return path.join(dataRoot(), "captures.json");
+function isTrashRow(row, now = Date.now()) {
+  if (!row?.deletedAt) return false;
+  const deletedMs = Date.parse(row.deletedAt);
+  if (Number.isNaN(deletedMs)) return false;
+  return now - deletedMs <= TRASH_RETENTION_MS;
 }
 
-export function capturesDir() {
-  const dir = path.join(dataRoot(), "captures");
-  ensureDir(dir);
-  return dir;
+function purgeExpiredTrash(rows) {
+  const now = Date.now();
+  return rows.filter((row) => !row.deletedAt || isTrashRow(row, now));
 }
 
 export function listHistory() {
@@ -97,12 +118,22 @@ export function ensureSampleSeed() {
 }
 
 /** Combined directory — samples first, then history. */
-export function listClipRows() {
-  return [...listSamples(), ...listHistory()];
+export function listClipRows(options = {}) {
+  const lifecycle = options.lifecycle === "trash" ? "trash" : "live";
+  const rows = [...listSamples(), ...listHistory()];
+  const purgedHistory = purgeExpiredTrash(listHistory());
+  const purgedSamples = purgeExpiredTrash(listSamples());
+  if (purgedHistory.length !== listHistory().length) saveHistory(purgedHistory);
+  if (purgedSamples.length !== listSamples().length) saveSamples(purgedSamples);
+  const active = [...purgedSamples, ...purgedHistory];
+  if (lifecycle === "trash") {
+    return active.filter((row) => isTrashRow(row));
+  }
+  return active.filter((row) => !row.deletedAt);
 }
 
-export function listClips() {
-  return listClipRows();
+export function listClips(options = {}) {
+  return listClipRows(options);
 }
 
 export function saveHistory(rows) {
@@ -117,23 +148,14 @@ export function saveClips(rows) {
   saveHistory(rows.filter((row) => (row.kind || "history") !== "sample"));
 }
 
-export function listCaptures() {
-  const rows = readJson(capturesMetaPath(), []);
-  return Array.isArray(rows) ? rows : [];
-}
-
-export function saveCaptures(rows) {
-  writeJson(capturesMetaPath(), rows);
-}
-
 export function findClip(id) {
-  return listClipRows().find((row) => row.id === id) || null;
+  return [...listSamples(), ...listHistory()].find((row) => row.id === id) || null;
 }
 
 export function addClip(partial) {
   const text = String(partial.text || "").slice(0, 100_000);
   if (!text.trim()) return null;
-  const rows = listHistory();
+  const rows = listHistory().filter((row) => !row.deletedAt);
   if (rows[0]?.text === text) {
     rows[0] = { ...rows[0], updatedAt: nowIso(), source: String(partial.source || rows[0].source) };
     saveHistory(rows);
@@ -199,6 +221,19 @@ export function patchClip(id, patch) {
   return samples[sIdx];
 }
 
+export function softDeleteClip(id) {
+  const row = findClip(id);
+  if (!row || row.deletedAt) return null;
+  return patchClip(id, { deletedAt: nowIso() });
+}
+
+export function restoreClip(id) {
+  const row = findClip(id);
+  if (!row || !row.deletedAt) return null;
+  return patchClip(id, { deletedAt: null });
+}
+
+/** Hard delete — Trash forever or legacy purge. */
 export function removeClip(id) {
   const history = listHistory();
   const nextHistory = history.filter((r) => r.id !== id);
@@ -210,43 +245,5 @@ export function removeClip(id) {
   const nextSamples = samples.filter((r) => r.id !== id);
   if (nextSamples.length === samples.length) return false;
   saveSamples(nextSamples);
-  return true;
-}
-
-export function addCapture(partial) {
-  const rows = listCaptures();
-  const row = {
-    id: newId(),
-    mode: String(partial.mode || "screen"),
-    fileName: String(partial.fileName || ""),
-    bytes: Number(partial.bytes || 0),
-    createdAt: nowIso(),
-  };
-  rows.unshift(row);
-  saveCaptures(rows.slice(0, 500));
-  return row;
-}
-
-export function patchCapture(id, patch) {
-  const rows = listCaptures();
-  const idx = rows.findIndex((r) => r.id === id);
-  if (idx < 0) return null;
-  rows[idx] = { ...rows[idx], ...patch, id };
-  saveCaptures(rows);
-  return rows[idx];
-}
-
-export function removeCapture(id) {
-  const rows = listCaptures();
-  const row = rows.find((r) => r.id === id);
-  if (!row) return false;
-  saveCaptures(rows.filter((r) => r.id !== id));
-  if (row.fileName) {
-    try {
-      fs.unlinkSync(path.join(capturesDir(), row.fileName));
-    } catch {
-      /* already gone */
-    }
-  }
   return true;
 }

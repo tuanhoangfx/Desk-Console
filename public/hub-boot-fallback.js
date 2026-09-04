@@ -205,10 +205,23 @@
       el.setAttribute("role", "alert");
       el.style.cssText =
         "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#0b1220";
+      var lastErr = "";
+      try {
+        lastErr = String(window.__HUB_LAST_RENDER_ERROR || window.__P0021_LAST_ERROR || "").slice(0, 1200);
+      } catch (e) {
+        lastErr = "";
+      }
       el.innerHTML =
         '<div style="max-width:32rem;padding:1.5rem;text-align:center;font-family:Inter,system-ui,sans-serif;color:#e8ecff">' +
         '<p style="margin:0 0 0.5rem;font-size:0.95rem;font-weight:600">This screen stopped rendering</p>' +
-        '<p style="margin:0 0 1rem;font-size:0.75rem;line-height:1.5;color:#94a3b8">An unexpected error unmounted the app. Reload to continue; the browser console holds the stack trace.</p>' +
+        '<p style="margin:0 0 1rem;font-size:0.75rem;line-height:1.5;color:#94a3b8">An unexpected error unmounted the app. Reload to continue.</p>' +
+        (lastErr
+          ? '<pre style="margin:0 0 1rem;padding:0.75rem;border-radius:0.5rem;background:rgba(15,23,42,0.85);color:#fca5a5;font:11px/1.45 ui-monospace,Consolas,monospace;text-align:left;white-space:pre-wrap;word-break:break-word;max-height:10rem;overflow:auto">' +
+            lastErr.replace(/[<>&]/g, function (ch) {
+              return ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : "&amp;";
+            }) +
+            "</pre>"
+          : "") +
         '<button type="button" onclick="location.reload()" style="cursor:pointer;border:1px solid rgba(129,140,248,0.4);border-radius:0.5rem;background:rgba(99,102,241,0.15);color:#c7d2fe;padding:0.45rem 1rem;font-size:0.75rem">Reload</button>' +
         "</div>";
       document.body.appendChild(el);

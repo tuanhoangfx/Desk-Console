@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { HUB_TOOL_DETAIL_SCROLL_ROOT } from "./HubToolDetailModal";
+import { HUB_TOOL_DETAIL_SCROLL_ROOT } from "./hubToolDetailModalChrome";
 import { useHubTocSectionSpy } from "./hub-toc-section-spy";
 
 type HubTocSectionHighlightContextValue = {

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { Camera, Check, ImagePlus, Trash2, Upload, X } from "lucide-react";
 import { HUB_AVATAR_ACCEPT, HUB_AVATAR_MAX_BYTES } from "@tool-workspace/hub-identity";
+import { HubToolDetailModal } from "../shell/HubToolDetailModal";
 import {
-  HubToolDetailModal,
   HubToolDetailModalPrimaryAction,
   HubToolDetailModalSecondaryAction,
-} from "../shell/HubToolDetailModal";
+} from "../shell/HubToolDetailModalActions";
 import { HubAvatarSquareCrop } from "./HubAvatarSquareCrop";
 import {
   exportHubAvatarSquareJpeg,

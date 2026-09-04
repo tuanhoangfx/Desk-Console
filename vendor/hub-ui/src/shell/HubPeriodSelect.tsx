@@ -265,6 +265,10 @@ export function HubPeriodSelect<T extends string>({
     dateRangeKey,
   ]);
 
+  const defaultClearValue = (inactiveKeys[0] ?? options.find((o) => o.value === "all")?.value ?? options[0]?.value) as
+    | T
+    | undefined;
+  const canClearSelection = Boolean(defaultClearValue) && value !== defaultClearValue;
   const isActive = !inactiveKeys.includes(value);
 
   const triggerIconColor = workspacePeriodTriggerIconColor(value as WorkspacePeriodKey);
@@ -313,6 +317,16 @@ export function HubPeriodSelect<T extends string>({
               value={search}
               onChange={setSearch}
               placeholder={filterDropdownPanelSearchPlaceholder("period")}
+              onClearSelection={
+                defaultClearValue
+                  ? () => {
+                      onChange(defaultClearValue);
+                      setOpen(false);
+                      setView("list");
+                    }
+                  : undefined
+              }
+              clearSelectionEnabled={canClearSelection}
             />
             <div className={HUB_FILTER_DROPDOWN_LIST_CLASS}>
             {listOptions.map((o) => {

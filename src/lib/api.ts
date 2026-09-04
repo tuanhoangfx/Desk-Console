@@ -5,9 +5,7 @@ function apiOrigin(): string {
   ).trim();
   if (bridged) return bridged;
   if (window.location.protocol === "file:") return "http://127.0.0.1:6010";
-  if (window.location.hostname === "127.0.0.1" && /^\d+$/.test(window.location.port)) {
-    return "http://127.0.0.1:6010";
-  }
+  // Vite dev — same-origin `/api` proxy (host/server.mjs).
   return "";
 }
 
@@ -39,16 +37,10 @@ export type ClipRow = {
   kind?: ClipKind;
   pinned: boolean;
   source: string;
+  project?: string;
   createdAt: string;
   updatedAt: string;
-};
-
-export type CaptureRow = {
-  id: string;
-  mode: string;
-  fileName: string;
-  bytes: number;
-  createdAt: string;
+  deletedAt?: string | null;
 };
 
 export type RunnerRow = {
@@ -59,6 +51,11 @@ export type RunnerRow = {
   port: number;
   url: string;
   up: boolean;
+  toolRoot?: string;
+  stack?: string;
+  probePath?: string;
+  openPath?: string;
+  probedAt?: string;
 };
 
 export type TaskRow = {
@@ -109,9 +106,8 @@ export type OpsConsoleEntry = {
 export type DeskHotkeys = {
   ok: boolean;
   picker: string;
-  capture: string;
-  labels: { picker: string; capture: string };
-  defaults: { picker: string; capture: string; labels: { picker: string; capture: string } };
+  labels: { picker: string };
+  defaults: { picker: string; labels: { picker: string } };
 };
 
 function mergeOpsRows(runners: RunnerRow[], tasks: TaskRow[]): OpsRow[] {
@@ -146,28 +142,25 @@ function mergeOpsRows(runners: RunnerRow[], tasks: TaskRow[]): OpsRow[] {
 export const deskApi = {
   health: () => req<{ ok: boolean; cursorRunning: boolean }>("/api/health"),
   hotkeys: () => req<DeskHotkeys>("/api/hotkeys"),
-  saveHotkeys: (body: { picker?: string; capture?: string }) =>
+  saveHotkeys: (body: { picker?: string }) =>
     req<DeskHotkeys>("/api/hotkeys", { method: "PUT", body: JSON.stringify(body) }),
   resetHotkeys: () => req<DeskHotkeys>("/api/hotkeys/reset", { method: "POST" }),
-  clips: async () => ({ rows: rowsOf(await req<{ rows: ClipRow[] }>("/api/clips")) }),
+  clips: async (lifecycle: "live" | "trash" = "live") => ({
+    rows: rowsOf(await req<{ rows: ClipRow[] }>(`/api/clips?lifecycle=${lifecycle}`)),
+  }),
   saveClip: (text?: string) =>
     req<{ row: ClipRow }>("/api/clips", { method: "POST", body: JSON.stringify({ text, source: text ? "manual" : "clipboard" }) }),
   saveSample: (text: string, name?: string) =>
     req<{ row: ClipRow }>("/api/samples", { method: "POST", body: JSON.stringify({ text, name }) }),
   deleteClip: (id: string) => req(`/api/clips/${id}`, { method: "DELETE" }),
+  restoreClip: (id: string) => req<{ row: ClipRow }>(`/api/clips/${id}/restore`, { method: "POST" }),
+  purgeClipForever: (id: string) => req(`/api/clips/${id}/forever`, { method: "DELETE" }),
   pinClip: (id: string, pinned = true) =>
     req(`/api/clips/${id}/pin`, { method: "POST", body: JSON.stringify({ pinned }) }),
   promoteClip: (id: string) => req<{ row: ClipRow }>(`/api/clips/${id}/sample`, { method: "POST" }),
   copyClip: (id: string) => req(`/api/clips/${id}/copy`, { method: "POST" }),
-  pasteClip: (id: string) => req<{ pasted?: boolean }>(`/api/clips/${id}/paste`, { method: "POST" }),
+  pasteClip: (id: string) => req<{ pasted?: boolean; error?: string }>(`/api/clips/${id}/paste`, { method: "POST" }),
   armPicker: () => req<{ hwnd?: string }>("/api/clips/picker/arm", { method: "POST" }),
-  captures: async () => ({ rows: rowsOf(await req<{ rows: CaptureRow[] }>("/api/captures")) }),
-  capture: (mode: "screen" | "window" | "region" = "screen") =>
-    req<{ row: CaptureRow }>("/api/captures", { method: "POST", body: JSON.stringify({ mode }) }),
-  cropCapture: (id: string, box: { x: number; y: number; width: number; height: number }) =>
-    req<{ row: CaptureRow }>(`/api/captures/${id}/crop`, { method: "POST", body: JSON.stringify(box) }),
-  deleteCapture: (id: string) => req(`/api/captures/${id}`, { method: "DELETE" }),
-  captureSrc: (id: string) => `${apiOrigin()}/api/captures/${id}/file`,
   runners: async () => ({ rows: rowsOf(await req<{ rows: RunnerRow[] }>("/api/runners")) }),
   runnerAction: (code: string, mode: "start" | "restart" | "recover" | "stop") =>
     req(`/api/runners/${encodeURIComponent(code)}/${mode}`, { method: "POST" }),
@@ -203,4 +196,13 @@ export const deskApi = {
     return `${origin}/api/ops/terminal/stream?${params}`;
   },
   cursorGc: (close = false) => req("/api/cursor/gc", { method: "POST", body: JSON.stringify({ close }) }),
+  meta: () =>
+    req<{
+      ok: boolean;
+      port: number;
+      dataRoot: string;
+      syncPlane: "local";
+      accountLabel: string;
+      stores: string[];
+    }>("/api/meta"),
 };

@@ -114,9 +114,11 @@ export function HubOpsKindBadge({ kind }: { kind?: string }) {
   if (!meta) return null;
   return (
     <span
-      className={`hub-release-kind-badge inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${meta.chip}`}
+      className={`hub-release-kind-badge ${meta.chip}`}
     >
-      <span className={`text-xs leading-none ${meta.className}`} aria-hidden>{meta.emoji}</span>
+      <span className={`hub-release-kind-badge__emoji ${meta.className}`} aria-hidden>
+        {meta.emoji}
+      </span>
       {meta.label}
     </span>
   );
