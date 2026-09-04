@@ -2,6 +2,22 @@
 
 ## 2026-09-04 - Patch bump for completed agent task (release)
 
+- Version: `2.1.2`
+- Timestamp: 2026-09-04 18:59 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Patch bump for uncommitted code changes (P0001).
+
+### Verification
+
+- pending
+
+---
+## 2026-09-04 - Patch bump for completed agent task (release)
+
 - Version: `2.1.1`
 - Timestamp: 2026-09-04 18:58 (UTC+7)
 - Type: Patch

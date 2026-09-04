@@ -1,4 +1,4 @@
-node_modules/
+﻿node_modules/
 .pnpm-store/
 
 dist/
@@ -12,6 +12,9 @@ out/
 tsconfig.tsbuildinfo
 .dev-vite.env.json
 .dev-vite.pid
+.hidden-detach-*.env.json
+.hidden-detach-*.pid
+.desk-electron-list.txt
 
 .env
 .env.local

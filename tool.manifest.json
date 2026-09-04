@@ -135,7 +135,7 @@
     "notes": "Per-tab column presets — never share storage keys across clips/runners/tasks (P0003 parity)."
   },
   "release": {
-    "version": "2.1.1"
+    "version": "2.1.2"
   },
   "knownGood": {
     "config": "config/known-good.json",
@@ -143,7 +143,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-09-04T11:58:01.321Z",
+  "manifestUpdatedAt": "2026-09-04T11:59:12.095Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
