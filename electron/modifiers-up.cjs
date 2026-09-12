@@ -2,10 +2,14 @@
  * Wait until Ctrl/Alt/Shift/Win are up before focusing the picker.
  * Focusing while Alt is still down makes Chromium/Cursor treat it as menu/tab chrome.
  */
-const koffi = require("koffi");
+const { getKoffi } = require("./lib/load-koffi.cjs");
 
-const user32 = koffi.load("user32.dll");
-const GetAsyncKeyState = user32.func("short __stdcall GetAsyncKeyState(int vKey)");
+const koffi = getKoffi();
+let GetAsyncKeyState = null;
+if (koffi) {
+  const user32 = koffi.load("user32.dll");
+  GetAsyncKeyState = user32.func("short __stdcall GetAsyncKeyState(int vKey)");
+}
 
 const VK_SHIFT = 0x10;
 const VK_CONTROL = 0x11;
@@ -14,6 +18,7 @@ const VK_LWIN = 0x5b;
 const VK_RWIN = 0x5c;
 
 function keyDown(vk) {
+  if (!GetAsyncKeyState) return false;
   try {
     return (GetAsyncKeyState(vk) & 0x8000) !== 0;
   } catch {
@@ -22,6 +27,7 @@ function keyDown(vk) {
 }
 
 function anyModifierDown() {
+  if (!GetAsyncKeyState) return false;
   return (
     keyDown(VK_SHIFT) ||
     keyDown(VK_CONTROL) ||

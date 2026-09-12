@@ -1,15 +1,95 @@
 # Changelog
 
-## 2026-09-04 - Patch bump for completed agent task (release)
+## 2026-09-13 - Patch bump for completed agent task (release)
 
-- Version: `2.1.2`
-- Timestamp: 2026-09-04 18:59 (UTC+7)
+- Version: `3.1.1`
+- Timestamp: 2026-09-13 06:08 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Release Major bump (P0001): 2.1.7 → 3.1.1 (MAJOR+1, MINOR=1, PATCH=1).
+
+### Verification
+
+- pending
+
+---
+## 2026-09-13 - Patch bump for completed agent task
+
+- Version: `2.1.7`
+- Timestamp: 2026-09-13 05:58 (UTC+7)
 - Type: Patch
 - Status: Draft
 
 ### Changes
 
-- Patch bump for uncommitted code changes (P0001).
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-09-13 - Patch bump for completed agent task
+
+- Version: `2.1.6`
+- Timestamp: 2026-09-13 05:48 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-09-13 - Patch bump for completed agent task
+
+- Version: `2.1.5`
+- Timestamp: 2026-09-13 05:18 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-09-13 - Patch bump for completed agent task
+
+- Version: `2.1.4`
+- Timestamp: 2026-09-13 05:03 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-09-13 - Patch bump for completed agent task (release)
+
+- Version: `2.1.3`
+- Timestamp: 2026-09-13 04:50 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
 
 ### Verification
 

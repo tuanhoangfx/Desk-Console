@@ -12,6 +12,8 @@ import {
 import { Loader2, Play, Square } from "lucide-react";
 import type { DeskCol } from "./desk-table-prefs";
 
+export type DeskOpsAction = "starting" | "stopping";
+
 export type DeskRow = {
   id: string;
   name: string;
@@ -25,6 +27,9 @@ export type DeskRow = {
   opsKind?: "task" | "runner";
   opsUp?: boolean;
   opsLastResult?: string;
+  /** In-flight Start/Stop until probe flips (not just API spawn ack). */
+  opsAction?: DeskOpsAction;
+  opsActionStartedAt?: number;
 };
 
 export type DeskOpsCellHandlers = {
@@ -34,6 +39,14 @@ export type DeskOpsCellHandlers = {
   onFocus?: (id: string) => void;
   pendingIds?: ReadonlySet<string>;
 };
+
+function formatOpsElapsed(startedAt?: number): string {
+  if (!startedAt) return "0:00";
+  const sec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 function OpsIconButton({
   label,
@@ -83,14 +96,35 @@ function OpsIconButton({
 
 function renderOpsRunCell(row: DeskRow, col: HubDirectoryColumnDef<DeskCol>, opsHandlers?: DeskOpsCellHandlers) {
   const label = row.name;
-  const pending = Boolean(opsHandlers?.pendingIds?.has(row.id));
+  const pending = Boolean(opsHandlers?.pendingIds?.has(row.id)) || Boolean(row.opsAction);
   const runnerUp = row.opsKind === "runner" && row.opsUp === true;
   const taskRunning = row.opsKind === "task" && /running/i.test(row.status);
+  const inFlight = row.opsAction === "starting" || row.opsAction === "stopping";
 
   const focusAnd = (fn?: (id: string) => void) => {
     opsHandlers?.onFocus?.(row.id);
     fn?.(row.id);
   };
+
+  if (inFlight) {
+    const runningLabel = row.opsAction === "stopping" ? "Stopping" : "Running";
+    const toneClass = row.opsAction === "stopping" ? "text-rose-400" : "text-amber-300";
+    return (
+      <DirectoryTableBodyCell key="run" colClass={col.colClass}>
+        <div
+          className={`hub-directory-icon-cell ${HUB_DIRECTORY_ICON_CELL_HIT_EXPAND_CLASS} flex min-w-0 items-center gap-1`}
+          aria-label={`${runningLabel} ${label} ${formatOpsElapsed(row.opsActionStartedAt)}`}
+          title={`${runningLabel} · ${formatOpsElapsed(row.opsActionStartedAt)}`}
+        >
+          <span className={`hub-directory-icon-cell__icon ${toneClass}`}>
+            <Loader2 size={compactIconSize(11)} className="animate-spin" aria-hidden />
+          </span>
+          <span className={`hub-directory-icon-cell__label ${toneClass}`}>{runningLabel}</span>
+          <span className="tabular-nums text-[11px] text-hub-muted">{formatOpsElapsed(row.opsActionStartedAt)}</span>
+        </div>
+      </DirectoryTableBodyCell>
+    );
+  }
 
   return (
     <DirectoryTableBodyCell key="run" colClass={col.colClass}>

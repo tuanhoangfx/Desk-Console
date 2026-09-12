@@ -28,6 +28,10 @@ Write-Host "[P0001] desktop package $($pkgArgs -join ' ')"
 node (Join-Path $PSScriptRoot "run-electron-package.mjs") @pkgArgs
 if ($LASTEXITCODE -ne 0) { throw "electron-builder failed" }
 
+Write-Host "[P0001] smoke-packaged-shell-icon"
+node (Join-Path $PSScriptRoot "smoke-packaged-shell-icon.mjs")
+if ($LASTEXITCODE -ne 0) { throw "smoke-packaged-shell-icon failed" }
+
 $wall.Stop()
 $sec = [math]::Round($wall.Elapsed.TotalSeconds, 1)
 $budget = if ($Dir -or ($Fast -and -not $Publish)) { 120 } else { 180 }

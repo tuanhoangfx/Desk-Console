@@ -6,7 +6,20 @@
  * 4) SendInput Ctrl+V (CopyQ: KEYEVENTF_UNICODE, wScan=0, VK_LCONTROL+'V') — not keybd_event
  *    (UWP/Chromium ignore keybd_event). Fallback Shift+Insert, then Ditto keybd_event ^v.
  */
-const koffi = require("koffi");
+const { getKoffi } = require("./lib/load-koffi.cjs");
+
+const koffi = getKoffi();
+if (!koffi) {
+  module.exports = {
+    pasteToForegroundHwnd: async () => ({ ok: false, error: "koffi unavailable" }),
+    restoreForegroundHwnd: async () => false,
+    grantForegroundPermission: () => false,
+    releaseModifierKeys: () => {},
+    sendCtrlKey: () => false,
+    allKeysUp: () => {},
+    INPUT_SIZE: 0,
+  };
+} else {
 
 const user32 = koffi.load("user32.dll");
 const kernel32 = koffi.load("kernel32.dll");
@@ -343,3 +356,5 @@ module.exports = {
   allKeysUp,
   INPUT_SIZE,
 };
+
+} // koffi available

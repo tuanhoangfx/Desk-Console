@@ -3,14 +3,15 @@ const path = require("node:path");
 
 function listAppIconCandidates(rootDir) {
   const out = [];
-  if (rootDir) {
-    out.push(path.join(rootDir, "build", "icons", "app.ico"));
-    out.push(path.join(rootDir, "build", "icons", "app.png"));
-  }
+  // Prefer unpacked resources — BrowserWindow native icon cannot load .ico from inside asar.
   const resourcesPath = typeof process !== "undefined" ? process.resourcesPath : "";
   if (resourcesPath) {
     out.push(path.join(resourcesPath, "app.ico"));
     out.push(path.join(resourcesPath, "build", "icons", "app.ico"));
+  }
+  if (rootDir) {
+    out.push(path.join(rootDir, "build", "icons", "app.ico"));
+    out.push(path.join(rootDir, "build", "icons", "app.png"));
   }
   return out;
 }

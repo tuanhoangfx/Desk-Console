@@ -1,6 +1,6 @@
 {
   "name": "desk-console",
-  "version": "2.1.1",
+  "version": "3.1.1",
   "private": true,
   "description": "Standalone desktop host for clips, runners, and Dev-* tasks.",
   "author": "Desk Console",
@@ -20,7 +20,7 @@
     "dev:host": "node host/server.mjs",
     "desktop:dev": "node scripts/dev-node.mjs",
     "desktop:dir": "node scripts/run-electron-package.mjs --dir --publish never",
-    "desktop:assemble": "node scripts/assemble-unpacked.mjs --out dist-desk-win/win-unpacked",
+    "desktop:assemble": "node scripts/assemble-unpacked.mjs --out dist-desktop/win-unpacked",
     "desktop:dist": "node scripts/run-electron-package.mjs --publish never",
     "desktop:release": "powershell -ExecutionPolicy Bypass -File scripts/release-desktop.ps1",
     "build": "vite build",
@@ -31,6 +31,7 @@
     "sync:hub-ui": "node scripts/sync-vendor-hub-ui.mjs"
   },
   "dependencies": {
+    "@koromix/koffi-win32-x64": "3.1.6",
     "@supabase/supabase-js": "2.49.1",
     "@tool-workspace/hub-ui": "workspace:*",
     "@vitejs/plugin-react": "^5.1.1",
@@ -45,7 +46,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "10.4.20",
-    "electron": "^37.2.0",
+    "electron": "^37.10.3",
     "electron-builder": "^26.0.12",
     "postcss": "8.4.47",
     "tailwindcss": "3.4.13",
@@ -71,7 +72,10 @@
       }
     ],
     "asarUnpack": [
-      "host/**"
+      "host/**",
+      "build/icons/**",
+      "**/node_modules/koffi/**",
+      "**/node_modules/@koromix/koffi-win32-x64/**"
     ],
     "win": {
       "icon": "build/icons/app.ico",

@@ -1,6 +1,7 @@
 import {
   buildConsoleVersionMetaItems,
   resolveHubProductVersionMeta,
+  resolveHubToolIconSrcForVite,
   type ToolManifestReleaseSlice,
 } from "@tool-workspace/hub-ui";
 import packageJson from "../../package.json";
@@ -8,7 +9,8 @@ import toolManifest from "../../tool.manifest.json";
 
 export const APP_VERSION = packageJson.version;
 export const DESK_PRODUCT = { code: "P0001", name: "Desk Console" } as const;
-export const DESK_BRAND_ICON = "/icons/tools/P0001.svg";
+/** Vite `BASE_URL` — packaged Electron `base: './'` breaks bare `/icons/...` (file:///icons). */
+export const DESK_BRAND_ICON = resolveHubToolIconSrcForVite(DESK_PRODUCT.code);
 
 function readBuiltAtIso(): string | undefined {
   const raw = import.meta.env.VITE_APP_BUILT_AT;
