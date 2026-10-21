@@ -4,8 +4,7 @@ import {
   HubDirectoryTableShell,
   HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS,
   HUB_DIRECTORY_TABLE_PANE_WRAP_CLASS,
-  applyChromeRemDirectoryColWidths,
-  buildDirectoryColgroup,
+  buildDirectoryColgroupForShell,
   buildDirectoryColumns,
   hubDirectoryFrameTableClass,
   type HubSortDir,
@@ -41,8 +40,6 @@ type Props = {
 
 const BASE_KEYS: DeskCol[] = ["name", "status", "extra", "updated"];
 const OPS_KEYS: DeskCol[] = ["name", "run", "status", "extra", "updated"];
-/** Rem-locked chrome — Detail (`extra`) stays fluid (CSS absorber). */
-const DESK_PINNED_COL_KEYS = new Set<DeskCol>(["name", "run", "status", "updated"]);
 
 export function DeskDirectoryTable({
   screen,
@@ -88,15 +85,8 @@ export function DeskDirectoryTable({
     [defaultSortOnly, keys],
   );
   const colgroup = useMemo(
-    () =>
-      buildDirectoryColgroup(
-        applyChromeRemDirectoryColWidths(
-          columns,
-          keys.filter((key) => DESK_PINNED_COL_KEYS.has(key)),
-        ),
-        { includeSelect: true },
-      ),
-    [columns, keys],
+    () => buildDirectoryColgroupForShell(columns, { showSelect: true }),
+    [columns],
   );
 
   const renderRowCells = useCallback(
