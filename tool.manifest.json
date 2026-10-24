@@ -23,8 +23,7 @@
     "golden": "P0020",
     "mainMode": "directory",
     "splitScreens": [
-      "runners",
-      "tasks"
+      "runners"
     ],
     "userFooter": "workspace"
   },
@@ -33,7 +32,7 @@
       "screen": "clips",
       "template": "directory",
       "golden": "P0004/users",
-      "notes": "Clipboard / quick-save inbox. Local JSON store."
+      "notes": "Clipboard / quick-save inbox (text & images). Local JSON store."
     },
     {
       "screen": "runners",
@@ -43,17 +42,10 @@
       "notes": "Vite/worker port runners — Start/Stop row · bulk Restart."
     },
     {
-      "screen": "tasks",
-      "template": "directory",
-      "layout": "split-workspace",
-      "golden": "P0001/tasks",
-      "notes": "Windows schtasks Dev-* — Start/Stop row · Console rail."
-    },
-    {
       "screen": "system",
       "template": "document-toc",
       "golden": "P0004/overview-toc",
-      "notes": "HubDesignTemplateEmpty default."
+      "notes": "PC Optimizer & Host Diagnostics."
     }
   ],
   "commands": {
@@ -67,6 +59,10 @@
     "release": "corepack pnpm desktop:release"
   },
   "deployTarget": "github-release",
+  "docs": {
+    "readme": "README.md",
+    "changelog": "CHANGELOG.md"
+  },
   "github": {
     "repo": "tuanhoangfx/Desk-Console",
     "branch": "main",
@@ -124,18 +120,15 @@
       "panelFillRows": "pageSize",
       "partialPagePad": "invisible"
     },
-    "tasks": {
-      "scope": "Tasks split directory — Run/Stop row + console rail",
-      "columnStorageKey": "p0001_tasks_directory_columns",
-      "presetsStorageKey": "p0001_tasks_directory_column_presets",
-      "displayPanelVariant": "panel",
-      "panelFillRows": "pageSize",
-      "partialPagePad": "invisible"
-    },
-    "notes": "Per-tab column presets — never share storage keys across clips/runners/tasks (P0003 parity)."
+    "notes": "Per-tab column presets — never share storage keys across clips/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.1"
+    "version": "3.1.50",
+    "latestPublished": {
+      "tag": "v3.1.2",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.2",
+      "publishedAt": "2026-09-12T23:25:30.360Z"
+    }
   },
   "knownGood": {
     "config": "config/known-good.json",
@@ -143,7 +136,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-09-12T23:08:13.676Z",
+  "manifestUpdatedAt": "2026-10-24T18:19:13.550Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -155,6 +148,7 @@
       "check-version-sync",
       "verify-untracked-imports",
       "verify-no-sibling-tool-imports",
+      "verify-electron-asar-packaging",
       "hub-workspace-chrome-ssot",
       "build"
     ],
@@ -162,13 +156,14 @@
       "check-version-sync": "node E:\\Dev\\Tool\\scripts\\check-version-sync.mjs --product-root . --no-warn-published",
       "verify-untracked-imports": "node E:\\Dev\\Tool\\scripts\\verify-untracked-imports.mjs --product-root .",
       "verify-no-sibling-tool-imports": "node E:\\Dev\\Tool\\scripts\\verify-no-sibling-tool-imports.mjs --product-root .",
+      "verify-electron-asar-packaging": "node E:\\Dev\\Tool\\scripts\\verify-electron-asar-packaging.mjs --product-root .",
       "hub-workspace-chrome-ssot": "node E:\\Dev\\Tool\\scripts\\audit-hub-workspace-chrome-ssot.mjs --json",
       "build": "corepack pnpm run build"
     },
     "syncedAt": "2026-08-26T22:20:26.075Z"
   },
   "versions": {
-    "latestPublished": "2.1.1",
-    "current": "2.1.1"
+    "latestPublished": "3.1.2",
+    "current": "3.1.50"
   }
 }

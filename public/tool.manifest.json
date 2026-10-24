@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "code": "P0001",
+  "id": "desk-console",
+  "name": "Desk Console",
+  "deployTarget": "github-release",
+  "release": {
+    "version": "3.1.50",
+    "latestPublished": {
+      "tag": "v3.1.2",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.2",
+      "publishedAt": "2026-09-12T23:25:30.360Z"
+    }
+  },
+  "urls": {
+    "local": "http://127.0.0.1:5180",
+    "worker": "http://127.0.0.1:6010",
+    "app": "http://127.0.0.1:5180"
+  },
+  "manifestUpdatedAt": "2026-10-24T18:19:13.551Z",
+  "versions": {
+    "current": "3.1.50",
+    "latestPublished": "3.1.2"
+  }
+}
