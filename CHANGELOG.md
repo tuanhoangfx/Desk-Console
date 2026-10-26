@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-10-26 - Sibling Video Lab P0006 path sync
+
+- Version: `3.1.59`
+- Timestamp: 2026-10-26 19:06 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Updated DESK_SIBLINGS Video Lab code and winUnpackedGlob path from legacy P0010-Video-Lab to P0006-Video-Lab in host/desk-siblings.mjs.
+
+### Verification
+
+- directory-table-col-parity · hub-ui-boot-check
+
+---
+## 2026-10-26 - Place Drive Sync above Clips with official Google Drive triangle icon and package NSIS release
+
+- Version: `3.1.58`
+- Timestamp: 2026-10-26 18:46 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Move Drive Sync (Jobs, Drives) to the top of the sidebar above Clips, replace generic Google G favicon in google-drive.png with the official 6-color Google Drive triangle logo across all tools, and package Desk Console Setup 3.1.57.exe
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/*.test.mjs + NSIS package + Stealth UI E2E
+
+---
 ## 2026-10-26 - Drives/Jobs directory-table-col-parity SSOT
 
 - Version: `3.1.57`
