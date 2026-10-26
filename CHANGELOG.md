@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-10-26 - DriveDetailModal HubConfirmDialog empty trash
+
+- Version: `3.1.61`
+- Timestamp: 2026-10-26 19:22 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced native window.confirm with stacked HubConfirmDialog in DriveDetailModal.tsx for 100% hub-ui-modal-parity-check compliance.
+
+### Verification
+
+- hub-ui-modal-parity-check --all
+
+---
+## 2026-10-26 - KPI Strip Border Unclip, Clear Proxy Hierarchy Labels, Explorer Context Menu & Sync Health Guard
+
+- Version: `3.1.60`
+- Timestamp: 2026-10-26 19:14 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Fixed clipped left/right hover & active ring on KPI strip in JobDetailModal/DriveDetailModal; clarified 2-tier Proxy options (Follow Drive / Direct / Custom); registered HKCU Windows Explorer right-click menu ('Sync with Desk Console' & 'Copy to Desk Console Clips'); added System Tray & Windows Native Toast Sync Health Guard (Conflict / Sync Error / Drive Free Space < 1 GB).
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/*.test.mjs (101/101 pass) + Vite build + Electron package + CDP smoke
+
+---
 ## 2026-10-26 - Sibling Video Lab P0006 path sync
 
 - Version: `3.1.59`

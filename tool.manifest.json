@@ -81,6 +81,13 @@
     "release": "corepack pnpm desktop:release"
   },
   "deployTarget": "github-release",
+  "site": {
+    "deployTarget": "lenovo-static",
+    "registryKey": "P0001-INTRO",
+    "platform": "P0008",
+    "siteId": "sync",
+    "domain": "sync.infi.io.vn"
+  },
   "docs": {
     "readme": "README.md",
     "changelog": "CHANGELOG.md"
@@ -93,7 +100,8 @@
   "urls": {
     "local": "http://127.0.0.1:5180",
     "worker": "http://127.0.0.1:6010",
-    "app": "http://127.0.0.1:5180"
+    "app": "http://127.0.0.1:5180",
+    "site": "https://sync.infi.io.vn/intro/"
   },
   "health": {
     "status": "Beta",
@@ -161,7 +169,7 @@
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.59",
+    "version": "3.1.61",
     "latestPublished": {
       "tag": "v3.1.2",
       "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.2",
@@ -174,7 +182,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-10-26T12:06:06.290Z",
+  "manifestUpdatedAt": "2026-10-26T12:22:52.137Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -202,6 +210,6 @@
   },
   "versions": {
     "latestPublished": "3.1.2",
-    "current": "3.1.59"
+    "current": "3.1.61"
   }
 }

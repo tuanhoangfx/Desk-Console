@@ -13,6 +13,7 @@ import {
   HubAdmReadonlyField,
   HubAdmRecordMetaRow,
   HubBulkActionButton,
+  HubConfirmDialog,
   HubDetailFieldRow,
   HubDetailFieldsGroup,
   HubDirectoryCopyText,
@@ -212,6 +213,7 @@ export function DriveDetailModal({
   const [probing, setProbing] = useState(false);
   const [probeResult, setProbeResult] = useState<NetworkProbeResult | null>(null);
   const [emptyingTrash, setEmptyingTrash] = useState(false);
+  const [confirmEmptyTrashOpen, setConfirmEmptyTrashOpen] = useState(false);
   const [trashMsg, setTrashMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
@@ -472,35 +474,7 @@ export function DriveDetailModal({
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                const trashLabel = formatDriveBytes(storage?.trashBytes);
-                                const accLabel = account.code || account.name;
-                                if (
-                                  !window.confirm(
-                                    `Empty Google Drive Trash (${trashLabel}) on ${accLabel}?\n\nFiles in Google Drive Trash will be permanently deleted to free up quota.`,
-                                  )
-                                ) {
-                                  return;
-                                }
-                                void (async () => {
-                                  setEmptyingTrash(true);
-                                  setTrashMsg(null);
-                                  try {
-                                    const res = await emptyDriveTrash(account.name);
-                                    if (res.ok) {
-                                      setTrashMsg({ ok: true, text: `Emptied Google Drive Trash (${trashLabel} freed).` });
-                                      onSavedRef.current?.();
-                                    } else {
-                                      setTrashMsg({ ok: false, text: res.error || "Could not empty Google Drive Trash." });
-                                    }
-                                  } catch (err) {
-                                    setTrashMsg({
-                                      ok: false,
-                                      text: err instanceof Error ? err.message : String(err),
-                                    });
-                                  } finally {
-                                    setEmptyingTrash(false);
-                                  }
-                                })();
+                                setConfirmEmptyTrashOpen(true);
                               }}
                             >
                               <Trash2 size={11} aria-hidden />
@@ -690,6 +664,47 @@ export function DriveDetailModal({
         />
       ) : null}
     </HubToolDetailModal>
+    {account ? (
+      <HubConfirmDialog
+        open={confirmEmptyTrashOpen}
+        stacked
+        tone="danger"
+        title="Empty Google Drive Trash"
+        message={`Empty Google Drive Trash (${formatDriveBytes(storage?.trashBytes)}) on ${account.code || account.name}? Files in Google Drive Trash will be permanently deleted to free up quota.`}
+        confirmLabel="Empty Trash"
+        busy={emptyingTrash}
+        busyLabel="Emptying…"
+        onClose={() => {
+          if (!emptyingTrash) setConfirmEmptyTrashOpen(false);
+        }}
+        onConfirm={() => {
+          const trashLabel = formatDriveBytes(storage?.trashBytes);
+          void (async () => {
+            setEmptyingTrash(true);
+            setTrashMsg(null);
+            try {
+              const res = await emptyDriveTrash(account.name);
+              if (res.ok) {
+                setTrashMsg({ ok: true, text: `Emptied Google Drive Trash (${trashLabel} freed).` });
+                onSavedRef.current?.();
+                setConfirmEmptyTrashOpen(false);
+              } else {
+                setTrashMsg({ ok: false, text: res.error || "Could not empty Google Drive Trash." });
+                setConfirmEmptyTrashOpen(false);
+              }
+            } catch (err) {
+              setTrashMsg({
+                ok: false,
+                text: err instanceof Error ? err.message : String(err),
+              });
+              setConfirmEmptyTrashOpen(false);
+            } finally {
+              setEmptyingTrash(false);
+            }
+          })();
+        }}
+      />
+    ) : null}
     </HubAccountDetailSearchProvider>
   );
 }
