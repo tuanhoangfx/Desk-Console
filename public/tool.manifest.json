@@ -2,24 +2,206 @@
   "schemaVersion": 1,
   "code": "P0001",
   "id": "desk-console",
+  "aliases": [
+    "P0001",
+    "Desk Console",
+    "Desk",
+    "Folder Sync",
+    "Infi Sync"
+  ],
   "name": "Desk Console",
-  "deployTarget": "github-release",
-  "release": {
-    "version": "3.1.50",
-    "latestPublished": {
-      "tag": "v3.1.2",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.2",
-      "publishedAt": "2026-09-12T23:25:30.360Z"
+  "type": "Desktop",
+  "owner": "Tool",
+  "status": "Beta",
+  "summary": "Unified Local & Cloud Desktop Console — Clips & Paste Picker, Google Drive Bidirectional Folder Sync (rclone bisync), Vite/worker Runners, and PC Optimizer.",
+  "stack": [
+    "Electron",
+    "React",
+    "TypeScript",
+    "Vite",
+    "hub-ui",
+    "rclone"
+  ],
+  "devPort": 5180,
+  "uiShell": {
+    "golden": "P0020",
+    "mainMode": "directory",
+    "splitScreens": [
+      "clips",
+      "jobs",
+      "drives",
+      "runners"
+    ],
+    "userFooter": "workspace"
+  },
+  "uiScreens": [
+    {
+      "screen": "clips",
+      "template": "directory",
+      "layout": "split-workspace",
+      "golden": "P0004/users",
+      "notes": "Clipboard / quick-save inbox (text & images) + Ctrl+Shift+Q Paste Picker. Local JSON store."
+    },
+    {
+      "screen": "jobs",
+      "template": "directory",
+      "layout": "split-workspace",
+      "golden": "P0003/profiles",
+      "notes": "P0003 Profiles split — bidirectional folder sync jobs table + KPI · History / Console. Remote is a signed-in Google Drive."
+    },
+    {
+      "screen": "drives",
+      "template": "directory",
+      "layout": "split-workspace",
+      "golden": "P0003/profiles",
+      "notes": "Google Drive accounts that finished OAuth. Sign-in & quota telemetry live here."
+    },
+    {
+      "screen": "runners",
+      "template": "directory",
+      "layout": "split-workspace",
+      "golden": "P0001/runners",
+      "notes": "Vite/worker port runners — Start/Stop row · bulk Restart."
+    },
+    {
+      "screen": "system",
+      "template": "document-toc",
+      "golden": "P0004/overview-toc",
+      "notes": "PC Optimizer, Network QoS & Proxy, Rclone Engine & Sync Safety, Hotkeys, and Host Diagnostics."
     }
+  ],
+  "commands": {
+    "dev": "corepack pnpm dev",
+    "dev:web": "corepack pnpm dev:web",
+    "desktop:run": "corepack pnpm desktop:dev",
+    "desktop:dir": "corepack pnpm desktop:dir",
+    "build": "corepack pnpm build",
+    "preview": "corepack pnpm preview",
+    "package": "corepack pnpm desktop:dist",
+    "release": "corepack pnpm desktop:release"
+  },
+  "deployTarget": "github-release",
+  "docs": {
+    "readme": "README.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "github": {
+    "repo": "tuanhoangfx/Desk-Console",
+    "branch": "main",
+    "manifestPath": "tool.manifest.json"
   },
   "urls": {
     "local": "http://127.0.0.1:5180",
     "worker": "http://127.0.0.1:6010",
     "app": "http://127.0.0.1:5180"
   },
-  "manifestUpdatedAt": "2026-10-24T18:19:13.551Z",
+  "health": {
+    "status": "Beta",
+    "note": "UI :5180 · host API :6010 (127.0.0.1). Hub-UI parity pass · smoke scripts/smoke-runners-tasks.mjs. Pipeline golden P0003 Electron."
+  },
+  "smoke": [
+    {
+      "id": "host-health",
+      "method": "GET",
+      "url": "http://127.0.0.1:6010/api/health",
+      "expectStatus": [
+        200
+      ]
+    },
+    {
+      "id": "ui",
+      "method": "GET",
+      "url": "http://127.0.0.1:5180/",
+      "expectStatus": [
+        200
+      ]
+    }
+  ],
+  "smokeScripts": {
+    "runnersTasks": "scripts/smoke-runners-tasks.mjs",
+    "clipsStealth": "scripts/verify-clips-stealth.mjs",
+    "liveDevUrl": "http://127.0.0.1:5180",
+    "hostApi": "http://127.0.0.1:6010"
+  },
+  "directoryDisplayPrefs": {
+    "ssot": "src/lib/display-prefs-registry.ts",
+    "module": "src/features/desk/desk-table-prefs.ts",
+    "clips": {
+      "scope": "Clips tab directory table",
+      "columnStorageKey": "p0001_clips_directory_columns",
+      "presetsStorageKey": "p0001_clips_directory_column_presets",
+      "displayPanelVariant": "panel",
+      "panelFillRows": false,
+      "partialPagePad": "n/a"
+    },
+    "jobs": {
+      "scope": "Jobs tab directory table",
+      "columnStorageKey": "p0009_jobs_directory_columns",
+      "presetsStorageKey": "p0009_jobs_directory_column_presets",
+      "displayPanelVariant": "panel",
+      "panelFillRows": false,
+      "partialPagePad": "n/a"
+    },
+    "drives": {
+      "scope": "Drives tab directory table",
+      "columnStorageKey": "p0009_drives_directory_columns",
+      "presetsStorageKey": "p0009_drives_directory_column_presets",
+      "displayPanelVariant": "panel",
+      "panelFillRows": false,
+      "partialPagePad": "invisible"
+    },
+    "runners": {
+      "scope": "Runners split directory — Run/Stop row + ops rail",
+      "columnStorageKey": "p0001_runners_directory_columns",
+      "presetsStorageKey": "p0001_runners_directory_column_presets",
+      "displayPanelVariant": "panel",
+      "panelFillRows": "pageSize",
+      "partialPagePad": "invisible"
+    },
+    "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
+  },
+  "release": {
+    "version": "3.1.53",
+    "latestPublished": {
+      "tag": "v3.1.2",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.2",
+      "publishedAt": "2026-09-12T23:25:30.360Z"
+    }
+  },
+  "knownGood": {
+    "config": "config/known-good.json",
+    "tagSuffix": "-stable",
+    "snapshot": "node scripts/snapshot-known-good.mjs",
+    "restore": "git checkout v0.1.8-stable"
+  },
+  "manifestUpdatedAt": "2026-10-26T10:07:12.561Z",
+  "ship": {
+    "schemaVersion": 1,
+    "fastPath": "Deploy",
+    "releasePath": "Release",
+    "deployTarget": "github-release",
+    "playbook": "Tool/docs/playbooks/release-fast-path.md",
+    "script": "powershell -File E:\\Dev\\Tool\\scripts\\ship-product.ps1",
+    "preShip": [
+      "check-version-sync",
+      "verify-untracked-imports",
+      "verify-no-sibling-tool-imports",
+      "verify-electron-asar-packaging",
+      "hub-workspace-chrome-ssot",
+      "build"
+    ],
+    "preShipCommands": {
+      "check-version-sync": "node E:\\Dev\\Tool\\scripts\\check-version-sync.mjs --product-root . --no-warn-published",
+      "verify-untracked-imports": "node E:\\Dev\\Tool\\scripts\\verify-untracked-imports.mjs --product-root .",
+      "verify-no-sibling-tool-imports": "node E:\\Dev\\Tool\\scripts\\verify-no-sibling-tool-imports.mjs --product-root .",
+      "verify-electron-asar-packaging": "node E:\\Dev\\Tool\\scripts\\verify-electron-asar-packaging.mjs --product-root .",
+      "hub-workspace-chrome-ssot": "node E:\\Dev\\Tool\\scripts\\audit-hub-workspace-chrome-ssot.mjs --json",
+      "build": "corepack pnpm run build"
+    },
+    "syncedAt": "2026-08-26T22:20:26.075Z"
+  },
   "versions": {
-    "current": "3.1.50",
-    "latestPublished": "3.1.2"
+    "latestPublished": "3.1.2",
+    "current": "3.1.53"
   }
 }

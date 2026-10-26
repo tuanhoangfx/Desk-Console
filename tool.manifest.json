@@ -5,24 +5,31 @@
   "aliases": [
     "P0001",
     "Desk Console",
-    "Desk"
+    "Desk",
+    "Folder Sync",
+    "Infi Sync"
   ],
   "name": "Desk Console",
   "type": "Desktop",
   "owner": "Tool",
   "status": "Beta",
-  "summary": "Standalone desktop host for clips, Vite/worker runners, and Dev-* scheduled tasks.",
+  "summary": "Unified Local & Cloud Desktop Console — Clips & Paste Picker, Google Drive Bidirectional Folder Sync (rclone bisync), Vite/worker Runners, and PC Optimizer.",
   "stack": [
     "Electron",
     "React",
+    "TypeScript",
     "Vite",
-    "hub-ui"
+    "hub-ui",
+    "rclone"
   ],
   "devPort": 5180,
   "uiShell": {
     "golden": "P0020",
     "mainMode": "directory",
     "splitScreens": [
+      "clips",
+      "jobs",
+      "drives",
       "runners"
     ],
     "userFooter": "workspace"
@@ -31,8 +38,23 @@
     {
       "screen": "clips",
       "template": "directory",
+      "layout": "split-workspace",
       "golden": "P0004/users",
-      "notes": "Clipboard / quick-save inbox (text & images). Local JSON store."
+      "notes": "Clipboard / quick-save inbox (text & images) + Ctrl+Shift+Q Paste Picker. Local JSON store."
+    },
+    {
+      "screen": "jobs",
+      "template": "directory",
+      "layout": "split-workspace",
+      "golden": "P0003/profiles",
+      "notes": "P0003 Profiles split — bidirectional folder sync jobs table + KPI · History / Console. Remote is a signed-in Google Drive."
+    },
+    {
+      "screen": "drives",
+      "template": "directory",
+      "layout": "split-workspace",
+      "golden": "P0003/profiles",
+      "notes": "Google Drive accounts that finished OAuth. Sign-in & quota telemetry live here."
     },
     {
       "screen": "runners",
@@ -45,7 +67,7 @@
       "screen": "system",
       "template": "document-toc",
       "golden": "P0004/overview-toc",
-      "notes": "PC Optimizer & Host Diagnostics."
+      "notes": "PC Optimizer, Network QoS & Proxy, Rclone Engine & Sync Safety, Hotkeys, and Host Diagnostics."
     }
   ],
   "commands": {
@@ -112,6 +134,22 @@
       "panelFillRows": false,
       "partialPagePad": "n/a"
     },
+    "jobs": {
+      "scope": "Jobs tab directory table",
+      "columnStorageKey": "p0009_jobs_directory_columns",
+      "presetsStorageKey": "p0009_jobs_directory_column_presets",
+      "displayPanelVariant": "panel",
+      "panelFillRows": false,
+      "partialPagePad": "n/a"
+    },
+    "drives": {
+      "scope": "Drives tab directory table",
+      "columnStorageKey": "p0009_drives_directory_columns",
+      "presetsStorageKey": "p0009_drives_directory_column_presets",
+      "displayPanelVariant": "panel",
+      "panelFillRows": false,
+      "partialPagePad": "invisible"
+    },
     "runners": {
       "scope": "Runners split directory — Run/Stop row + ops rail",
       "columnStorageKey": "p0001_runners_directory_columns",
@@ -120,10 +158,10 @@
       "panelFillRows": "pageSize",
       "partialPagePad": "invisible"
     },
-    "notes": "Per-tab column presets — never share storage keys across clips/runners (P0003 parity)."
+    "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.50",
+    "version": "3.1.53",
     "latestPublished": {
       "tag": "v3.1.2",
       "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.2",
@@ -136,7 +174,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-10-24T18:19:13.550Z",
+  "manifestUpdatedAt": "2026-10-26T10:07:12.561Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -164,6 +202,6 @@
   },
   "versions": {
     "latestPublished": "3.1.2",
-    "current": "3.1.50"
+    "current": "3.1.53"
   }
 }
