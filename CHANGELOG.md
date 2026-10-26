@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-10-26 - Drives/Jobs directory-table-col-parity SSOT
+
+- Version: `3.1.57`
+- Timestamp: 2026-10-26 18:41 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Extract drives-directory-cells.tsx and jobs-directory-cells.tsx using DirectoryTableBodyCell + buildDirectoryColgroupForShell({ showSelect })
+
+### Verification
+
+- node Tool/scripts/directory-table-col-parity.mjs --code P0001
+
+---
+## 2026-10-26 - Group Jobs and Drives under Drive Sync parent menu
+
+- Version: `3.1.56`
+- Timestamp: 2026-10-26 18:36 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Group Jobs and Drives sidebar tabs under a collapsible Drive Sync parent menu using the official Google Drive brand icon (brandIcon: google-drive) and HubSidebarNavGroup + NavGroupSubNav SSOT
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/*.test.mjs + Stealth UI E2E
+
+---
 ## 2026-10-26 - AppErrorBoundary + checkAndReloadIfBundleSkewed
 
 - Version: `3.1.55`
