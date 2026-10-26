@@ -1,5 +1,85 @@
 # Changelog
 
+## 2026-10-26 - AppErrorBoundary + checkAndReloadIfBundleSkewed
+
+- Version: `3.1.55`
+- Timestamp: 2026-10-26 18:32 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wrap P0001 root in AppErrorBoundary with checkAndReloadIfBundleSkewed on uncaught render crash
+
+### Verification
+
+- node Tool/scripts/hub-ui-boot-check.mjs --code P0001
+
+---
+## 2026-10-26 - Hub-UI typography SSOT parity (text-xs across Drives/Jobs/Tree)
+
+- Version: `3.1.54`
+- Timestamp: 2026-10-26 17:41 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced legacy text-[11px] meta classes with text-xs across 10 Drives, Jobs, Onboarding, and Tree components for Hub-UI typography SSOT parity.
+
+### Verification
+
+- node Tool/scripts/hub-ui-duplication-check.mjs (OK)
+
+---
+## 2026-10-26 - Lock Runners tab with Lock icon on End-User machines & retire Folder Sync shortcuts/install
+
+- Version: `3.1.53`
+- Timestamp: 2026-10-26 17:07 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added locked + Lock icon support to HubSidebarNavScreenButton when hasDevWorkspace is false on end-user machines, and added automatic cleanup of retired Folder Sync processes, shortcuts, and binary folder on startup and packaging.
+
+### Verification
+
+- tsc --noEmit, vite build, hub-ui-parity-check, 36/36 host unit tests, Prod repackage & launch
+
+---
+## 2026-10-26 - Unify P0009 Folder Sync & P0001 Desk Console into unified Desk Console
+
+- Version: `3.1.52`
+- Timestamp: 2026-10-26 16:09 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Merged P0009 Folder Sync (Jobs, Drives, Rclone bisync, OAuth, Network QoS) into P0001 Desk Console with 5 unified tabs (Clips, Jobs, Drives, Runners, System), standardized HubSplitDirectoryPane topbar/KPI layout, and bundled rclone + koffi.
+
+### Verification
+
+- tsc --noEmit, vite build, hub-ui-parity-check, 36/36 host unit tests, Prod packaging & E2E smoke
+
+---
+## 2026-10-25 - Fix Clips topbar-to-filter/KPI vertical spacing parity
+
+- Version: `3.1.51`
+- Timestamp: 2026-10-25 01:33 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Restore var(--app-tab-header-py) bottom padding and var(--app-tab-header-min-h) height on stacked .hub-chrome-sticky > .app-tab-header and deduplicate .hub-tab-kpi-zone top margin in hub-shell-layout.css so P0001 Clips topbar has balanced 10.8px (0.75rem) breathing room above FilterBar/KPI matching Runners and System.
+
+### Verification
+
+- CDP bounding-rect verification on :9311 (Clips header height 52.6px, 10.8px gap above FilterBar, 10.8px gap to KPI strip) + hub-ui-parity-check P0001 passed
+
+---
 ## 2026-10-25 - FilterBar Progressive Collapse & Desktop Exe SSOT
 
 - Version: `3.1.50`
