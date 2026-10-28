@@ -169,11 +169,19 @@
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.61",
+    "version": "3.1.71",
     "latestPublished": {
-      "tag": "v3.1.2",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.2",
-      "publishedAt": "2026-09-12T23:25:30.360Z"
+      "tag": "v3.1.64",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.64",
+      "publishedAt": "2026-10-26T13:26:34Z",
+      "asset": {
+        "name": "Desk-Console-Setup-3.1.64.exe",
+        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.64/Desk-Console-Setup-3.1.64.exe",
+        "size": 130380941,
+        "sha256": "6044833b4d1fbc0462707f11971fd512e402f897e817061eac0becbbfeda27cc",
+        "sha512": "UOvEkaIsYLXQYbGIAnvisMnbhCfgCLvncVsQ5Wyfx/HlicWKtIlXHSOV4AhTjoeEp9FL+vXq44ki80jOo897SA==",
+        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.64/latest.yml"
+      }
     }
   },
   "knownGood": {
@@ -182,7 +190,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-10-26T12:22:52.137Z",
+  "manifestUpdatedAt": "2026-10-28T15:03:20.297Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -209,7 +217,7 @@
     "syncedAt": "2026-08-26T22:20:26.075Z"
   },
   "versions": {
-    "latestPublished": "3.1.2",
-    "current": "3.1.61"
+    "latestPublished": "3.1.64",
+    "current": "3.1.71"
   }
 }
