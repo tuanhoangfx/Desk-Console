@@ -30,11 +30,18 @@
       "clips",
       "jobs",
       "drives",
-      "runners"
+      "runners",
+      "cron"
     ],
     "userFooter": "workspace"
   },
   "uiScreens": [
+    {
+      "screen": "dashboard",
+      "template": "analytics",
+      "golden": "P0005/dashboard",
+      "notes": "Executive Growth & Telemetry Dashboard — 8 KPI Golden Strip, Silk Spline growth chart, 4 MiniBarChart breakdown cards, and 4 Live pulse panels."
+    },
     {
       "screen": "clips",
       "template": "directory",
@@ -61,13 +68,14 @@
       "template": "directory",
       "layout": "split-workspace",
       "golden": "P0001/runners",
-      "notes": "Vite/worker port runners — Start/Stop row · bulk Restart."
+      "notes": "Vite/worker port runners — 8 KPI Golden Strip + Start/Stop row + History · Log · Console rail."
     },
     {
-      "screen": "system",
-      "template": "document-toc",
-      "golden": "P0004/overview-toc",
-      "notes": "PC Optimizer, Network QoS & Proxy, Rclone Engine & Sync Safety, Hotkeys, and Host Diagnostics."
+      "screen": "cron",
+      "template": "directory",
+      "layout": "split-workspace",
+      "golden": "P0001/runners",
+      "notes": "Built-in Daemons (Daemon-*) + Windows Scheduled Tasks (Dev-*) — 8 KPI Golden Strip + Start/Stop row + History · Log · Console rail."
     }
   ],
   "commands": {
@@ -101,7 +109,7 @@
     "local": "http://127.0.0.1:5180",
     "worker": "http://127.0.0.1:6010",
     "app": "http://127.0.0.1:5180",
-    "site": "https://sync.infi.io.vn/intro/"
+    "site": "https://sync.infi28.com/intro/"
   },
   "health": {
     "status": "Beta",
@@ -166,10 +174,18 @@
       "panelFillRows": "pageSize",
       "partialPagePad": "invisible"
     },
+    "cron": {
+      "scope": "Cron split directory — Run/Stop row + ops rail",
+      "columnStorageKey": "p0001_cron_directory_columns",
+      "presetsStorageKey": "p0001_cron_directory_column_presets",
+      "displayPanelVariant": "panel",
+      "panelFillRows": "pageSize",
+      "partialPagePad": "invisible"
+    },
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.71",
+    "version": "3.1.111",
     "latestPublished": {
       "tag": "v3.1.64",
       "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.64",
@@ -190,7 +206,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-10-28T15:03:20.297Z",
+  "manifestUpdatedAt": "2026-11-03T10:04:57.148Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -202,7 +218,6 @@
       "check-version-sync",
       "verify-untracked-imports",
       "verify-no-sibling-tool-imports",
-      "verify-electron-asar-packaging",
       "hub-workspace-chrome-ssot",
       "build"
     ],
@@ -210,14 +225,13 @@
       "check-version-sync": "node E:\\Dev\\Tool\\scripts\\check-version-sync.mjs --product-root . --no-warn-published",
       "verify-untracked-imports": "node E:\\Dev\\Tool\\scripts\\verify-untracked-imports.mjs --product-root .",
       "verify-no-sibling-tool-imports": "node E:\\Dev\\Tool\\scripts\\verify-no-sibling-tool-imports.mjs --product-root .",
-      "verify-electron-asar-packaging": "node E:\\Dev\\Tool\\scripts\\verify-electron-asar-packaging.mjs --product-root .",
       "hub-workspace-chrome-ssot": "node E:\\Dev\\Tool\\scripts\\audit-hub-workspace-chrome-ssot.mjs --json",
       "build": "corepack pnpm run build"
     },
-    "syncedAt": "2026-08-26T22:20:26.075Z"
+    "syncedAt": "2026-10-28T17:14:22.333Z"
   },
   "versions": {
     "latestPublished": "3.1.64",
-    "current": "3.1.71"
+    "current": "3.1.111"
   }
 }

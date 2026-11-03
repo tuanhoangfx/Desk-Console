@@ -1,5 +1,645 @@
 # Changelog
 
+## 2026-11-03 - Auto-sync P0001-SITE and P0001-INTRO landing on desktop publish
+
+- Version: `3.1.111`
+- Timestamp: 2026-11-03 17:04 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wired deploy-lenovo-static.mjs --code P0001-SITE --code P0001-INTRO --force-build into release-desktop.ps1 and run-electron-package.mjs.
+
+### Verification
+
+- node -c Tool/P0001-Desk-Console/scripts/run-electron-package.mjs
+
+---
+## 2026-11-03 - Workspace Directory SSOT Unification + Clean Retired System/Tasks Files
+
+- Version: `3.1.110`
+- Timestamp: 2026-11-03 05:48 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Unified Created/Update timestamp variants and Status Dot Color + live pulse across Jobs, Drives, Cron, Runners, and Clips; enforced Workspace-wide timestamp/status SSOT in hub-ui and audit-directory-ssot-all-products; removed retired SystemScreen and legacy tasks references.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-11-03 - Cron Status Dot Color + Created & Log Columns + Execution Telemetry
+
+- Version: `3.1.109`
+- Timestamp: 2026-11-03 05:05 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Standardized Status cells and tooltips on HubUsersStatusLabel Dot Color with live pulse effect (Campaign P0002 parity), added Created and Log columns to DeskDirectoryTable with auto-migration, and added duration + freed MB + activityLog telemetry to Cron tasks.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-11-03 - Cron SSOT Create modal + Schedule column + Active status + unified tooltip/cell emoji parity
+
+- Version: `3.1.108`
+- Timestamp: 2026-11-03 04:30 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added CronCreateModal (+ New / Detail / Delete / More bulk actions + POST/DELETE /api/tasks), added dedicated Schedule column (10.5rem) with schtasks /V cycle + ISO Last Run parsing, normalized Cron Ready status to Active, replaced broken Segoe UI emojis, widened Update column, added Dashboard failed-cron alert banner, and unified tooltip headerHint/labelHint icons with DeskStatusKpiLabel cell emoji icons
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs && pnpm --dir Tool/P0001-Desk-Console build
+
+---
+## 2026-11-03 - Standardize Desk directory cell typography & Vietnamese Inter SSOT
+
+- Version: `3.1.107`
+- Timestamp: 2026-11-03 04:21 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Aligned desk-directory-cells.tsx elapsed/schedule spans to Hub-UI 12px/400 Inter SSOT and synced self-hosted Inter vietnamese + latin-ext subsets.
+
+### Verification
+
+- node Tool/scripts/hub-ui-body-font-weight-check.mjs --code P0001
+
+---
+## 2026-11-03 - Fix dev Electron black screen when replacing window and add renderer crash auto-recovery
+
+- Version: `3.1.106`
+- Timestamp: 2026-11-03 03:23 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Pass explicit workspace path when spawning Electron dev processes, terminate full parent+child trees atomically on --replace so renderer children are never killed without their parent BrowserWindow, and add render-process-gone/unresponsive auto-reload guards in electron/main.cjs.
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console build && CDP 9311 DOM verification
+
+---
+## 2026-11-03 - Fix deskApi.listTasks / listClips / listRunners and unwrap Dashboard API payloads
+
+- Version: `3.1.105`
+- Timestamp: 2026-11-03 02:02 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added listTasks, runTask, setTaskEnabled, listClips, listRunners, and getRunnerWatchdog to deskApi in src/lib/api.ts; fixed DashboardScreen loadAll to unwrap fetchJobs().jobs, fetchDriveAccounts().accounts, and fetchLocalDrives().drives plus fast hostMetrics RAM/CPU telemetry.
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console build
+
+---
+## 2026-11-03 - Unify History-Log-Console 3-panel rail across Jobs and Drives + add persistent Time-Series Telemetry History for Dashboard
+
+- Version: `3.1.104`
+- Timestamp: 2026-11-03 01:50 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Upgraded JobsMainAndRail to the 3-panel History-Log-Console (3:3:4) split rail and wired it into DrivesScreen so all 5 split screens (Clips, Jobs, Drives, Runners, Cron) share the exact same runtime rail layout; added persistent telemetry-history.json and GET /api/telemetry/history in host/server.mjs wired to DashboardScreen.
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console build; node Tool/scripts/hub-ui-parity-check.mjs --code P0001; node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-11-03 - Add Executive Dashboard (8 KPIs), Cron split-directory tab (8 KPIs + Built-in Daemons), and reorder rail to History-Log-Console
+
+- Version: `3.1.103`
+- Timestamp: 2026-11-03 01:35 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced the legacy System tab with the Executive Dashboard tab (8 KPI Golden Strip, Silk Spline growth chart, 4 MiniBarChart breakdown cards, 4 Live HubPanel cards), moved static configuration sections into DeskSettings, added the Cron split-directory tab managing 7 Built-in Daemons (Daemon-*) and Windows Scheduled Tasks (Dev-*) with 8 KPIs, and reordered DeskOpsRuntimeRail to History -> Log -> Console (3:3:4).
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console build; node Tool/scripts/hub-ui-parity-check.mjs --code P0001; node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-11-03 - Upgrade P0001 Daily Disk Maintenance & Register Dev-Stealth-Disk-Daily-Prune Task
+
+- Version: `3.1.102`
+- Timestamp: 2026-11-03 01:05 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Synced P0001 Nightly Deep Maintenance (pc-optimizer.mjs) with the full 17 disposable Chromium cache paths (including Default/Cache, Service Worker/CacheStorage, ScriptCache, Shared Dictionary) while strictly skipping any profile with an active lockfile regardless of uptime; added D:\Temp sweep, raised Disk Pressure Guard threshold from 25 GB to 60 GB, enabled >=04:00 daily catch-up, fixed future-timestamp cache stall in windows.mjs listDevTasks, and registered Dev-Stealth-Disk-Daily-Prune in P0001 Tasks.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-11-02 - Topbar-only DEV Badge SSOT
+
+- Version: `3.1.101`
+- Timestamp: 2026-11-02 02:43 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Keep window title and sidebar brand clean; move DEV badge next to Topbar Version trigger in HubVersionReleaseNotes
+
+### Verification
+
+- node ../scripts/lib/sync-electron-shared-libs.cjs --verify
+
+---
+## 2026-11-02 - Unified Desktop Electron DEV Badge SSOT
+
+- Version: `3.1.100`
+- Timestamp: 2026-11-02 02:25 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wire shared electron-dev-badge.cjs (taskbar D overlay + [DEV vX.Y.Z] window title + HubSidebarShell DEV badge)
+
+### Verification
+
+- node --check electron/main.cjs
+
+---
+## 2026-10-31 - Register fleet-autonomous-maintainer in Farm Supervisor
+
+- Version: `3.1.99`
+- Timestamp: 2026-10-31 01:53 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added fleet-autonomous-maintainer to DEFAULT_FARM_JOBS with autoResume: true in pc-optimizer.mjs.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/pc-optimizer.mjs
+
+---
+## 2026-10-30 - Boot Grace Guard & Self-Contained Native Koffi Host
+
+- Version: `3.1.98`
+- Timestamp: 2026-10-30 18:12 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Disabled default auto-resume on boot for heavy Chromium farm daemons, added 5-minute boot grace window & 1-job-per-tick stagger in runFarmSupervisorTick, and embedded self-contained koffi bindings in windows.mjs.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-10-30 - Native Toolhelp32 cursorCount & iphlpapi GetExtendedTcpTable port lookup
+
+- Version: `3.1.97`
+- Timestamp: 2026-10-30 16:06 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replace PowerShell Get-Process Cursor count in P0001 host/windows.mjs and netstat port scanning in win-shell-env.cjs with native koffi CreateToolhelp32Snapshot, QueryFullProcessImageNameW, and iphlpapi.dll GetExtendedTcpTable.
+
+### Verification
+
+- node --test Tool/scripts/lib/win-native-utils.test.mjs
+
+---
+## 2026-10-30 - Native Win32 koffi Clipboard read/write in Desk Console host
+
+- Version: `3.1.96`
+- Timestamp: 2026-10-30 15:59 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replace PowerShell Get-Clipboard/Set-Clipboard child process spawns in P0001 host/windows.mjs with in-process koffi user32.dll OpenClipboard/GetClipboardData/SetClipboardData (<0.5ms, 0 child processes).
+
+### Verification
+
+- node --test Tool/scripts/lib/win-native-utils.test.mjs
+
+---
+## 2026-10-30 - Created and Update leading directory columns SSOT
+
+- Version: `3.1.95`
+- Timestamp: 2026-10-30 15:20 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Standardized Created (7.5rem, calendar emoji, enableFit false) and Update (7.5rem, refresh emoji, enableFit false) at the leading edge of directory tables and Display column pickers via shared hub-ui SSOT.
+
+### Verification
+
+- vitest + verify-directory-shared-chrome-width-ssot + hub-directory-header-sticker-gate
+
+---
+## 2026-10-30 - Pin P0016 Chat Center in core Hub Vite allowlist & watchdog
+
+- Version: `3.1.94`
+- Timestamp: 2026-10-30 07:52 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Included P0016 in pc-optimizer isCoreHubVite and DEFAULT_PINNED_RUNNERS so P0016 Vite on :5186 is never reaped by background handle/RAM healer
+
+### Verification
+
+- node Tool/P0016-ChatCenter/scripts/smoke-tab-loading.mjs
+
+---
+## 2026-10-30 - Update fanpage-fleet-daemon telemetry summary to >0010 pool
+
+- Version: `3.1.93`
+- Timestamp: 2026-10-30 07:27 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Updated pc-optimizer.mjs fanpage-fleet-daemon summary label to >0010 and synced to unpacked Desk Console
+
+### Verification
+
+- node Tool/scripts/check-version-sync.mjs
+
+---
+## 2026-10-30 - Muse 9Router Pool Live Telemetry & Token Capacity Summary
+
+- Version: `3.1.92`
+- Timestamp: 2026-10-30 07:02 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Read ~/.9router/muse-token-pool.json in readFarmJobTelemetry('muse-headless-adapter') to display live readyHeadlessSessionAccounts and totalTokenCapacityBillion in Desk Console.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-10-30 - Job-Breakaway Hidden Daemon Spawner, Idle Vite Hibernation & Coordinated Headless Lease
+
+- Version: `3.1.91`
+- Timestamp: 2026-10-30 06:52 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Switch spawnFarmJobDetached to startHiddenDetachedProcess (WMI Win32_Process.Create + nodew.exe) so background daemons outlive parent Job Objects with zero console window, raise adaptive headless idle cap to 240s/6 concurrent so warmup flows complete cleanly, and hibernate unpinned non-core Vite servers.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-10-30 - Strict 2-row Mobile FilterBar SSOT (default 2 primary filters + Row 1 Search/Toolbar nowrap)
+
+- Version: `3.1.90`
+- Timestamp: 2026-10-30 06:37 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Keep Search and Toolbar on Row 1 on mobile and cap default unselected Row 2 filters to 2.
+
+### Verification
+
+- node Tool/scripts/smoke-hub-mobile-ui.mjs --code P0001 --scenario filterbar --json
+
+---
+## 2026-10-30 - Fix Vite 25k handle crash-respawn loop & enforce BelowNormal background CPU priority
+
+- Version: `3.1.89`
+- Timestamp: 2026-10-30 06:34 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Stop infinite 20s kill-respawn loop on non-core Vite servers in pc-optimizer.mjs, demote headless Chrome/wireproxy/farm daemons to BELOW_NORMAL_PRIORITY_CLASS via koffi SetPriorityClass, cap maxHeadlessConcurrent at 3, and enrich Farm Supervisor recovery telemetry.
+
+### Verification
+
+- GET :6010/api/pc/farm-supervisor; POST :6010/api/pc/optimize
+
+---
+## 2026-10-30 - Zero-Popup nodew Farm Spawner, Conhost Replacer & Wireproxy/Vite Handle Healer
+
+- Version: `3.1.88`
+- Timestamp: 2026-10-30 06:20 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Switched Farm Supervisor resolveNodeBinary to prefer GUI-subsystem nodew.exe, added automatic conhost-attached background node.exe replacer, duplicate wireproxy.exe tunnel sweeper, and >25k-handle Vite auto-restarter in autoHealSystemHandleLeaks, and tightened adaptive headless browser caps (6/4/2).
+
+### Verification
+
+- node Tool/P0001-Desk-Console/host/pc-optimizer.mjs
+
+---
+## 2026-10-30 - Fix pc-optimizer headless farm sweeper overCap counter and respect active-agent-locks
+
+- Version: `3.1.87`
+- Timestamp: 2026-10-30 05:49 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Count CDP-closed headless farm profiles immediately and skip profiles locked in active-agent-locks.json so slow /close calls never cascade-kill active headless browsers.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/pc-optimizer.mjs
+
+---
+## 2026-10-30 - Farm Supervisor: Fanpage Fleet Auto-Resume & Recovery Telemetry
+
+- Version: `3.1.86`
+- Timestamp: 2026-10-30 05:20 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Enabled autoResume for fanpage-fleet-daemon and enriched telemetry summaries with Checkpoint 956 OTP unlock, multi-layer password recovery, and 96/191 live fanpage counts.
+
+### Verification
+
+- POST /api/pc/farm-supervisor
+
+---
+## 2026-10-30 - PC Optimizer: Leaked Playwright & Chromium Temp Dir Sweeper
+
+- Version: `3.1.85`
+- Timestamp: 2026-10-30 04:38 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added os.tmpdir() sweep for >2h old playwright*, scoped_dir*, and chrome_BITS_* folders inside runNightlyDeepMaintenance(), immediately cleaning 2,500+ leaked temp directories.
+
+### Verification
+
+- node os.tmpdir() leak sweep
+
+---
+## 2026-10-30 - PC Optimizer: Stale Service Worker CacheStorage (>14d) & Run Artifacts Retention
+
+- Version: `3.1.84`
+- Timestamp: 2026-10-30 04:03 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added stale (>14 days idle) Service Worker CacheStorage trim and >7-day debug screenshot / >14-day SQLite runs retention to runNightlyDeepMaintenance().
+
+### Verification
+
+- POST /api/pc/optimize {action: deep-maintenance, maxProfiles: 0}
+
+---
+## 2026-10-30 - PC Optimizer: Crashpad/BrowserMetrics/CodeCache Sweep & D: <25GB Disk Pressure Guard
+
+- Version: `3.1.83`
+- Timestamp: 2026-10-30 03:40 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Expanded DISPOSABLE_PROFILE_SHADER_REL_PATHS with Crashpad/reports, Crashpad/attachments, BrowserMetrics, DawnCache, and Code Cache (js/wasm) while preserving 100% of Cookies/LocalStorage/IndexedDB/Extensions; added readProfilesDiskPressure() auto-triggering Deep Maintenance if D: free space drops below 25 GB.
+
+### Verification
+
+- POST /api/pc/optimize {action: deep-maintenance, maxProfiles: 0}
+
+---
+## 2026-10-30 - PC Optimizer: Full-Fleet 100% Closed Profile Deep Maintenance
+
+- Version: `3.1.82`
+- Timestamp: 2026-10-30 01:48 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Removed the 200-profile batch cap in runNightlyDeepMaintenance so both 04:00 AM scheduled runs and manual Deep Clean passes scan and purge shader/GPU caches across 100% of closed profiles with event-loop yielding.
+
+### Verification
+
+- POST /api/pc/optimize {action: deep-maintenance, maxProfiles: 0}
+
+---
+## 2026-10-30 - Nightly 04:00 Deep Maintenance + Realtime Farm Telemetry API
+
+- Version: `3.1.81`
+- Timestamp: 2026-10-30 01:20 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added 04:00 AM SQLite WAL checkpoint and closed-profile shader/GPU cache purge (unNightlyDeepMaintenance, ction: deep-maintenance) plus live telemetry enrichment in getFarmSupervisorStatus() for P0004 System > Agents.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/pc-optimizer.mjs && GET :6010/api/pc/farm-supervisor
+
+---
+## 2026-10-29 - Add Persistent Farm Job Supervisor & DWM Adaptive Headless Throttling
+
+- Version: `3.1.80`
+- Timestamp: 2026-10-29 21:37 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Implemented Persistent Farm Job Supervisor (auto-resume, duplicate script deduplication, /api/pc/farm-supervisor API + SystemScreen UI) and GetProcessTimes DWM Adaptive Headless Throttling + orphan taskbar worker healer in pc-optimizer.mjs.
+
+### Verification
+
+- node --check host/pc-optimizer.mjs
+
+---
+## 2026-10-29 - Fast /api/sessions/running headless reaper & 10-headless cap
+
+- Version: `3.1.79`
+- Timestamp: 2026-10-29 20:52 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced slow /api/profiles 10k-row poll in inspectSmokePoolBrowsers with /api/sessions/running (<5ms) and tuned maxHeadlessConcurrent to 10 so dwm.exe and StateRepository never stall Windows.
+
+### Verification
+
+- node --check host/pc-optimizer.mjs
+
+---
+## 2026-10-29 - Native Dual-Xeon Processor Group 50/50 load balancer for Chrome trees (koffi SetThreadGroupAffinity)
+
+- Version: `3.1.78`
+- Timestamp: 2026-10-29 20:18 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Add balanceChromeProcessorGroupsNative() in pc-optimizer.mjs using Toolhelp32 + SetThreadGroupAffinity (0 PowerShell) to distribute Chrome browser trees 50/50 across Processor Group 0 and Group 1 on Dual-Xeon workstations.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/src/test/pc-optimizer.test.mjs
+
+---
+## 2026-10-29 - Raise maxHeadlessConcurrent to 50 (15m idle) while keeping 20s handle-leak self-healer
+
+- Version: `3.1.77`
+- Timestamp: 2026-10-29 20:10 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Set maxHeadlessConcurrent to 50 and maxHeadlessIdleMs to 15 minutes in pc-optimizer.mjs so ~40 headless profiles run unimpeded while EVKey64/olk/renderer handle leaks are healed every 20s.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/src/test/pc-optimizer.test.mjs
+
+---
+## 2026-10-29 - 20s zero-WMI PC auto-healer: headless farm cap (6) + EVKey64/olk/renderer handle leak recovery
+
+- Version: `3.1.76`
+- Timestamp: 2026-10-29 20:01 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Upgrade pc-optimizer.mjs so ALL invisible headless:true sessions (excluding 9990-9999 smoke pool) are bounded to maxHeadlessConcurrent: 6 and 2m max idle on a 20s interval, and add autoHealSystemHandleLeaks() to automatically recover EVKey64 (>4k handles), windowless olk (>15k handles), and runaway Chrome --type=renderer (>35k handles) leaks.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/src/test/pc-optimizer.test.mjs
+
+---
+## 2026-10-29 - Mobile Filter & Display popover viewport clamping
+
+- Version: `3.1.75`
+- Timestamp: 2026-10-29 17:18 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Adopt @infi/hub-ui mobile popover clamping and flip-above positioning for 320x568 devices
+
+### Verification
+
+- node Tool/scripts/node-run.mjs Tool/scripts/smoke-hub-mobile-ui.mjs --code P0001 --scenario table-filter-popover --viewport 320x568
+
+---
+## 2026-10-29 - Unique folder colClass in jobs directory meta + mobile smoke onboarding
+
+- Version: `3.1.74`
+- Timestamp: 2026-10-29 03:12 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Fix duplicate hub-users-col--path colClass on folder column in jobs-directory-meta.ts (now hub-users-col--folder) and onboard P0001 to hub-mobile-ui-smoke.catalog.json.
+
+### Verification
+
+- node Tool/scripts/verify-directory-colclass-unique.mjs --json + smoke-hub-mobile-ui.mjs --code P0001
+
+---
+## 2026-10-29 - AppErrorBoundary HMR & popstate auto-recovery
+
+- Version: `3.1.73`
+- Timestamp: 2026-10-29 01:46 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added vite:afterUpdate, popstate, 800ms DEV auto-retry, Retry button, and recordHubCaughtBoundaryError telemetry to AppErrorBoundary.
+
+### Verification
+
+- vitest 15/15 PASS + verify-agent-docs-skills-ssot PASS
+
+---
+## 2026-10-29 - Hoist DESK_BASE_COLLATOR in desk-directory-sort
+
+- Version: `3.1.72`
+- Timestamp: 2026-10-29 00:29 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replace inline String.prototype.localeCompare options in desk-directory-sort.ts with shared module-level DESK_BASE_COLLATOR to satisfy verify-hub-perf-contract no-inline-locale-compare-options.
+
+### Verification
+
+- node Tool/scripts/verify-hub-perf-contract.mjs --code P0001
+
+---
 ## 2026-10-26 - DriveDetailModal HubConfirmDialog empty trash
 
 - Version: `3.1.61`
