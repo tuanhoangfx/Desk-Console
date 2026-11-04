@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-04 - Rebuild and assemble win-unpacked desktop bundle
+
+- Version: `3.1.138`
+- Timestamp: 2026-11-04 14:22 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Rebuilt dist/ and assembled dist-desktop/win-unpacked with 4-layer zero-popup guard, 7-day .cache retention, and P0004 farm-supervisor separation.
+
+### Verification
+
+- node scripts/assemble-unpacked.mjs --out dist-desktop/win-unpacked
+
+---
 ## 2026-11-04 - Extract DEFAULT_FARM_JOBS to P0004 farm-supervisor module
 
 - Version: `3.1.137`
