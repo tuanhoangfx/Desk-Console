@@ -185,18 +185,18 @@
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.139",
+    "version": "3.1.140",
     "latestPublished": {
-      "tag": "v3.1.64",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.64",
-      "publishedAt": "2026-10-26T13:26:34Z",
+      "tag": "v3.1.139",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.139",
+      "publishedAt": "2026-11-04T09:34:22.873Z",
       "asset": {
-        "name": "Desk-Console-Setup-3.1.64.exe",
-        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.64/Desk-Console-Setup-3.1.64.exe",
-        "size": 130380941,
-        "sha256": "6044833b4d1fbc0462707f11971fd512e402f897e817061eac0becbbfeda27cc",
-        "sha512": "UOvEkaIsYLXQYbGIAnvisMnbhCfgCLvncVsQ5Wyfx/HlicWKtIlXHSOV4AhTjoeEp9FL+vXq44ki80jOo897SA==",
-        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.64/latest.yml"
+        "name": "Desk Console Setup 3.1.139.exe",
+        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.139/Desk.Console.Setup.3.1.139.exe",
+        "size": 130780083,
+        "sha256": "71b9bce6c948960f8f6d27d488f10cfaa0edc1510c86890a3c28ad54028a8d9d",
+        "sha512": "Xccm/XvpF9Xkh531HA3adpHGfPz0/WRs1qFos4g/mIDGgVf1sXtvpBhK5bsnRpgyNxgsqVhkaMIfYoOQshV2Lg==",
+        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.139/latest.yml"
       }
     }
   },
@@ -206,7 +206,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-04T09:16:12.281Z",
+  "manifestUpdatedAt": "2026-11-04T09:35:25.012Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -218,7 +218,6 @@
       "check-version-sync",
       "verify-untracked-imports",
       "verify-no-sibling-tool-imports",
-      "verify-electron-asar-packaging",
       "hub-workspace-chrome-ssot",
       "build"
     ],
@@ -226,14 +225,13 @@
       "check-version-sync": "node E:\\Dev\\Tool\\scripts\\check-version-sync.mjs --product-root . --no-warn-published",
       "verify-untracked-imports": "node E:\\Dev\\Tool\\scripts\\verify-untracked-imports.mjs --product-root .",
       "verify-no-sibling-tool-imports": "node E:\\Dev\\Tool\\scripts\\verify-no-sibling-tool-imports.mjs --product-root .",
-      "verify-electron-asar-packaging": "node E:\\Dev\\Tool\\scripts\\verify-electron-asar-packaging.mjs --product-root .",
       "hub-workspace-chrome-ssot": "node E:\\Dev\\Tool\\scripts\\audit-hub-workspace-chrome-ssot.mjs --json",
       "build": "corepack pnpm run build"
     },
-    "syncedAt": "2026-08-26T22:20:26.075Z"
+    "syncedAt": "2026-10-28T17:14:22.333Z"
   },
   "versions": {
-    "latestPublished": "3.1.64",
-    "current": "3.1.139"
+    "latestPublished": "3.1.139",
+    "current": "3.1.140"
   }
 }
