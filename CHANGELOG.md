@@ -1,5 +1,405 @@
 # Changelog
 
+## 2026-11-04 - Include DevWorkspaceBackup in Scheduled Tasks & 7-day .cache retention
+
+- Version: `3.1.136`
+- Timestamp: 2026-11-04 13:15 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added DevWorkspaceBackup and Dev-P0020-Recheck-Appealed-AI descriptions and filter support in windows.mjs; verified all 15 scheduled & daemon tasks report Active with lastResult = 0.
+
+### Verification
+
+- GET http://127.0.0.1:6010/api/tasks?force=1 returns 15 tasks (8 daemons + 7 schtasks) all Active with lastResult = 0
+
+---
+## 2026-11-04 - Nightly .cache 7-Day Retention Sweep & Scheduled Task Exit-0 Recovery
+
+- Version: `3.1.135`
+- Timestamp: 2026-11-04 13:10 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added automatic 7-day retention pruning for E:\Dev\.cache (preserving allowlisted auth/backup folders) in runNightlyDeepMaintenance; fixed WorkingDirectory resolution in Dev-P0020-Recheck-Appealed-AI and auto-rebase in DevWorkspaceBackup.
+
+### Verification
+
+- GET http://127.0.0.1:6010/api/tasks shows all 14 tasks Active with exit 0
+
+---
+## 2026-11-04 - Prune 552MB .cache Orphans, Retire Duplicate Scheduled Tasks & Unconditional Cache Headless Reaper
+
+- Version: `3.1.134`
+- Timestamp: 2026-11-04 13:03 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Freed 552+ MB of temporary Chromium profiles and .db files in E:\Dev\.cache; retired Dev-Stealth-Disk-Daily-Prune, Dev-Cursor-Storage-Purge-If-Closed, Dev-Supabase-PhaseD-Reminder, and Dev-Vite-Memory-Gate-P0016; made autoHealSystemHandleLeaks unconditionally reap legacy .cache/g1-support-pw-* chrome-headless-shell processes.
+
+### Verification
+
+- GET http://127.0.0.1:6010/api/tasks lists only active non-duplicate tasks
+
+---
+## 2026-11-04 - Playwright Headless Shell PE GUI Subsystem Patcher & Scheduled Task Hygiene
+
+- Version: `3.1.133`
+- Timestamp: 2026-11-04 12:07 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added ensurePlaywrightHeadlessShellsGuiSubsystem to patch chrome-headless-shell.exe from PE Subsystem 3 (CUI) to 2 (GUI) so Windows csrss.exe never allocates console windows; sped up suppressTransientConsolePopupsNative to 120ms and added chrome-headless-shell matcher; set global NODE_OPTIONS preload; cleaned duplicate scheduled task.
+
+### Verification
+
+- chrome-headless-shell.exe PE Subsystem verified as 2 (GUI) and P0001 :6010 online
+
+---
+## 2026-11-04 - Farm Supervisor 11-Job Coverage, 3-Day Antigravity Retention & 15m Inline Node Reaper
+
+- Version: `3.1.132`
+- Timestamp: 2026-11-04 11:55 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added continuous-check-mail-worker, gmail-permanent-forward-worker, and outlook-forwarding-sync to DEFAULT_FARM_JOBS with live state telemetry; updated sweepAntigravityStaleTranscripts retention to 3 days (72h post-Kaizen); added 15m hung inline node script reaper in autoHealSystemHandleLeaks.
+
+### Verification
+
+- GET http://127.0.0.1:6010/api/pc/farm-supervisor returns 11 farm jobs with live PID and telemetry
+
+---
+## 2026-11-04 - Reap 1.23 GB Stale .cache Watcher & Headless Shell + Popups Guarded Badge (ok 1, 2, 3)
+
+- Version: `3.1.131`
+- Timestamp: 2026-11-04 11:35 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Removed redundant 10s ssh polling from g1-support-pw-0028/watcher.mjs (ok 1), added Popups Guarded counter to P0001 Core Shield badge (ok 2), and added automatic reaping of completed/expired .cache watchers and chrome-headless-shell processes freeing 1.23 GB RAM (ok 3).
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console run build + autoHealSystemHandleLeaks reaped 7 stale g1-support-pw-0028 processes
+
+---
+## 2026-11-04 - Fast 3-Minute Reclaim for Non-User Headed Farm Profiles (>= 0100)
+
+- Version: `3.1.130`
+- Timestamp: 2026-11-04 11:27 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Tighten idle reclaim cap from 20 minutes to 3 minutes for non-protected farm profiles (0100-8999) accidentally opened in Headed mode (headless: false) by background agents, while keeping user protected profiles (0001-0021, 0059, 0069, 0070, 0093) 100% exempt.
+
+### Verification
+
+- Verified #0504 already reclaimed + only user profile #0010 remains headed on :6003
+
+---
+## 2026-11-04 - Kill rogue 10s g1-support-pw-0028 ssh loop + Global Preload WindowsHide + 350ms ConsoleWindowClass Suppressor
+
+- Version: `3.1.129`
+- Timestamp: 2026-11-04 05:52 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Caught and patched E:\\Dev\\.cache\\g1-support-pw-0028\\watcher.mjs (which was running in a 10s loop inside nodew.exe calling spawnSync('ssh') without windowsHide: true), wired preload-windows-hide.cjs into win-hidden-detach-runner.cjs and read-env-file.cjs + stealth-cdp-client.mjs (ok 1), and added a 350ms FindWindowExW('ConsoleWindowClass') SW_HIDE guard in P0001 (:6010).
+
+### Verification
+
+- Verified 0 visible ConsoleWindowClass windows over 5s desktop EnumWindows probe + :6010 health 200
+
+---
+## 2026-11-04 - Zero-Popup Child Process Guard (windowsHide ESM live-binding sync + SSH popup prevention)
+
+- Version: `3.1.128`
+- Timestamp: 2026-11-04 05:34 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Patched ensure-hidden-console.mjs and databox-plane-ssot.mjs with installChildProcessWindowsHideGuard() + syncBuiltinESMExports() so all spawn/spawnSync/execSync/execFileSync calls (including inline agent SSH commands, deploy-lenovo-static.mjs, deploy-lenovo-node.mjs, and lenovo-health-watchdog.mjs) automatically enforce windowsHide: true and keep hidden parent console handles without popping up C:\\Windows\\System32\\OpenSSH\\ssh.exe windows.
+
+### Verification
+
+- Verified live ESM binding interception on spawnSync('ssh') + zero visible console window allocation
+
+---
+## 2026-11-04 - Register Daemon-Agent-IDE-Optimizer Cron & Wire into Dev-Agent-Daily-Kaizen
+
+- Version: `3.1.127`
+- Timestamp: 2026-11-04 05:10 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Register Daemon-Agent-IDE-Optimizer (Every 10 min + Daily 06:45) in BUILTIN_CRON_SPECS on :6010 and wire sweepAntigravityStaleTranscripts() into audit-agent-sessions-rca.mjs (--fix)
+
+### Verification
+
+- Verified Daemon-Agent-IDE-Optimizer listed in /api/tasks and POST /api/tasks/Daemon-Agent-IDE-Optimizer/run succeeds
+
+---
+## 2026-11-04 - Cursor User Storage (2.5 GB) & Claude CLI Version Auto-Prune
+
+- Version: `3.1.126`
+- Timestamp: 2026-11-04 05:02 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Purge 2,499.8 MB from Cursor User storage (anysphere.cursor-agent-worker zip/versions, >7d History, >14d workspaceStorage, and state.vscdb VACUUM) and 314.9 MB from old Claude CLI versions, and wire automatic retention into sweepAntigravityStaleTranscripts()
+
+### Verification
+
+- Verified Cursor User reduced from 2,795.2 MB to 295.4 MB (-2,499.8 MB) and Claude claude-code reduced from 594.5 MB to 279.6 MB (-314.9 MB)
+
+---
+## 2026-11-04 - Unified 5-Agent Auto-Optimizer (Antigravity, Cursor, Claude, Codex, Grok Bot)
+
+- Version: `3.1.125`
+- Timestamp: 2026-11-04 04:51 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Extend pc-optimizer.mjs 20s priority shield and 10m storage sweeper to cover all 5 AI agents: Antigravity, Cursor (snapshots + caches), Claude (Code Cache + Cache + old project JSONLs), Codex (.tmp + cache), and Grok Bot (Telegram bridge inbox & turns rotation)
+
+### Verification
+
+- Verified sweepAntigravityStaleTranscripts purged 2.3+ GB across Cursor snapshots, Claude caches/sessions, Codex .tmp/cache, and Grok Bot bridge queues
+
+---
+## 2026-11-04 - Auto-Rotate Background Farm Logs (>2MB -> 512KB Tail)
+
+- Version: `3.1.124`
+- Timestamp: 2026-11-04 04:25 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Automatically trim background farm log files exceeding 2 MB down to the last 512 KB inside sweepAntigravityStaleTranscripts()
+
+### Verification
+
+- Verified fb-fleet-autologin.log rotated from 12,672 KB (12.4 MB) to 512 KB
+
+---
+## 2026-11-04 - Antigravity Brain Telemetry Badge, One-Click Purge & 2KB Compact Stdout Guard
+
+- Version: `3.1.123`
+- Timestamp: 2026-11-04 04:19 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Display live Antigravity Brain session count and MB size with a one-click Purge AGY button inside the Dual-Xeon Core Shield card on P0001 Dashboard, and enforce a 2 KB per-write compact stdout guard in ensure-hidden-console.mjs and agent-inline-kit.mjs
+
+### Verification
+
+- Verified /api/pc-optimizer/status returns summary.antigravityBrain, POST action=sweep-antigravity succeeds, and >2KB stdout writes are auto-compacted
+
+---
+## 2026-11-04 - Antigravity 10 GB Stale Transcript & Task/Step Log Auto-Purge
+
+- Version: `3.1.122`
+- Timestamp: 2026-11-04 03:02 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Purge 10.06 GB of inactive Antigravity brain/conversations/task/step logs and add automatic 10-minute sweepAntigravityStaleTranscripts() in pc-optimizer.mjs
+
+### Verification
+
+- Freed 10.06 GB across 92 inactive brain/conversations + 15,263 finished task/step files; verified :6010 live
+
+---
+## 2026-11-04 - Search SSOT — diacritic-insensitive Drive Detail job search
+
+- Version: `3.1.121`
+- Timestamp: 2026-11-04 03:01 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Switch DriveDetailModal job filter to searchTextIncludes from @tool-workspace/hub-ui.
+
+### Verification
+
+- node Tool/scripts/verify-search-ssot.mjs --code P0001
+
+---
+## 2026-11-04 - Antigravity IDE High-Priority Keystroke Shield & Agent Shell Demotion
+
+- Version: `3.1.120`
+- Timestamp: 2026-11-04 02:46 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Elevate Antigravity.exe and Cursor.exe UI/Renderer/GPU processes to HIGH_PRIORITY_CLASS (0x80), keep language_server_windows_x64.exe at ABOVE_NORMAL_PRIORITY_CLASS (0x8000), and demote background powershell.exe shells to BELOW_NORMAL_PRIORITY_CLASS (0x4000) for zero-delay IDE typing
+
+### Verification
+
+- Verified Antigravity.exe (pri=128 HIGH), language_server_windows_x64.exe (pri=32768 ABOVE_NORMAL), 1,100+ threads consolidated on Group 0, and :6010 host live
+
+---
+## 2026-11-04 - Zero-IPI Native NUMA Scheduling, EVKey Schtask Recovery & RAM WorkingSet Guard
+
+- Version: `3.1.119`
+- Timestamp: 2026-11-04 02:22 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Removed background TH32CS_SNAPTHREAD/SetThreadGroupAffinity/per-PID JobObject polling that caused Dual-Xeon Kernel IPI storms and cross-socket UI stalls, guarded K32EmptyWorkingSet so it never strips RAM working sets when RAM usage is <80% (preventing 20,000+ PageFault/sec stalls), and restored EVKey64 via the elevated '\\EVKey - Vietnamese Keyboard' scheduled task.
+
+### Verification
+
+- Live CPU/PageFault/EVKey64 telemetry verification
+
+---
+## 2026-11-04 - Dual-Xeon 50/50 Core Shield & Per-PID JobObject Group Pinning
+
+- Version: `3.1.118`
+- Timestamp: 2026-11-04 01:49 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Restored 50/50 deterministic Dual-Xeon CPU balancing across Group 0 (Cores 4-35) and Group 1 (Cores 0-35) while reserving Group 0 Logical Cores 0-3 for HID/csrss/dwm/EVKey64, added per-PID Windows JobObjectGroupInformationEx (14) pinning to eliminate split-brain '0,1' Chrome processes, lowered EVKey64 handle-leak restart threshold to 1200, expanded %TEMP% sweeper, and surfaced the Core Shield badge on Dashboard.
+
+### Verification
+
+- POST /api/pc/optimize + Vite production build
+
+---
+## 2026-11-04 - Search SSOT: accent-insensitive search for ClipPicker, DeskDirectory, and NoteLogRails
+
+- Version: `3.1.117`
+- Timestamp: 2026-11-04 01:28 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Use searchTextIncludes from @tool-workspace/hub-ui across P0001 search inputs.
+
+### Verification
+
+- unit-tests
+
+---
+## 2026-11-04 - Restore 40 concurrent headless sweet-spot cap and elevate EVKey64 to HIGH_PRIORITY on Core 0-3
+
+- Version: `3.1.116`
+- Timestamp: 2026-11-04 00:12 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Raise normal adaptive headless concurrency cap back to 40 (with Group 1 isolation and Core 0-3 shield intact) and boost EVKey64.exe to HIGH_PRIORITY_CLASS on Logical Cores 0-3 so keyboard/mouse never stutter under 40 parallel browsers.
+
+### Verification
+
+- POST /api/pc/optimize
+
+---
+## 2026-11-04 - Anti-freeze CPU Core 0-3 shield, Group 1 headless pinning, and 5-session cap
+
+- Version: `3.1.115`
+- Timestamp: 2026-11-04 00:05 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Route all headless Chrome roots to Processor Group 1 on Dual-Xeon hosts, mask out Logical Cores 0-3 on Group 0 so Windows USB/HID mouse/keyboard interrupts and DWM never stutter, and enforce a 5-session headless cap with force-close.
+
+### Verification
+
+- POST /api/pc/optimize
+
+---
+## 2026-11-03 - PC Optimizer Headless Farm & Idle Session Sweeper Hardening
+
+- Version: `3.1.114`
+- Timestamp: 2026-11-03 23:36 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Fixed inspectSmokePoolBrowsers and cleanSmokePoolBrowsers to compute real idle ageMs from Stealth lastActivityAt/launchedAt, sweep non-user headed farm browsers idle >20m, and enforce maxHeadlessConcurrent even when stale agent lock files exist; added baseline reseed to CronDetailModal
+
+### Verification
+
+- audit-hub-detail-chrome-workspace --strict --code P0001 + optimizePcHost live verification
+
+---
+## 2026-11-03 - CronDetailModal Enabled Toggle & Schedule Cycle Editor
+
+- Version: `3.1.113`
+- Timestamp: 2026-11-03 20:46 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added PUT /api/tasks/:name host API + custom daemon timer + interactive Enabled State & Schedule Cycle editor inside CronDetailModal
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs (43/43 pass) + Vite build + desktop:assemble + live :5180/:6011 smoke
+
+---
+## 2026-11-03 - Ignore dist-desktop, data, logs, and resources in Vite file watcher
+
+- Version: `3.1.112`
+- Timestamp: 2026-11-03 17:27 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added server.watch.ignored for dist-desktop, data, logs, release, and resources in P0001 vite.config.ts to prevent Chokidar CPU storms during desktop builds and SQLite WAL writes.
+
+### Verification
+
+- Restarted P0001 Vite (:5180) and verified PID CPU delta dropped from 46.8s/1.5s to <0.2s.
+
+---
 ## 2026-11-03 - Auto-sync P0001-SITE and P0001-INTRO landing on desktop publish
 
 - Version: `3.1.111`
