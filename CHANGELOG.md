@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-04 - Autonomous 10m scheduled task self-heal and NSIS installer build
+
+- Version: `3.1.139`
+- Timestamp: 2026-11-04 16:16 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added autoHealFailedScheduledTasks (10m sweep with 30m per-task cooldown, zero extra UI buttons) to pc-optimizer.mjs and built Desk Console Setup NSIS installer.
+
+### Verification
+
+- node scripts/run-electron-package.mjs --publish never
+
+---
 ## 2026-11-04 - Rebuild and assemble win-unpacked desktop bundle
 
 - Version: `3.1.138`

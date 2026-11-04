@@ -22,3 +22,15 @@ tsconfig.tsbuildinfo
 
 Thumbs.db
 .DS_Store
+
+# SSOT binary & build artifact guards
+release/
+*.tsbuildinfo
+.runtime/
+.logs/
+.data/
+.tmp/
+.*.env.json
+desk-host.env.json
+.*.pid
+.*.state.json

@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { promisify } from "node:util";
-import { DEV_ROOT } from "./windows.mjs";
+import { DEV_ROOT, listDevTasks, runTask } from "./windows.mjs";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -2276,6 +2276,33 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
   return { ok: true, removedSessions, prunedArtifacts };
 }
 
+const lastTaskAutoHealMap = new Map();
+
+export async function autoHealFailedScheduledTasks() {
+  const retried = [];
+  try {
+    const tasks = await listDevTasks(true);
+    const now = Date.now();
+    for (const t of tasks || []) {
+      const status = String(t.status || "").toLowerCase();
+      if (status === "disabled" || status === "running") continue;
+      if (String(t.lastResult ?? "0") === "0") continue;
+      const prevAt = Number(lastTaskAutoHealMap.get(t.name) || 0);
+      if (now - prevAt < 30 * 60_000) continue;
+      lastTaskAutoHealMap.set(t.name, now);
+      try {
+        await runTask(t.name);
+        retried.push(t.name);
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return { ok: true, retried };
+}
+
 export function startAutoPcMaintenanceWatch() {
   ensurePlaywrightHeadlessShellsGuiSubsystem();
   if (!consolePopupGuardTimer) {
@@ -2298,6 +2325,7 @@ export function startAutoPcMaintenanceWatch() {
         lastAntigravitySweepMs = Date.now();
         ensurePlaywrightHeadlessShellsGuiSubsystem();
         sweepAntigravityStaleTranscripts();
+        void autoHealFailedScheduledTasks().catch(() => undefined);
       }
       adaptive = computeAdaptiveHeadlessCap(scan);
 
