@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-04 - Extract DEFAULT_FARM_JOBS to P0004 farm-supervisor module
+
+- Version: `3.1.137`
+- Timestamp: 2026-11-04 14:07 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Removed 446 lines of DEFAULT_FARM_JOBS and business/social farm telemetry from P0001 pc-optimizer.mjs into P0004/scripts/lib/farm-supervisor.cjs so P0001 remains a pure System/Host Console.
+
+### Verification
+
+- GET http://127.0.0.1:6010/api/tasks?force=1 -> 15/15 Active lastResult=0; node Tool/scripts/hub-ui-parity-check.mjs --code P0001 --screen dashboard -> PASS
+
+---
 ## 2026-11-04 - Include DevWorkspaceBackup in Scheduled Tasks & 7-day .cache retention
 
 - Version: `3.1.136`

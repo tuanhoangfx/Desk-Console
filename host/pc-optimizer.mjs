@@ -1381,400 +1381,23 @@ export function computeAdaptiveHeadlessCap(existingScan = null) {
 }
 
 /**
- * Persistent Farm Job Supervisor (`ok 1` / `ok 3`):
- * Stores auto-resume farm jobs in `Tool/P0001-Desk-Console/host/.farm-supervisor.json`,
- * deduplicates accidental multiple instances of the same farm script, and auto-resumes enabled jobs
- * when PC health (`dwmCpuSecPerSec < 1.5`, `ramPercent < 85%`) and `P0003 (:6003)` are ready.
+ * Farm Supervisor definitions (`DEFAULT_FARM_JOBS`, telemetry & job spawning) live in
+ * `Tool/P0004-Tool-Hub/scripts/lib/farm-supervisor.cjs` so `P0001` stays a pure System/Host Console.
  */
-const FARM_SUPERVISOR_PATH = path.join(DEV_ROOT, "Tool", "P0001-Desk-Console", "host", ".farm-supervisor.json");
-
-const DEFAULT_FARM_JOBS = [
-  {
-    id: "fb-fleet-autologin",
-    name: "Facebook Fleet Auto-Login & Recovery",
-    category: "Social Fleet",
-    scriptRelPath: "Tool/P0002-Social-Hub/scripts/run-facebook-fleet-autologin.mjs",
-    matchNeedle: "run-facebook-fleet-autologin.mjs",
-    args: ["--concurrency=1", "--limit=450"],
-    autoResume: false,
-  },
-  {
-    id: "gmail-daemon",
-    name: "Gmail 5-Lane Session & TOTP Recovery Daemon",
-    category: "Mail Fleet",
-    scriptRelPath: "Tool/P0002-Social-Hub/scripts/heal-gmail-totp-relogin-worker.mjs",
-    matchNeedle: "heal-gmail-totp-relogin-worker.mjs|run-gmail-daemon.mjs",
-    args: [],
-    autoResume: false,
-  },
-  {
-    id: "continuous-check-mail-worker",
-    name: "Continuous Check-Mail & Recovery Healer (Gmail/Outlook/Services)",
-    category: "Mail Fleet",
-    scriptRelPath: "Tool/P0002-Social-Hub/scripts/continuous-check-mail-worker.mjs",
-    matchNeedle: "continuous-check-mail-worker.mjs",
-    args: [],
-    autoResume: true,
-  },
-  {
-    id: "gmail-permanent-forward-worker",
-    name: "Gmail Permanent Forward Sync (-> otp@infi28.com)",
-    category: "Mail Fleet",
-    scriptRelPath: "Tool/P0002-Social-Hub/scripts/run-gmail-permanent-forward-worker.mjs",
-    matchNeedle: "run-gmail-permanent-forward-worker.mjs",
-    args: [],
-    autoResume: false,
-  },
-  {
-    id: "outlook-forwarding-sync",
-    name: "Outlook 2FA & Alias Forward Sync (-> otp@infi28.com)",
-    category: "Mail Fleet",
-    scriptRelPath: "Tool/P0002-Social-Hub/scripts/run-outlook-forwarding-sync.mjs",
-    matchNeedle: "run-outlook-forwarding-sync.mjs",
-    args: [],
-    autoResume: false,
-  },
-  {
-    id: "muse-headless-adapter",
-    name: "Muse 9Router Zero-Chromium API Adapter (:19028)",
-    category: "AI Quota Farm",
-    scriptRelPath: "Tool/P0011-Infix1-Mail/scripts/muse-headless-api-adapter.mjs",
-    matchNeedle: "muse-headless-api-adapter.mjs",
-    args: ["--serve", "19028"],
-    autoResume: true,
-  },
-  {
-    id: "muse-3chat-extractor",
-    name: "Muse 3-Chat Warmup & Credential Extractor",
-    category: "AI Quota Farm",
-    scriptRelPath: "Tool/P0011-Infix1-Mail/scripts/run-muse-3chat-credential-extractor.mjs",
-    matchNeedle: "run-muse-3chat-credential-extractor.mjs",
-    args: ["40", "1"],
-    autoResume: false,
-  },
-  {
-    id: "muse-fleet-onboard",
-    name: "Muse 1B+ Token Cross-Referral Onboarder",
-    category: "AI Quota Farm",
-    scriptRelPath: "Tool/P0011-Infix1-Mail/scripts/run-muse-fleet-onboard-referral.mjs",
-    matchNeedle: "run-muse-fleet-onboard-referral.mjs",
-    args: ["all"],
-    autoResume: false,
-  },
-  {
-    id: "fasttrack-totp-healer",
-    name: "FastTrack TOTP & TikTok Cookie Healer",
-    category: "Vault Healer",
-    scriptRelPath: "Tool/P0002-Social-Hub/scripts/run-fasttrack-totp-and-tiktok-healer.mjs",
-    matchNeedle: "run-fasttrack-totp-and-tiktok-healer.mjs",
-    args: [],
-    autoResume: false,
-  },
-  {
-    id: "fanpage-fleet-daemon",
-    name: "Facebook Fanpage Fleet Daemon",
-    category: "Social Fleet",
-    scriptRelPath: "Tool/P0002-Social-Hub/scripts/fanpage-fleet-daemon.mjs",
-    matchNeedle: "fanpage-fleet-daemon.mjs",
-    args: [],
-    autoResume: false,
-  },
-  {
-    id: "fleet-autonomous-maintainer",
-    name: "Autonomous Fleet Maintainer (Muse 3-Chat + FB Audit + Claude/ChatGPT Relogin)",
-    category: "AI Quota Farm",
-    scriptRelPath: "Tool/P0011-Infix1-Mail/scripts/fleet-autonomous-maintainer.mjs",
-    matchNeedle: "fleet-autonomous-maintainer.mjs",
-    args: ["--daemon", "--interval-min", "15", "--fb-batch", "6", "--muse-batch", "3", "--llm-batch", "5"],
-    autoResume: true,
-  },
-];
-
-function readJsonSafe(absPath) {
-  try {
-    if (fs.existsSync(absPath)) {
-      return JSON.parse(fs.readFileSync(absPath, "utf8"));
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-function readActiveAgentLocks() {
-  const lockFile = path.join(DEV_ROOT, "Tool", "P0002-Social-Hub", "data", "active-agent-locks.json");
-  const data = readJsonSafe(lockFile);
-  if (!data || typeof data.locks !== "object" || !data.locks) return [];
-  const now = Date.now();
-  return Object.entries(data.locks)
-    .filter(([, ts]) => now - Number(ts || 0) < 15 * 60_000)
-    .map(([code, ts]) => ({ code, lockedAt: Number(ts || 0) }))
-    .sort((a, b) => b.lockedAt - a.lockedAt);
-}
-
-function readFarmJobTelemetry(jobId, activeLocks = []) {
-  const p0002Data = path.join(DEV_ROOT, "Tool", "P0002-Social-Hub", "data");
-  if (jobId === "fb-fleet-autologin") {
-    const prog = readJsonSafe(path.join(p0002Data, "fb-fleet-autologin-progress.json"));
-    if (!prog) return null;
-    const processed = Number(prog.processed || 0);
-    const total = Number(prog.batchSize || prog.totalQueuedInFleet || 450);
-    const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
-    const activeCodes = Array.isArray(prog.activeProfiles)
-      ? prog.activeProfiles.map((p) => String(p.code || "").trim()).filter(Boolean)
-      : [];
-    const u956 = Number(prog.unlocked956Count || 0);
-    const pwRec = Number(prog.passwordRecoveredCount || 0);
-    const skipDead = Number(prog.skippedDeadCount || 0);
-    const extraSuffix =
-      u956 > 0 || pwRec > 0 || skipDead > 0
-        ? ` · ${u956} 956-OTP · ${pwRec} pw-reset · ${skipDead} frozen`
-        : "";
-    return {
-      processed,
-      total,
-      percent: pct,
-      verifiedCount: Number(prog.loggedInCount || 0),
-      challengedCount: Number(prog.challengedCount || 0),
-      failedCount: Number(prog.failedCount || 0),
-      extraCount: Number(prog.musePairedCount || 0),
-      unlocked956Count: u956,
-      passwordRecoveredCount: pwRec,
-      skippedDeadCount: skipDead,
-      activeProfiles: activeCodes,
-      updatedAt: prog.updatedAt || prog.startedAt || null,
-      summaryText: `${processed}/${total} (${pct}%) · ${Number(prog.loggedInCount || 0)} logged_in · ${Number(prog.challengedCount || 0)} cp${extraSuffix}`,
-    };
-  }
-  if (jobId === "gmail-daemon") {
-    const wp = readJsonSafe(path.join(p0002Data, "gmail-totp-relogin-progress.json"));
-    const st = readJsonSafe(path.join(p0002Data, "gmail-daemon4-status.json"));
-    if (!wp && !st) return null;
-    const attempted = Number(wp?.processed ?? st?.totalAttempted ?? 0);
-    const loggedIn = Number(wp?.healedLoggedIn ?? st?.totalLoggedIn ?? 0);
-    const batches = Number(wp?.fastProcessed ?? st?.batchesRun ?? 0);
-    const pwRec = Number(st?.totalWrongPwRecovered || 0);
-    const activeCodes = Array.isArray(wp?.activeBrowsers)
-      ? wp.activeBrowsers.map((b) => String(b?.code || b || "").trim()).filter(Boolean)
-      : [];
-    return {
-      processed: attempted,
-      total: Math.max(attempted, Number(wp?.totalFastCandidates || 250)),
-      percent: attempted > 0 ? Math.min(100, Math.round((loggedIn / Math.max(1, attempted)) * 100)) : 0,
-      verifiedCount: loggedIn,
-      passwordRecoveredCount: pwRec,
-      batchesRun: batches,
-      activeProfiles: activeCodes,
-      updatedAt: wp?.updatedAt || st?.updatedAt || st?.lastBatchAt || st?.startedAt || null,
-      summaryText: `Batch #${batches} · ${loggedIn} recovered (${pwRec} pw-healed) / ${attempted} checked`,
-    };
-  }
-  if (jobId === "continuous-check-mail-worker") {
-    const st = readJsonSafe(path.join(DEV_ROOT, "Tool", "P0002-Social-Hub", ".continuous-check-mail-worker.state.json"));
-    if (!st) return null;
-    const processed = Number(st.processedCount || 0);
-    const rem =
-      Number(st.gmailQueueRemaining || 0) +
-      Number(st.outlookQueueRemaining || 0) +
-      Number(st.serviceQueueRemaining || 0);
-    const total = Math.max(1, processed + rem);
-    const unlocked =
-      Number(st.unlockedGmailCount || 0) +
-      Number(st.unlockedOutlookCount || 0) +
-      Number(st.unlockedServiceCount || 0) +
-      Number(st.backfilledAliasProfileCount || 0);
-    const activeCodes = [st.currentGmailBrowser, st.currentOutlookBrowser, st.currentServiceBrowser]
-      .map((c) => String(c || "").trim())
-      .filter(Boolean);
-    return {
-      processed,
-      total,
-      percent: Math.min(100, Math.round((processed / total) * 100)),
-      verifiedCount: unlocked,
-      activeProfiles: Array.from(new Set(activeCodes)),
-      updatedAt: st.updatedAt || null,
-      summaryText: `${processed} checked · ${unlocked} healed (GM ${Number(st.unlockedGmailCount || 0)} · OL ${Number(st.unlockedOutlookCount || 0)} · Alias ${Number(st.backfilledAliasProfileCount || 0)}) · ${rem} queued`,
-    };
-  }
-  if (jobId === "gmail-permanent-forward-worker") {
-    const st = readJsonSafe(path.join(DEV_ROOT, "Tool", "P0002-Social-Hub", ".gmail-permanent-forward-worker.state.json"));
-    if (!st) return null;
-    const processed = Number(st.processedCount || 0);
-    const total = Math.max(1, Number(st.totalLoggedIn || processed + Number(st.pendingCount || 0) || 1));
-    const verified = Number(st.verifiedCount || 0);
-    return {
-      processed,
-      total,
-      percent: Math.min(100, Math.round((processed / total) * 100)),
-      verifiedCount: verified,
-      activeProfiles: st.currentBrowser ? [String(st.currentBrowser)] : [],
-      updatedAt: st.updatedAt || null,
-      summaryText: `${processed}/${total} processed · ${verified} verified -> otp@infi28.com (${Number(st.pendingCount || 0)} pending)`,
-    };
-  }
-  if (jobId === "outlook-forwarding-sync") {
-    const st = readJsonSafe(path.join(DEV_ROOT, "Tool", "P0002-Social-Hub", ".outlook-forwarding-sync.state.json"));
-    if (!st) return null;
-    const processed = Number(st.processedProfiles || 0);
-    const pending = Number(st.pendingProfileCount || 0);
-    const enrolled = Number(st.enrolledProfiles || 0);
-    const total = Math.max(1, processed + pending);
-    return {
-      processed,
-      total,
-      percent: Math.min(100, Math.round((processed / total) * 100)),
-      verifiedCount: enrolled,
-      activeProfiles: Array.isArray(st.lastBatch) ? st.lastBatch.slice(0, 4).map((c) => String(c)) : [],
-      updatedAt: st.updatedAt || null,
-      summaryText: `${enrolled} enrolled / ${processed} checked (${pending} pending)`,
-    };
-  }
-  if (jobId === "fleet-autonomous-maintainer") {
-    const st = readJsonSafe(path.join(DEV_ROOT, "Tool", "P0011-Infix1-Mail", "data", "fleet-autonomous-maintainer-state.json"));
-    if (!st) return null;
-    const fbChecked = Number(st.fbAudit?.checked || 0);
-    const fbHealthy = Array.isArray(st.fbAudit?.healthy) ? st.fbAudit.healthy.length : 0;
-    const museCount = Array.isArray(st.museWarmup) ? st.museWarmup.length : 0;
-    const llmCount = Array.isArray(st.llmRelogin) ? st.llmRelogin.length : 0;
-    const total = Math.max(1, fbChecked + museCount + llmCount);
-    return {
-      processed: total,
-      total,
-      percent: 100,
-      verifiedCount: fbHealthy,
-      activeProfiles: Array.isArray(st.fbAudit?.healthy) ? st.fbAudit.healthy.slice(0, 4).map(String) : [],
-      updatedAt: st.finishedAt || st.startedAt || null,
-      summaryText: `FB healthy ${fbHealthy}/${fbChecked} · Muse warmup ${museCount} · LLM relogin ${llmCount}`,
-    };
-  }
-  if (jobId === "muse-headless-adapter") {
-    const pool = readJsonSafe(path.join(os.homedir(), ".9router", "muse-token-pool.json"));
-    const readyList = Array.isArray(pool?.accounts)
-      ? pool.accounts.filter((a) => a?.muse_auth?.hatchSess && (a?.muse_auth?.vmId || a?.verification_stage === "chat_ui_verified"))
-      : [];
-    const ready = readyList.length;
-    const total = Number(pool?.totalActiveAccounts || 851);
-    return {
-      processed: ready,
-      total,
-      percent: Math.min(100, Math.round((ready / Math.max(1, total)) * 100)),
-      verifiedCount: ready,
-      activeProfiles: readyList.slice(0, 6).map((a) => String(a.browser)),
-      updatedAt: pool?.updatedAt || new Date().toISOString(),
-      summaryText: `${ready}/${total} ready headless sessions on :19028/v1/chat/completions (${Number(pool?.totalTokenCapacityBillion || 0)}B Tokens)`,
-    };
-  }
-  if (jobId === "muse-3chat-extractor") {
-    const st = readJsonSafe(path.join(p0002Data, "muse-3chat-extractor-status.json"));
-    if (!st) return null;
-    const processed = Number(st.processed || 0);
-    const total = Math.max(1, Number(st.total || 40));
-    const okCount = Number(st.succeededCount || 0);
-    const activeCodes = Array.isArray(st.activeProfiles) ? st.activeProfiles.map((c) => String(c)) : [];
-    return {
-      processed,
-      total,
-      percent: Math.min(100, Math.round((processed / total) * 100)),
-      verifiedCount: okCount,
-      failedCount: Number(st.failedCount || 0),
-      activeProfiles: activeCodes,
-      updatedAt: st.updatedAt || null,
-      summaryText: `Batch ${processed}/${total} · ${okCount} extracted (${activeCodes.length > 0 ? activeCodes.map((c) => `#${c}`).join(", ") : "idle"})`,
-    };
-  }
-  if (jobId === "muse-fleet-onboard") {
-    const museLocks = activeLocks
-      .map((l) => l.code)
-      .filter((c) => Number(c) >= 6000 || Number(c) <= 350)
-      .slice(0, 4);
-    return {
-      processed: 50,
-      total: 100,
-      percent: 50,
-      verifiedCount: 50,
-      activeProfiles: museLocks,
-      updatedAt: new Date().toISOString(),
-      summaryText: `Cross-referral 1B+2B Token · surfshark://US OIDC (${museLocks.length > 0 ? museLocks.map((c) => `#${c}`).join(", ") : "scanning fleet"})`,
-    };
-  }
-  if (jobId === "fasttrack-totp-healer") {
-    const st = readJsonSafe(path.join(p0002Data, "fasttrack-totp-tiktok-healer-status.json"));
-    if (!st) return null;
-    const mailKeys = Number(st.initialPrune?.mail?.afterKeys || 0);
-    const fbKeys = Number(st.initialPrune?.fb?.afterKeys || 0);
-    return {
-      processed: mailKeys + fbKeys,
-      total: mailKeys + fbKeys,
-      percent: 100,
-      verifiedCount: mailKeys + fbKeys,
-      activeProfiles: [],
-      updatedAt: st.updatedAt || null,
-      summaryText: `Round #${Number(st.round || 0)} · ${mailKeys} Mail + ${fbKeys} FB vault keys`,
-    };
-  }
-  if (jobId === "fanpage-fleet-daemon") {
-    const st = readJsonSafe(path.join(p0002Data, "fanpage-fleet-daemon-status.json"));
-    if (!st) return null;
-    const liveTotal = Number(st.liveTotalPages || st.liveCrmPages || 0);
-    const totalAll = Number(st.totalPagesInDb || st.totalCrmPages || 191);
-    const liveCrm = Number(st.liveCrmPages || 23);
-    const liveComm = Number(st.liveCommunityPages || 73);
-    const synthCrm = Number(st.syntheticCrmPages || 81);
-    const pool0030 = Number(st.eligibleCreatorPool0030Plus || 138);
-    return {
-      processed: liveTotal,
-      total: Math.max(1, totalAll),
-      percent: totalAll > 0 ? Math.min(100, Math.round((liveTotal / totalAll) * 100)) : 0,
-      verifiedCount: liveTotal,
-      extraCount: pool0030,
-      activeProfiles: st.canary?.canaryCode ? [String(st.canary.canaryCode)] : [],
-      updatedAt: st.updatedAt || st.startedAt || null,
-      summaryText: `${liveTotal}/${totalAll} Live (${liveCrm} CRM + ${liveComm} Satellite · ${synthCrm} Queued · ${pool0030} FB >0010)`,
-    };
-  }
-  return null;
-}
+const {
+  readActiveAgentLocks,
+  readFarmJobTelemetry,
+  readFarmSupervisorConfig: readP0004FarmSupervisorConfig,
+  writeFarmSupervisorConfig: writeP0004FarmSupervisorConfig,
+  spawnFarmJobDetached,
+} = require(path.join(DEV_ROOT, "Tool", "P0004-Tool-Hub", "scripts", "lib", "farm-supervisor.cjs"));
 
 export function readFarmSupervisorConfig() {
-  const saved = readJsonSafe(FARM_SUPERVISOR_PATH);
-  const savedJobsMap = new Map(
-    (Array.isArray(saved?.jobs) ? saved.jobs : []).map((j) => [String(j.id), j]),
-  );
-  const jobs = DEFAULT_FARM_JOBS.map((def) => {
-    const ov = savedJobsMap.get(def.id);
-    return {
-      ...def,
-      autoResume: typeof ov?.autoResume === "boolean" ? ov.autoResume : def.autoResume,
-      lastStartedAt: ov?.lastStartedAt || null,
-      lastStoppedAt: ov?.lastStoppedAt || null,
-    };
-  });
-  return {
-    enabled: typeof saved?.enabled === "boolean" ? saved.enabled : true,
-    updatedAt: saved?.updatedAt || new Date().toISOString(),
-    nightlyMaintenance: saved?.nightlyMaintenance || {
-      scheduleLocal: "04:00",
-      lastRunAt: null,
-      lastRunDate: null,
-      cleanedProfiles: 0,
-      freedMB: 0,
-      walCheckpointed: 0,
-    },
-    jobs,
-  };
+  return readP0004FarmSupervisorConfig();
 }
 
 export function writeFarmSupervisorConfig(nextConfig) {
-  try {
-    fs.writeFileSync(
-      FARM_SUPERVISOR_PATH,
-      JSON.stringify({ ...nextConfig, updatedAt: new Date().toISOString() }, null, 2),
-      "utf8",
-    );
-  } catch {
-    /* ignore */
-  }
-  return nextConfig;
+  return writeP0004FarmSupervisorConfig(nextConfig);
 }
 
 export function getFarmSupervisorStatus(existingScan = null, adaptive = null) {
@@ -1782,7 +1405,7 @@ export function getFarmSupervisorStatus(existingScan = null, adaptive = null) {
   const scan = existingScan || scanNativeProcesses();
   const cfg = readFarmSupervisorConfig();
   const throttle = adaptive || computeAdaptiveHeadlessCap(scan);
-  const activeLocks = readActiveAgentLocks();
+  const activeLocks = readActiveAgentLocks(DEV_ROOT);
 
   const nodeProcs = [];
   if (api) {
@@ -1803,7 +1426,7 @@ export function getFarmSupervisorStatus(existingScan = null, adaptive = null) {
       .map((s) => s.trim())
       .filter(Boolean);
     const matches = nodeProcs.filter((np) => needles.some((nd) => np.cmd.includes(nd)));
-    const telemetry = readFarmJobTelemetry(job.id, activeLocks);
+    const telemetry = readFarmJobTelemetry(job.id, activeLocks, DEV_ROOT);
     return {
       ...job,
       running: matches.length > 0,
@@ -1834,61 +1457,6 @@ export function getFarmSupervisorStatus(existingScan = null, adaptive = null) {
     },
     jobs,
   };
-}
-
-function resolveNodeBinary() {
-  const candidates = [
-    path.join(DEV_ROOT, ".tools", "nodew.exe"),
-    path.join(DEV_ROOT, ".tools", "node-v22", "node.exe"),
-    "C:\\Program Files\\nodejs\\node.exe",
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  return "node";
-}
-
-function spawnFarmJobDetached(job) {
-  const scriptAbs = path.join(DEV_ROOT, job.scriptRelPath);
-  if (!fs.existsSync(scriptAbs)) return null;
-  const nodeBin = resolveNodeBinary();
-  const jobArgs = Array.isArray(job.args) ? job.args : [];
-  const logDir = path.join(DEV_ROOT, "Tool", "P0002-Social-Hub", "data", "logs");
-  const logFile = path.join(logDir, `farm-${job.id}.log`);
-  const pidFile = path.join(logDir, `farm-${job.id}.pid`);
-  try {
-    fs.mkdirSync(logDir, { recursive: true });
-    const winShellPath = path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs");
-    if (fs.existsSync(winShellPath)) {
-      const { startHiddenDetachedProcess } = require(winShellPath);
-      if (typeof startHiddenDetachedProcess === "function") {
-        const pid = startHiddenDetachedProcess({
-          command: nodeBin,
-          args: [scriptAbs, ...jobArgs],
-          cwd: DEV_ROOT,
-          logFile,
-          pidFile,
-        });
-        if (pid) return pid;
-      }
-    }
-    const outFd = fs.openSync(logFile, "a");
-    const child = spawn(nodeBin, [scriptAbs, ...jobArgs], {
-      cwd: DEV_ROOT,
-      detached: true,
-      stdio: ["ignore", outFd, outFd],
-      windowsHide: true,
-    });
-    child.unref();
-    try {
-      fs.closeSync(outFd);
-    } catch {
-      /* ignore */
-    }
-    return child.pid || null;
-  } catch {
-    return null;
-  }
 }
 
 export async function runFarmSupervisorTick(existingScan = null) {
@@ -2732,7 +2300,6 @@ export function startAutoPcMaintenanceWatch() {
         sweepAntigravityStaleTranscripts();
       }
       adaptive = computeAdaptiveHeadlessCap(scan);
-      void runFarmSupervisorTick(scan).catch(() => undefined);
 
       // Check 04:00 AM+ local Nightly Deep Maintenance trigger (with catch-up if PC woke after 04:00)
       const now = new Date();
