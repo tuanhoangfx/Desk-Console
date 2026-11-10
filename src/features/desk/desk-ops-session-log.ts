@@ -31,5 +31,7 @@ export function clearDeskOpsLogs() {
 
 export function subscribeDeskOpsLogs(fn: () => void) {
   listeners.add(fn);
-  return () => listeners.delete(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 }

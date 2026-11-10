@@ -80,18 +80,20 @@ export function renderDrivesDirectoryBodyCell(
     );
   }
   if (col.key === "status") {
+    const statusLabel = row.authorized ? "Signed in" : "Sign in";
     return (
       <DirectoryTableBodyCell key={col.key} colClass={col.colClass}>
         <HubUsersStatusLabel
-          label={row.authorized ? "Signed in" : "Sign in"}
+          label={statusLabel}
           tone={row.authorized ? "online" : "idle"}
+          live={Boolean(row.authorized)}
           capitalize={false}
           title={
             row.authorized
               ? `Google Drive OAuth active${row.email ? ` (${row.email})` : ""}`
               : "OAuth pending — click row to finish Google sign-in."
           }
-          popoverTitle="Drive status"
+          popoverTitle={`🚦 Status · ${statusLabel}`}
         />
       </DirectoryTableBodyCell>
     );
@@ -140,6 +142,7 @@ export function renderDrivesDirectoryBodyCell(
         <HubDirectoryTimestampTooltipCell
           at={at}
           title={col.key === "updated" ? "Update" : "Created"}
+          variant={col.key === "created" ? "date" : "activity"}
           fallback={<DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />}
         />
       </DirectoryTableBodyCell>

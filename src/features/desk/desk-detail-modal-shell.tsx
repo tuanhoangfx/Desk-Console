@@ -48,8 +48,8 @@ export function deskDetailSectionProps({
   emoji?: string;
   sectionKey?: HubAdmSectionKey;
   role?: HubTableColumnRole;
-  children: ReactNode;
-}): HubAdmSectionBlockProps {
+  children?: ReactNode;
+}): Omit<HubAdmSectionBlockProps, "children"> & { children?: ReactNode } {
   return {
     id,
     label,

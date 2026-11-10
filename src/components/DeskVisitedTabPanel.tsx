@@ -27,7 +27,6 @@ export const DeskVisitedTabPanel = memo(function DeskVisitedTabPanel({
       }
       aria-hidden={!active}
       data-hub-screen={tabId}
-      // @ts-expect-error React 19 inert boolean
       inert={!active ? true : undefined}
     >
       {children}

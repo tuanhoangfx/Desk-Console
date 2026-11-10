@@ -22,6 +22,18 @@
   window.__hubBootReady = false;
   var depProbeFails = 0;
   var hungShown = false;
+  var devAutoReloadScheduled = false;
+  var DEV_AUTO_RELOAD_STORAGE_KEY = "hub-boot-auto-reload-count";
+  var DEV_AUTO_RELOAD_MAX = 6;
+  var DEV_AUTO_RELOAD_PROBE_MS = 2000;
+
+  function clearDevAutoReloadCount() {
+    try {
+      window.sessionStorage.removeItem(DEV_AUTO_RELOAD_STORAGE_KEY);
+    } catch (e) {
+      /* ignore storage errors */
+    }
+  }
 
   // Every diagnostic below this line is about a local Vite dev server: it probes
   // /@vite/client and /node_modules/.vite/deps/react.js, and its hints tell you to run
@@ -52,6 +64,7 @@
     if (window.__hubBootReady) return true;
     if (!appHasRendered()) return false;
     window.__hubBootReady = true;
+    clearDevAutoReloadCount();
     var el = getLoaderEl();
     if (el) el.remove();
     return true;
@@ -96,6 +109,58 @@
       '<p style="margin:0 0 1rem;font-size:0.7rem;color:#64748b">Try hard refresh <kbd style="padding:0.1rem 0.35rem;border-radius:0.25rem;background:rgba(99,102,241,0.2);color:#a5b4fc">Ctrl+Shift+R</kbd> or restart dev server.</p>' +
       '<button type="button" onclick="location.reload()" style="cursor:pointer;border:1px solid rgba(129,140,248,0.4);border-radius:0.5rem;background:rgba(99,102,241,0.15);color:#c7d2fe;padding:0.45rem 1rem;font-size:0.75rem">Reload</button>' +
       "</div>";
+    scheduleDevBootErrorAutoReload();
+  }
+
+  function resolveDevEntryProbeUrl() {
+    try {
+      var modScript = document.querySelector('script[type="module"][src]');
+      var src = modScript && modScript.getAttribute("src");
+      if (src) return src;
+    } catch (e) {
+      /* ignore */
+    }
+    return "/src/main.tsx";
+  }
+
+  function scheduleDevBootErrorAutoReload() {
+    if (!IS_DEV_HOST || devAutoReloadScheduled || window.__hubBootReady) return;
+    var count = 0;
+    try {
+      count = Number(window.sessionStorage.getItem(DEV_AUTO_RELOAD_STORAGE_KEY) || "0") || 0;
+    } catch (e) {
+      count = 0;
+    }
+    if (count >= DEV_AUTO_RELOAD_MAX) return;
+    devAutoReloadScheduled = true;
+    var probeTicks = 0;
+    var delayMs = DEV_AUTO_RELOAD_PROBE_MS + count * 750;
+    var entryUrl = resolveDevEntryProbeUrl();
+    function tick() {
+      if (bootSettled()) return;
+      probeTicks += 1;
+      fetchProbe("/@vite/client", 2500).then(function (viteRes) {
+        if (bootSettled()) return;
+        if (!viteRes.ok) {
+          if (probeTicks < 15) window.setTimeout(tick, DEV_AUTO_RELOAD_PROBE_MS);
+          return;
+        }
+        fetchProbe(entryUrl, 3500).then(function (entryRes) {
+          if (bootSettled()) return;
+          if (!entryRes.ok) {
+            if (probeTicks < 15) window.setTimeout(tick, DEV_AUTO_RELOAD_PROBE_MS);
+            return;
+          }
+          try {
+            window.sessionStorage.setItem(DEV_AUTO_RELOAD_STORAGE_KEY, String(count + 1));
+          } catch (e) {
+            /* ignore */
+          }
+          window.location.reload();
+        });
+      });
+    }
+    window.setTimeout(tick, delayMs);
   }
 
   function isHardViteOffline(result) {
@@ -181,6 +246,7 @@
 
   window.addEventListener("hub-boot-ready", function () {
     window.__hubBootReady = true;
+    clearDevAutoReloadCount();
     var el = getLoaderEl();
     if (el) el.remove();
   });
@@ -246,17 +312,34 @@
     }).observe(root, { childList: true });
   })();
 
+  function rememberRenderError(message, detail) {
+    var text = [message, detail].filter(Boolean).join("\n").slice(0, 1200);
+    if (!text) return;
+    try {
+      var prev = String(window.__HUB_LAST_RENDER_ERROR || "");
+      window.__HUB_LAST_RENDER_ERROR = prev ? (prev + "\n" + text).slice(-1200) : text;
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
   window.addEventListener("error", function (event) {
-    if (bootSettled()) return;
     var msg = event.message || "Script error";
-    var detail = event.filename ? event.filename + ":" + (event.lineno || "?") : "";
+    var detail = event.error && event.error.stack
+      ? event.error.stack
+      : event.filename
+        ? event.filename + ":" + (event.lineno || "?")
+        : "";
+    rememberRenderError(msg, detail);
+    if (bootSettled()) return;
     showBootError(msg, detail);
   });
 
   window.addEventListener("unhandledrejection", function (event) {
-    if (bootSettled()) return;
     var reason = event.reason;
     var msg = reason && reason.message ? reason.message : String(reason || "Unhandled promise rejection");
+    rememberRenderError(msg, reason && reason.stack ? reason.stack : "");
+    if (bootSettled()) return;
     showBootError(msg);
   });
 

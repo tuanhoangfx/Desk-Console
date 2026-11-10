@@ -13,18 +13,37 @@ import { useDeskLive } from "../../lib/use-desk-live";
 import { DeskDirectoryScreen } from "../desk/DeskDirectoryScreen";
 import type { DeskRow } from "../desk/DeskDirectoryTable";
 import { ClipDetailModal } from "./ClipDetailModal";
+import { clipPickerFormat } from "./clip-picker-filters";
+import { detectClipSmartTag } from "./clip-smart-tag";
 
 function toRow(row: ClipRow): DeskRow {
   const text = String(row.text || "");
   const sample = row.kind === "sample";
+  const isImage = Boolean(row.imageDataUrl || row.hasImage || row.contentType === "image");
+  const smartTag = detectClipSmartTag(row);
+  const clipFormat = clipPickerFormat(row);
+  const label = isImage ? row.name || text || "Image" : (row.name || text).slice(0, 80) || "(empty)";
+  const logMsg = `Captured via ${row.source || "clipboard"} · ${clipFormat}${row.pinned ? " · Pinned" : ""}`;
   return {
     id: row.id,
-    name: (row.name || text).slice(0, 80) || "(empty)",
+    name: label,
     status: sample ? "Sample" : "History",
-    extra: text.slice(0, 160),
+    extra: isImage
+      ? `Image clip ${row.imageWidth && row.imageHeight ? `${row.imageWidth}×${row.imageHeight} px` : ""}`.trim()
+      : `${smartTag ? `[${smartTag.label}] ` : ""}${text.slice(0, 160)}`,
+    log: logMsg,
+    activityLog: [
+      {
+        at: row.updatedAt || row.createdAt || new Date().toISOString(),
+        message: logMsg,
+        actor: { label: row.source || "Clipboard", source: "system" },
+      },
+    ],
     updated: row.updatedAt || row.createdAt || "",
     createdAt: row.createdAt,
     project: row.project || "",
+    clipFormat,
+    pinned: Boolean(row.pinned),
     statusTone: sample ? "online" : "active",
   };
 }
@@ -151,6 +170,20 @@ export function ClipsScreen() {
         rows={rows}
         tabActive={tabActive}
         onRowFocus={setDetailId}
+        onPinToggle={(id, nextPinned) => {
+          void deskApi
+            .pinClip(id, nextPinned)
+            .then(() => {
+              emitHubAppLog({
+                scope: "P0001",
+                screen: "clips",
+                kind: "update",
+                message: nextPinned ? "Pinned clip" : "Unpinned clip",
+              });
+              return refresh();
+            })
+            .catch((error) => notifyError("pin-clip", "Pin clip failed", error));
+        }}
         lifecycleMode={lifecycleMode}
         onLifecycleModeChange={setLifecycleMode}
         crudBulk={{

@@ -5,11 +5,19 @@
  */
 import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
+
+const _p0001ShieldPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../scripts/lib/worker-singleton-guard.mjs");
+if (fs.existsSync(_p0001ShieldPath)) {
+  import(pathToFileURL(_p0001ShieldPath).href)
+    .then((m) => m.applyAntiFreezeProcessShield?.(process.pid))
+    .catch(() => undefined);
+}
 
 // P0001 Desk Console modules
 import { markElectronClipboardActive, startClipboardWatch } from "./clip-watch.mjs";
@@ -2444,12 +2452,24 @@ function jobsForClient() {
 }
 
 const remotePollInflight = new Map();
+let remotePollSerialChain = Promise.resolve();
 
 async function listRemoteFiles(remote, excludeText) {
   const key = `${String(remote || "").trim()}\t${String(excludeText ?? "")}`;
   if (remotePollInflight.has(key)) return remotePollInflight.get(key);
   const task = (async () => {
+    const prev = remotePollSerialChain;
+    let releaseSerial;
+    remotePollSerialChain = new Promise((r) => {
+      releaseSerial = r;
+    });
+    await prev.catch(() => undefined);
     try {
+      const upSec = typeof os.uptime === "function" ? os.uptime() : 999;
+      if (upSec < 180 && process.env.DESK_SKIP_BOOT_COOLDOWN !== "1") {
+        const waitMs = Math.max(5_000, Math.round((180 - upSec) * 1000));
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
       const remoteName = String(remote || "")
         .split(":")[0]
         .replace(/:$/, "")
@@ -2471,6 +2491,7 @@ async function listRemoteFiles(remote, excludeText) {
       return null;
     } finally {
       remotePollInflight.delete(key);
+      if (typeof releaseSerial === "function") releaseSerial();
     }
   })();
   remotePollInflight.set(key, task);

@@ -44,11 +44,16 @@ function waitNotepadHwnd(needle, ms) {
   return "";
 }
 
-test("Windows x64 INPUT union is 40 bytes", () => {
+test("Windows x64 INPUT union is 40 bytes and non-window paste safely returns false", () => {
   assert.equal(INPUT_SIZE, 40);
+  assert.equal(pasteToForegroundHwnd("0"), false);
+  assert.equal(restoreForegroundHwnd("0"), false);
 });
 
-test("pasteToForegroundHwnd inserts clipboard at Notepad caret", { timeout: 25000 }, () => {
+test(
+  "pasteToForegroundHwnd inserts clipboard at Notepad caret (interactive opt-in)",
+  { timeout: 25000, skip: process.env.DESK_INTERACTIVE_PASTE_TEST !== "1" },
+  () => {
   if (process.platform !== "win32") return;
   const stamp = `desk-paste-${Date.now()}`;
   const tmp = path.join(os.tmpdir(), `${stamp}.txt`);

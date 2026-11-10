@@ -24,5 +24,8 @@
 @import "../../../../packages/hub-ui/src/styles/hub-runtime-rail.css";
 @import "../../../../packages/hub-ui/src/styles/hub-profile-split-layout.css";
 @import "../../../../packages/hub-ui/src/styles/hub-console-crt.css";
+@import "../theme/p0009-hub-shell.css";
+@import "./folder-sync-layout.css";
+@import "./p0009-jobs-directory-fixed-cols.generated.css";
 @import "../features/desk/desk-profile-layout.css";
 @import "../features/desk/desk-directory-table.css";

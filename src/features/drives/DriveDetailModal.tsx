@@ -34,6 +34,7 @@ import {
   HUB_ACCOUNT_DETAIL_MAIN_SCROLL_ROOT,
   HUB_TOOL_DETAIL_SECTIONS_CLASS,
   hubAccountDetailShellClass,
+  searchTextIncludes,
 } from "@tool-workspace/hub-ui";
 import {
   applyJobsDirectoryFilterHints,
@@ -317,15 +318,15 @@ export function DriveDetailModal({
   );
 
   const filteredJobs = useMemo(() => {
-    const q = jobQuery.trim().toLowerCase();
+    const q = jobQuery.trim();
     const modes = jobFilterValues.mode ?? [];
     const statuses = jobFilterValues.status ?? [];
     return jobs.filter((j) => {
       if (modes.length && !modes.includes(j.mode)) return false;
       if (!jobMatchesStatusFilter({ ...j, busy: busyId === j.id }, statuses)) return false;
       if (!q) return true;
-      const hay = `${j.code || ""} ${j.name} ${j.localPath} ${remotePathFromSpec(j.remote)} ${jobStatusView({ ...j, busy: busyId === j.id }).label}`.toLowerCase();
-      return hay.includes(q);
+      const hay = `${j.code || ""} ${j.name} ${j.localPath} ${remotePathFromSpec(j.remote)} ${jobStatusView({ ...j, busy: busyId === j.id }).label}`;
+      return searchTextIncludes(hay, q);
     });
   }, [jobs, jobQuery, jobFilterValues, busyId]);
   const storage = account?.storage;
@@ -483,7 +484,7 @@ export function DriveDetailModal({
                           ) : null}
                         </div>
                       </HubAdmReadonlyField>
-                      <HubAdmReadonlyField header={{ label: "Free Space", headerEmoji: "✨" }} valueLayout="inline">
+                      <HubAdmReadonlyField header={{ label: "Free Space", headerEmoji: "⚡" }} valueLayout="inline">
                         <span className="truncate text-white/90">
                           {storage?.limitBytes == null ? "Unlimited" : formatDriveBytes(free)}
                         </span>

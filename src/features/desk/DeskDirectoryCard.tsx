@@ -4,12 +4,12 @@ import {
   HubDirectoryCardMetaRow,
   HubDirectoryCardShell,
   HubDirectoryTimestampTooltipCell,
-  HubUsersStatusLabel,
   compactIconSize,
 } from "@tool-workspace/hub-ui";
 import { Play, Square } from "lucide-react";
 import type { DeskOpsCellHandlers } from "./desk-directory-cells";
 import type { DeskRow } from "./DeskDirectoryTable";
+import { deskStatusKpiEmoji } from "./desk-directory-stickers";
 
 type Props = {
   row: DeskRow;
@@ -59,9 +59,7 @@ export function DeskDirectoryCard({ row, selected, onToggleSelect, opsHandlers }
             )}
           </HubDirectoryCardMetaRow>
         ) : null}
-        <HubDirectoryCardMetaRow emoji="🚦">
-          <HubUsersStatusLabel label={row.status} tone={row.statusTone ?? "active"} />
-        </HubDirectoryCardMetaRow>
+        <HubDirectoryCardMetaRow emoji={deskStatusKpiEmoji(row.status)}>{row.status}</HubDirectoryCardMetaRow>
         {row.extra ? <HubDirectoryCardMetaRow emoji="📝">{row.extra}</HubDirectoryCardMetaRow> : null}
         <HubDirectoryCardMetaRow emoji="🕒">
           {row.updatedKind === "text" ? (

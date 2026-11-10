@@ -75,7 +75,7 @@ body:has(.hub-app.theme-hub) {
 }
 
 .desk-picker-drag {
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 
 .desk-picker-no-drag {
@@ -83,20 +83,72 @@ body:has(.hub-app.theme-hub) {
   pointer-events: auto;
 }
 
-/* Frameless Electron picker (440px) hits hub-mobile hang (`top:-0.55rem !important`).
- * Window has no backdrop pad — hanging X is clipped by OS and not clickable.
- * Inset + no-drag child of header so Electron hit-test reaches the button. */
+html:has(.desk-picker-root),
+body:has(.desk-picker-root),
+.desk-picker-root.hub-app.theme-hub {
+  background: var(--panel, #0b1020) !important;
+  background-image: none !important;
+}
+
+body:has(.desk-picker-root) #hub-boot-loader {
+  display: none !important;
+}
+
 .desk-picker-frame.hub-modal-frame {
   margin: 0;
   height: 100%;
-  overflow: hidden;
+  overflow: visible !important;
 }
 
 .desk-picker-frame .hub-modal-close.desk-picker-close {
   position: absolute;
   z-index: 50;
-  top: 0.45rem !important;
-  right: 0.45rem !important;
+  top: -9px !important;
+  right: -9px !important;
+  transform: none !important;
+  width: 32px !important;
+  height: 32px !important;
+  box-shadow: none !important;
   -webkit-app-region: no-drag;
   pointer-events: auto;
+}
+
+.desk-picker-frame .hub-modal-close.desk-picker-close:hover {
+  transform: none !important;
+}
+
+.desk-picker-frame .hub-modal-close.desk-picker-close:active {
+  transform: none !important;
+}
+
+.desk-picker-frame .hub-filter-bar__row-tools {
+  flex-wrap: nowrap !important;
+}
+
+.desk-picker-frame .hub-filter-bar__row-search {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+
+.desk-picker-frame .hub-filter-bar__row-search span:has(> kbd) {
+  display: flex !important;
+}
+
+.desk-picker-frame .hub-filter-bar__toolbar {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  margin-left: auto !important;
+}
+
+.desk-picker-frame .hub-filter-bar .hub-result-count__text,
+.desk-picker-frame .hub-filter-bar .hub-filter-trigger__label,
+.desk-picker-frame .hub-filter-bar .hub-filter-trigger__count {
+  display: inline-flex !important;
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  white-space: nowrap !important;
 }

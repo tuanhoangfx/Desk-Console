@@ -1,25 +1,13 @@
 import path from "node:path";
-import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { hubAppVersionPlugin } from "../scripts/embed-app-version.mjs";
+import { createHubManualChunks, HUB_CHUNK_SIZE_WARNING_LIMIT_KB } from "../scripts/vite-hub-chunks.mjs";
 
 const toolRoot = path.dirname(fileURLToPath(import.meta.url));
-const vendorHubUi = path.resolve(toolRoot, "vendor/hub-ui/src");
-const vendorIdentity = path.resolve(toolRoot, "vendor/hub-identity/src");
-const packagesHubUi = path.resolve(toolRoot, "../../packages/hub-ui/src");
-const packagesIdentity = path.resolve(toolRoot, "../../packages/hub-identity/src");
-
-/** Monorepo dev: prefer fresh packages; vendor is offline/build fallback. */
-function pickHubSrc(preferred: string, fallback: string): string {
-  if (fs.existsSync(path.join(preferred, "index.ts"))) return preferred;
-  if (fs.existsSync(path.join(fallback, "index.ts"))) return fallback;
-  return preferred;
-}
-
-const uiSrc = pickHubSrc(packagesHubUi, vendorHubUi);
-const identitySrc = pickHubSrc(packagesIdentity, vendorIdentity);
+const hubUiSrc = path.resolve(toolRoot, "../../packages/hub-ui/src");
+const hubIdentitySrc = path.resolve(toolRoot, "../../packages/hub-identity/src");
 
 const deskApiPort =
   process.env.DESK_API_PORT ||
@@ -38,7 +26,38 @@ export default defineConfig(({ command }) => ({
       "/api": `http://127.0.0.1:${deskApiPort}`,
     },
     fs: {
-      allow: [toolRoot, uiSrc, identitySrc, path.resolve(toolRoot, "../..")],
+      allow: [toolRoot, hubUiSrc, hubIdentitySrc, path.resolve(toolRoot, "../..")],
+    },
+    watch: {
+      ignored: (p: string) => {
+        const norm = p.replace(/\\/g, "/");
+        if (
+          norm.includes("/node_modules/") ||
+          norm.includes("/data/") ||
+          norm.includes("/logs/") ||
+          norm.includes("/dist/") ||
+          norm.includes("/dist-desktop/") ||
+          norm.includes("/release/") ||
+          norm.includes("/resources/") ||
+          norm.includes("/.cache/") ||
+          norm.includes("/.ship/") ||
+          norm.includes("/.git/") ||
+          norm.includes("/.runtime/") ||
+          norm.endsWith("/tool.manifest.json") ||
+          norm.endsWith("/CHANGELOG.md") ||
+          norm.endsWith("/.vite-active-lease.txt") ||
+          norm.endsWith(".log") ||
+          norm.endsWith(".pid") ||
+          norm.endsWith(".state.json") ||
+          norm.endsWith(".env.json")
+        ) {
+          return true;
+        }
+        if (norm.includes("/Tool/") && !norm.includes("/Tool/P0001-Desk-Console")) {
+          return true;
+        }
+        return false;
+      },
     },
   },
   optimizeDeps: {
@@ -48,10 +67,21 @@ export default defineConfig(({ command }) => ({
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: [
-      { find: /^@tool-workspace\/hub-ui\/(.+)$/, replacement: `${uiSrc}/$1` },
-      { find: "@tool-workspace/hub-ui", replacement: path.join(uiSrc, "index.ts") },
-      { find: "@tool-workspace/hub-identity", replacement: path.join(identitySrc, "index.ts") },
-      { find: /^@tool-workspace\/hub-identity\/(.+)$/, replacement: `${identitySrc}/$1` },
+      { find: /^@tool-workspace\/hub-ui\/(.+)$/, replacement: `${hubUiSrc}/$1` },
+      { find: "@tool-workspace/hub-ui", replacement: path.join(hubUiSrc, "index.ts") },
+      { find: "@tool-workspace/hub-identity", replacement: path.join(hubIdentitySrc, "index.ts") },
+      { find: /^@tool-workspace\/hub-identity\/(.+)$/, replacement: `${hubIdentitySrc}/$1` },
     ],
+  },
+  build: {
+    chunkSizeWarningLimit: HUB_CHUNK_SIZE_WARNING_LIMIT_KB,
+    rollupOptions: {
+      output: {
+        manualChunks: createHubManualChunks({ localOnly: true }),
+      },
+    },
+  },
+  test: {
+    maxWorkers: 3,
   },
 }));

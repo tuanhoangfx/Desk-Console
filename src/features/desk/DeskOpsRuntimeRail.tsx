@@ -279,7 +279,7 @@ function DeskOpsLogPanel({ kind, tabActive }: { kind: OpsKind; tabActive: boolea
   );
 }
 
-/** P0003 ProfilesWorkflowRail parity — Console · History · Log (4:3:3 rail grid). */
+/** P0001 Ops Runtime Rail — History · Log · Console (3:3:4 rail grid). */
 export function DeskOpsRuntimeRail({
   kind,
   targetId,
@@ -293,9 +293,9 @@ export function DeskOpsRuntimeRail({
 }) {
   return (
     <>
-      <DeskOpsConsolePanel kind={kind} targetId={targetId} targetLabel={targetLabel} tabActive={tabActive} />
       <DeskOpsHistoryPanel kind={kind} targetId={targetId} tabActive={tabActive} />
       <DeskOpsLogPanel kind={kind} tabActive={tabActive} />
+      <DeskOpsConsolePanel kind={kind} targetId={targetId} targetLabel={targetLabel} tabActive={tabActive} />
     </>
   );
 }

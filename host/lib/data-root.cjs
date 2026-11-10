@@ -1,10 +1,13 @@
 const path = require("node:path");
-const {
-  PROD_DIR,
-  DEV_DIR,
-  DEFAULT_DEV_API_PORT,
-  roamingAppData,
-} = require("../../electron/lib/user-data-root.cjs");
+const os = require("node:os");
+
+const PROD_DIR = "desk-console";
+const DEV_DIR = "desk-console-dev";
+const DEFAULT_DEV_API_PORT = 6011;
+
+function roamingAppData() {
+  return process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+}
 
 /** SSOT — clips/captures/hotkeys JSON root (%APPDATA% desk-console vs desk-console-dev). */
 function resolveDeskDataRoot() {

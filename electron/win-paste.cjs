@@ -88,8 +88,8 @@ const MODIFIER_VKS = [
   VK_RMENU,
 ];
 const DITTO_EXTENDED = new Set([
-  VK_SHIFT,
-  VK_CONTROL,
+  VK_RCONTROL,
+  VK_RMENU,
   VK_INSERT,
   0x21,
   0x22,
@@ -163,14 +163,16 @@ function waitForModifiersReleased(timeoutMs) {
   return !isModifierPressed();
 }
 
-/** CopyQ createInput: KEYEVENTF_UNICODE | flags, wScan=0, wVk=virtual key. */
+/** Standard Win32 KEYBDINPUT virtual-key + hardware scan code (no KEYEVENTF_UNICODE on VK chords). */
 function writeCopyQKey(buf, index, vk, flags) {
   const off = index * INPUT_SIZE;
+  const scan = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC) & 0xff;
+  const ext = DITTO_EXTENDED.has(vk) ? KEYEVENTF_EXTENDEDKEY : 0;
   buf.writeUInt32LE(INPUT_KEYBOARD, off);
   buf.writeUInt32LE(0, off + 4);
   buf.writeUInt16LE(vk, off + 8);
-  buf.writeUInt16LE(0, off + 10);
-  buf.writeUInt32LE(KEYEVENTF_UNICODE | flags, off + 12);
+  buf.writeUInt16LE(scan, off + 10);
+  buf.writeUInt32LE(flags | ext, off + 12);
   buf.writeUInt32LE(0, off + 16);
   buf.writeUInt32LE(0, off + 20);
   buf.writeBigUInt64LE(0n, off + 24);
@@ -274,12 +276,21 @@ function raiseWindow(target) {
     const me = GetCurrentThreadId();
     const fg = GetForegroundWindow();
     const fgTid = threadId(fg);
-    let attached = false;
+    const targetTid = threadId(target);
+    let attachedFg = false;
+    let attachedTarget = false;
     if (fgTid && fgTid !== me) {
       try {
-        attached = Boolean(AttachThreadInput(me, fgTid, true));
+        attachedFg = Boolean(AttachThreadInput(me, fgTid, true));
       } catch {
-        attached = false;
+        attachedFg = false;
+      }
+    }
+    if (targetTid && targetTid !== me && targetTid !== fgTid) {
+      try {
+        attachedTarget = Boolean(AttachThreadInput(me, targetTid, true));
+      } catch {
+        attachedTarget = false;
       }
     }
     try {
@@ -289,14 +300,21 @@ function raiseWindow(target) {
     } catch {
       /* ignore */
     }
-    if (attached) {
+    if (attachedTarget) {
+      try {
+        AttachThreadInput(me, targetTid, false);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (attachedFg) {
       try {
         AttachThreadInput(me, fgTid, false);
       } catch {
         /* ignore */
       }
     }
-    return waitUntilForeground(target, 160);
+    return waitUntilForeground(target, 200);
   });
 }
 
@@ -305,6 +323,7 @@ function releaseModifierKeys() {
 }
 
 function sendPasteChord() {
+  if (sendCopyQChord(VK_CONTROL, VK_V)) return true;
   if (sendCopyQChord(VK_LCONTROL, VK_V)) return true;
   if (sendCopyQChord(VK_LSHIFT, VK_INSERT)) return true;
   sendChordKeybd(VK_CONTROL, VK_V);

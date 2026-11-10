@@ -11,13 +11,14 @@ import {
   HubDirectoryReadonlyCopyText,
   HubToolDetailModal,
   HubToolDetailModalAccountFooter,
-  HubUsersStatusLabel,
   HUB_ACCOUNT_DETAIL_MAIN_SCROLL_CLASS,
   HUB_ACCOUNT_DETAIL_MAIN_SCROLL_ROOT,
 } from "@tool-workspace/hub-ui";
 import type { RunnerRow } from "../../lib/api";
 import { DeskDetailNoteLogRails } from "../desk/DeskDetailNoteLogRails";
 import { DeskDetailReadonlyField } from "../desk/desk-detail-fields";
+import { DeskStatusKpiLabel } from "../desk/DeskStatusKpiLabel";
+import { DESK_STATUS_KPI_EMOJI } from "../desk/desk-directory-stickers";
 import {
   DESK_DETAIL_FORM_ROW_ALIGNED_3,
   DESK_DETAIL_FORM_STACK_CLASS,
@@ -75,16 +76,16 @@ export function RunnerDetailModal({ row, onClose }: Props) {
                 updatedLabel="Update"
               />
               <div className={DESK_DETAIL_FORM_STACK_CLASS}>
-                <HubAdmSectionBlock {...deskDetailSectionProps({ id: "desk-runner-status", label: "Status", emoji: "🚦", sectionKey: "status" })}>
+                <HubAdmSectionBlock {...deskDetailSectionProps({ id: "desk-runner-status", label: "Status", emoji: DESK_STATUS_KPI_EMOJI.up, sectionKey: "status" })}>
                   <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
-                    <DeskDetailReadonlyField label="Status" headerEmoji="🚦">
-                      <HubUsersStatusLabel label={row.up ? "Up" : "Down"} tone={row.up ? "online" : "off"} />
+                    <DeskDetailReadonlyField label="Status" headerEmoji={row.up ? DESK_STATUS_KPI_EMOJI.up : DESK_STATUS_KPI_EMOJI.down}>
+                      <DeskStatusKpiLabel status={row.up ? "Up" : "Down"} />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Port" value={String(row.port)} headerEmoji="🔌" />
                     <DeskDetailReadonlyField label="Kind" value={row.kind} headerEmoji="🧩" />
                   </div>
                 </HubAdmSectionBlock>
-                <HubAdmSectionBlock {...deskDetailSectionProps({ id: "desk-runner-identity", label: "Identity", emoji: "📛", sectionKey: "name" })}>
+                <HubAdmSectionBlock {...deskDetailSectionProps({ id: "desk-runner-identity", label: "Identity", emoji: "📛", sectionKey: "identity" })}>
                   <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
                     <DeskDetailReadonlyField label="Code" headerEmoji="🏷️">
                       <HubDirectoryReadonlyCopyText value={row.code} />

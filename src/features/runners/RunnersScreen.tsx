@@ -20,16 +20,30 @@ function runnerLabel(row: RunnerRow): string {
 }
 
 function toRow(row: RunnerRow): DeskRow {
+  const summary = row.up ? `Listening on ${row.url}` : `Stopped (${row.url})`;
+  const probedAt = row.probedAt || new Date().toISOString();
   return {
     id: row.id,
     name: runnerLabel(row),
     status: row.up ? "Up" : "Down",
     extra: row.kind === "worker" ? "host API" : `vite :${row.port}`,
+    log: summary,
+    activityLog: [
+      {
+        at: probedAt,
+        message: summary,
+        actor: { label: row.code, source: "system" },
+      },
+    ],
     updated: row.url,
     updatedKind: "text",
+    createdAt: "2026-10-15T00:00:00.000Z",
     statusTone: row.up ? "online" : "off",
     opsKind: "runner",
     opsUp: row.up,
+    opsStartExitedAt: row.startExitedAt,
+    opsStartExitCode: row.startExitCode,
+    opsStartStartedAt: row.startStartedAt,
   };
 }
 
@@ -68,7 +82,8 @@ export function RunnersScreen() {
     scope: "runners",
     intervalMs: 8000,
     screenId: "runners",
-    rowStableKey: (row) => `${row.id}:${row.opsUp}:${row.status}`,
+    rowStableKey: (row) =>
+      `${row.id}:${row.opsUp}:${row.status}:${row.opsStartExitCode ?? ""}:${row.opsStartExitedAt ?? ""}`,
   });
   const { focusedId, setFocusedId } = useDeskOpsFocus(rows, tabActive);
   const focusedLabel = useMemo(() => rows.find((row) => row.id === focusedId)?.name, [focusedId, rows]);
@@ -102,6 +117,19 @@ export function RunnersScreen() {
           changed = true;
           continue;
         }
+        /** Host ensure-dev exited non-zero — clear Starting immediately (do not wait 2m). */
+        if (
+          phase.kind === "starting" &&
+          typeof row.opsStartExitedAt === "number" &&
+          row.opsStartExitedAt >= phase.at &&
+          row.opsStartExitCode != null &&
+          row.opsStartExitCode !== 0
+        ) {
+          next.delete(id);
+          changed = true;
+          appendDeskOpsLog(`Start failed (${row.opsStartExitCode}) — ${id}`, "error", "runner");
+          continue;
+        }
         if (now - phase.at >= ACTION_TIMEOUT_MS) {
           next.delete(id);
           changed = true;
@@ -114,11 +142,11 @@ export function RunnersScreen() {
       }
       return changed ? next : prev;
     });
-  }, [rows, phases.size]);
+  }, [rows, phases.size, elapsedTick]);
 
   const displayRows = useMemo(
     () => rows.map((row) => withActionOverlay(row, phases.get(row.id))),
-    // elapsedTick forces Running mm:ss re-render each second while phases active
+    // elapsedTick forces Starting mm:ss re-render each second while phases active
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tick is intentional clock
     [rows, phases, elapsedTick],
   );
@@ -141,6 +169,15 @@ export function RunnersScreen() {
     });
   }, []);
 
+  const clearPhase = useCallback((id: string) => {
+    setPhases((prev) => {
+      if (!prev.has(id)) return prev;
+      const map = new Map(prev);
+      map.delete(id);
+      return map;
+    });
+  }, []);
+
   const withAction = useCallback(
     async (id: string, kind: DeskOpsAction, label: string, fn: () => Promise<void>) => {
       beginPhase(id, kind);
@@ -155,15 +192,11 @@ export function RunnersScreen() {
         const message = err instanceof Error ? err.message : String(err);
         appendDeskOpsLog(`Failed: ${message}`, "error", "runner");
         emitHubAppLog({ scope: "P0001", screen: "runners", kind: "sync", message });
-        setPhases((prev) => {
-          const map = new Map(prev);
-          map.delete(id);
-          return map;
-        });
+        clearPhase(id);
         throw err;
       }
     },
-    [beginPhase, refresh, refreshBurst, setFocusedId],
+    [beginPhase, clearPhase, refresh, refreshBurst, setFocusedId],
   );
 
   const codesOf = (ids: string[]) =>
@@ -172,12 +205,18 @@ export function RunnersScreen() {
   const run = (ids: string[], mode: "start" | "restart" | "recover" | "stop") => {
     const kind: DeskOpsAction = mode === "stop" ? "stopping" : "starting";
     for (const id of ids) beginPhase(id, kind);
-    void Promise.all(codesOf(ids).map((c) => deskApi.runnerAction(c, mode === "stop" ? "stop" : mode))).then(() => {
-      appendDeskOpsLog(`${mode} ${ids.length} runner(s)`, "info", "runner");
-      emitHubAppLog({ scope: "P0001", screen: "runners", kind: "update", message: `${mode} ${ids.length} runner(s)` });
-      refreshBurst(90_000, 1500);
-      return refresh();
-    });
+    void Promise.all(codesOf(ids).map((c) => deskApi.runnerAction(c, mode === "stop" ? "stop" : mode)))
+      .then(() => {
+        appendDeskOpsLog(`${mode} ${ids.length} runner(s)`, "info", "runner");
+        emitHubAppLog({ scope: "P0001", screen: "runners", kind: "update", message: `${mode} ${ids.length} runner(s)` });
+        refreshBurst(90_000, 1500);
+        return refresh();
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        appendDeskOpsLog(`Failed: ${message}`, "error", "runner");
+        for (const id of ids) clearPhase(id);
+      });
   };
 
   const openDetail = useCallback(

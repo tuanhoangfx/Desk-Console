@@ -1,46 +1,52 @@
-import { ClipboardList, PlayCircle, CalendarClock, Settings2 } from "lucide-react";
+import { useMemo } from "react";
 import {
   HubLogButton,
   HubSidebarBrandIcon,
-  HubSidebarNavScreenButton,
+  HubSidebarNavList,
   HubSidebarShell,
-  HubUiZoomControl,
   HubWorkspaceUserShell,
-  type NavIconTone,
+  useNavGroupOpenState,
 } from "@tool-workspace/hub-ui";
 import { DESK_BRAND_ICON, DESK_PRODUCT } from "../lib/app-release";
 import type { AppScreen } from "../lib/app-screen";
+import { NAV_GROUP_IDS, NAV_STRUCTURE, NAV_SUBNAV_PREFIX } from "../lib/nav-structure";
 import { DeskSettings } from "./DeskSettings";
 
-type NavItem = { screen: AppScreen; label: string; icon: typeof ClipboardList; iconTone: NavIconTone };
+type Props = {
+  screen: AppScreen;
+  onNavigate: (s: AppScreen) => void;
+  runnersLocked?: boolean;
+};
 
-const NAV: NavItem[] = [
-  { screen: "clips", label: "Clips", icon: ClipboardList, iconTone: "emerald" },
-  { screen: "runners", label: "Runners", icon: PlayCircle, iconTone: "amber" },
-  { screen: "tasks", label: "Tasks", icon: CalendarClock, iconTone: "violet" },
-  { screen: "system", label: "System", icon: Settings2, iconTone: "cyan" },
-];
+export function DeskSidebar({ screen, onNavigate, runnersLocked = false }: Props) {
+  const { groupOpen, setGroupSubnavOpen } = useNavGroupOpenState(NAV_SUBNAV_PREFIX, NAV_GROUP_IDS);
+  const structure = useMemo(
+    () =>
+      NAV_STRUCTURE.map((entry) => {
+        if (entry.kind === "screen" && entry.screen === "runners" && runnersLocked) {
+          return {
+            ...entry,
+            locked: true,
+            title: "Runners requires Developer Workspace (E:\\Dev)",
+          };
+        }
+        return entry;
+      }),
+    [runnersLocked],
+  );
 
-type Props = { screen: AppScreen; onNavigate: (s: AppScreen) => void };
-
-export function DeskSidebar({ screen, onNavigate }: Props) {
   return (
     <HubSidebarShell
       brandLeading={<HubSidebarBrandIcon src={DESK_BRAND_ICON} alt={DESK_PRODUCT.name} />}
       brandTitle={DESK_PRODUCT.name}
       nav={
-        <>
-          {NAV.map((item) => (
-            <HubSidebarNavScreenButton
-              key={item.screen}
-              label={item.label}
-              icon={item.icon}
-              iconTone={item.iconTone}
-              active={screen === item.screen}
-              onClick={() => onNavigate(item.screen)}
-            />
-          ))}
-        </>
+        <HubSidebarNavList
+          structure={structure}
+          activeScreen={screen}
+          groupOpen={groupOpen}
+          setGroupSubnavOpen={setGroupSubnavOpen}
+          onNavigateScreen={onNavigate}
+        />
       }
       footer={
         <>
@@ -52,7 +58,6 @@ export function DeskSidebar({ screen, onNavigate }: Props) {
           />
           <HubLogButton variant="global" />
           <DeskSettings sidebarRow />
-          <HubUiZoomControl />
         </>
       }
     />

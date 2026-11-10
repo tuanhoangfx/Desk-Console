@@ -91,6 +91,8 @@ export const DrivesDirectoryTable = memo(function DrivesDirectoryTable({
     (a, b) => compareDriveCodes(a.code || a.name, b.code || b.name),
   );
 
+  const getRowKey = useCallback((row: DriveAccount) => row.name, []);
+
   const renderRowCells = useCallback(
     (row: DriveAccount) => (
       <>
@@ -116,7 +118,7 @@ export const DrivesDirectoryTable = memo(function DrivesDirectoryTable({
         sortKey={sortKey as DrivesColumnKey}
         sortDir={sortDir as HubSortDir}
         onSort={onSort}
-        getRowKey={(row) => row.name}
+        getRowKey={getRowKey}
         selectedIds={selectedIds}
         onToggleSelect={onToggleSelect}
         onToggleSelectAll={onToggleSelectAll}

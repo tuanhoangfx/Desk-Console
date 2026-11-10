@@ -33,6 +33,15 @@ table.hub-users-table--desk-directory td.hub-desk-col--run {
   text-align: center;
 }
 
+table.hub-users-table--desk-directory col.hub-desk-col--schedule,
+table.hub-users-table--desk-directory th.hub-desk-col--schedule,
+table.hub-users-table--desk-directory td.hub-desk-col--schedule {
+  width: 10.5rem;
+  min-width: 10.5rem;
+  max-width: 10.5rem;
+  text-align: left;
+}
+
 table.hub-users-table--desk-directory col.hub-desk-col--status,
 table.hub-users-table--desk-directory th.hub-desk-col--status,
 table.hub-users-table--desk-directory td.hub-desk-col--status {
@@ -46,17 +55,35 @@ table.hub-users-table--desk-directory col.hub-desk-col--detail,
 table.hub-users-table--desk-directory th.hub-desk-col--detail,
 table.hub-users-table--desk-directory td.hub-desk-col--detail {
   width: auto;
-  min-width: 22rem;
+  min-width: 18rem;
   text-align: left;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--created,
+table.hub-users-table--desk-directory th.hub-desk-col--created,
+table.hub-users-table--desk-directory td.hub-desk-col--created {
+  width: 7.5rem;
+  min-width: 7.5rem;
+  max-width: 7.5rem;
+  text-align: center;
 }
 
 table.hub-users-table--desk-directory col.hub-desk-col--updated,
 table.hub-users-table--desk-directory th.hub-desk-col--updated,
 table.hub-users-table--desk-directory td.hub-desk-col--updated {
-  width: 6.25rem;
-  min-width: 6.25rem;
-  max-width: 6.25rem;
+  width: 7.5rem;
+  min-width: 7.5rem;
+  max-width: 7.5rem;
   text-align: center;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--log,
+table.hub-users-table--desk-directory th.hub-desk-col--log,
+table.hub-users-table--desk-directory td.hub-desk-col--log {
+  width: 14rem;
+  min-width: 14rem;
+  max-width: 14rem;
+  text-align: left;
 }
 
 table.hub-users-table--desk-directory td {

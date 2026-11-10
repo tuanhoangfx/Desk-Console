@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   HubDirectoryTableShell,
+  HUB_DIRECTORY_ROW_PINNED_CLASS,
   HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS,
   HUB_DIRECTORY_TABLE_PANE_WRAP_CLASS,
   buildDirectoryColgroupForShell,
@@ -10,7 +11,7 @@ import {
   type HubSortDir,
 } from "@tool-workspace/hub-ui";
 import type { AppScreen } from "../../lib/app-screen";
-import { DESK_COLUMN_META } from "./desk-column-meta";
+import { getDeskColumnMeta } from "./desk-column-meta";
 import { renderDeskDirectoryBodyCell, type DeskOpsCellHandlers, type DeskRow } from "./desk-directory-cells";
 import { deskDirectoryScreenOrClips, deskTablePrefsFor, type DeskCol } from "./desk-table-prefs";
 
@@ -28,6 +29,7 @@ type Props = {
   onToggleSelectAll: () => void;
   allVisibleSelected: boolean;
   opsHandlers?: DeskOpsCellHandlers;
+  onPinToggle?: (id: string, nextPinned: boolean) => void;
   onRowClick?: (row: DeskRow) => void;
   pageSize: number;
   /** Inside HubSplitDirectoryPane — pane supplies rounded chrome; catalog uses table wrap. */
@@ -38,8 +40,8 @@ type Props = {
   defaultSortOnly?: boolean;
 };
 
-const BASE_KEYS: DeskCol[] = ["name", "status", "extra", "updated"];
-const OPS_KEYS: DeskCol[] = ["name", "run", "status", "extra", "updated"];
+const BASE_KEYS: DeskCol[] = ["created", "updated", "name", "format", "status", "extra", "log"];
+const OPS_KEYS: DeskCol[] = ["created", "updated", "name", "run", "schedule", "status", "extra", "log"];
 
 export function DeskDirectoryTable({
   screen,
@@ -53,6 +55,7 @@ export function DeskDirectoryTable({
   onToggleSelectAll,
   allVisibleSelected,
   opsHandlers,
+  onPinToggle,
   onRowClick,
   pageSize,
   flushWrap = false,
@@ -78,28 +81,34 @@ export function DeskDirectoryTable({
   }, [opsHandlers, visible]);
   const columns = useMemo(
     () =>
-      buildDirectoryColumns(keys, DESK_COLUMN_META).map((col) => ({
+      buildDirectoryColumns(keys, getDeskColumnMeta(tableScreen)).map((col) => ({
         ...col,
         sortable: defaultSortOnly ? false : col.sortable !== false,
       })),
-    [defaultSortOnly, keys],
+    [defaultSortOnly, keys, tableScreen],
   );
   const colgroup = useMemo(
     () => buildDirectoryColgroupForShell(columns, { showSelect: true }),
     [columns],
+  );
+  const colByKey = useMemo(() => new Map(columns.map((c) => [c.key, c])), [columns]);
+  const getRowKey = useCallback((row: DeskRow) => row.id, []);
+  const getRowClassName = useCallback(
+    (row: DeskRow) => (row.pinned ? ` ${HUB_DIRECTORY_ROW_PINNED_CLASS}` : ""),
+    [],
   );
 
   const renderRowCells = useCallback(
     (row: DeskRow) => (
       <>
         {keys.map((key) => {
-          const col = columns.find((c) => c.key === key);
+          const col = colByKey.get(key);
           if (!col) return null;
-          return renderDeskDirectoryBodyCell(row, key, col, opsHandlers);
+          return renderDeskDirectoryBodyCell(row, key, col, opsHandlers, onPinToggle);
         })}
       </>
     ),
-    [columns, keys, opsHandlers],
+    [colByKey, keys, onPinToggle, opsHandlers],
   );
 
   const paneChrome = Boolean(panelFill || flushWrap);
@@ -117,7 +126,8 @@ export function DeskDirectoryTable({
       sortKey={sortKey}
       sortDir={sortDir}
       onSort={onSort}
-      getRowKey={(row) => row.id}
+      getRowKey={getRowKey}
+      getRowClassName={getRowClassName}
       selectedIds={selectedIds}
       onToggleSelect={onToggleSelect}
       onToggleSelectAll={onToggleSelectAll}

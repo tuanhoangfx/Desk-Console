@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { HubListChromeHeader, HubSplitWorkspaceScreen, useHubChromePrefs } from "@tool-workspace/hub-ui";
+import { useHostHeaderStats } from "../../hooks/useHostHeaderStats";
+import { useDeskDesktopUpdate } from "../../hooks/useDeskDesktopUpdate";
 import { deskVersionMetaItems } from "../../lib/app-release";
 import { deskTabHeaderChromeProps } from "../../lib/desk-tab-header-chrome";
 import { TabHeaderActions } from "../../components/TabHeaderActions";
@@ -31,6 +33,8 @@ export function DeskSplitHubChrome({
 }: Props) {
   const chromePrefs = useHubChromePrefs();
   const headerChrome = deskTabHeaderChromeProps(false, chromePrefs);
+  const centerStats = useHostHeaderStats();
+  const desktopUpdate = useDeskDesktopUpdate();
 
   return (
     <div className="desk-ops-workspace hub-split-workspace anim-fade flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -45,7 +49,9 @@ export function DeskSplitHubChrome({
             titleEmojiGlyph={titleEmojiGlyph}
             title={title}
             metaItems={deskVersionMetaItems()}
+            centerStats={centerStats}
             versionReleaseNotesCode="P0001"
+            versionReleaseNotesDesktopUpdate={desktopUpdate}
             actions={headerActions}
             embedded={headerChrome.embedded}
           />

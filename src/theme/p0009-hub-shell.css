@@ -1,0 +1,163 @@
+/* P0009 Hub shell layout — P0019 Comments / P0003 Profiles split-workspace & two-card rail SSOT */
+
+.hub-app.p0009-hub-app {
+  min-height: 100vh;
+  min-width: 1180px;
+}
+
+.p0009-hub-app {
+  --p0009-chrome-bleed: var(--app-tab-header-px, 1.5rem);
+  --p0009-frame-gutter: var(--p0009-frame-px, 0.75rem);
+}
+
+.p0009-hub-app .app-tab-header {
+  margin-left: calc(-1 * var(--p0009-chrome-bleed));
+  margin-right: calc(-1 * var(--p0009-chrome-bleed));
+  padding-left: var(--p0009-chrome-bleed);
+  padding-right: var(--p0009-chrome-bleed);
+  margin-bottom: 0;
+  border-bottom-width: 0;
+}
+
+.p0009-hub-app .hub-chrome-sticky {
+  margin-left: calc(-1 * var(--p0009-chrome-bleed));
+  margin-right: calc(-1 * var(--p0009-chrome-bleed));
+}
+
+.p0009-hub-app .hub-filter-sticky {
+  margin-left: calc(-1 * var(--p0009-chrome-bleed));
+  margin-right: calc(-1 * var(--p0009-chrome-bleed));
+  padding-left: var(--p0009-chrome-bleed);
+  padding-right: var(--p0009-chrome-bleed);
+}
+
+.p0009-hub-app .hub-chrome-sticky > .px-6 {
+  padding-left: var(--p0009-chrome-bleed);
+  padding-right: var(--p0009-chrome-bleed);
+}
+
+.hub-app.p0009-hub-app > main.p0009-hub-main {
+  padding: 0 var(--p0009-frame-gutter) var(--p0009-frame-gutter);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Split-workspace screens (Jobs, Drives) — P0019 Comments / P0003 Profiles golden parity */
+.hub-app.p0009-hub-app > main.p0009-hub-main.hub-main--jobs,
+.hub-app.p0009-hub-app > main.p0009-hub-main.hub-main--drives {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding-bottom: 0;
+  scroll-padding-top: 0;
+}
+
+.hub-main--jobs > div:not([hidden]),
+.hub-main--jobs .hub-tab-chrome-stack,
+.hub-main--jobs .hub-tab-content-zone,
+.hub-main--jobs .hub-tab-body-zone--split,
+.hub-main--jobs .stealth-profile-layout,
+.hub-main--drives > div:not([hidden]),
+.hub-main--drives .hub-tab-chrome-stack,
+.hub-main--drives .hub-tab-content-zone,
+.hub-main--drives .hub-tab-body-zone--split {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-main--jobs .hub-tab-body-zone--split,
+.hub-main--drives .hub-tab-body-zone--split {
+  padding-bottom: 0.625rem;
+}
+
+.hub-main--jobs .stealth-profile-layout {
+  display: grid;
+}
+
+/* 2-card right rail: History (top 50%) + Console (bottom 50%) at 5/5 ratio — P0019 CommentRail SSOT */
+.stealth-workflow-rail.p0009-jobs-two-rail {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding-right: 0;
+}
+
+.stealth-workflow-rail.p0009-jobs-two-rail > .stealth-runtime-history,
+.stealth-workflow-rail.p0009-jobs-two-rail > .stealth-runtime-console {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stealth-workflow-rail.p0009-jobs-two-rail > .stealth-runtime-history > header,
+.stealth-workflow-rail.p0009-jobs-two-rail > .stealth-runtime-console > header {
+  padding: 0.45rem 0.75rem;
+}
+
+.stealth-workflow-rail.p0009-jobs-two-rail > .stealth-runtime-history > div:last-child,
+.stealth-workflow-rail.p0009-jobs-two-rail > .stealth-runtime-console > div:last-child {
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stealth-runtime-console > div:last-child > div,
+.stealth-runtime-console > div:last-child > div > div:last-child,
+.stealth-runtime-console .stealth-console-log {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.stealth-runtime-console .hub-runtime-term {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.stealth-runtime-console .hub-runtime-term__body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.stealth-profile-directory-frame table.p0009-jobs-directory-table {
+  min-width: 0;
+  width: 100%;
+}
+
+.p0009-hub-main .hub-tab-chrome,
+.p0009-hub-main .hub-directory-screen {
+  min-height: 0;
+}
+
+.p0009-hub-app .app-tab-header__start {
+  align-items: center;
+}
+
+.p0009-hub-app .app-tab-header__start > h1 {
+  line-height: 1.25;
+}
+
+.p0009-hub-app .hub-tab-content-zone {
+  margin-top: 0;
+}

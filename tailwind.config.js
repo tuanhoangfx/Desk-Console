@@ -1,10 +1,18 @@
+import { realpathSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const rawRootDir =
+  typeof __dirname !== "undefined" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+const rootDir = (realpathSync.native ?? realpathSync)(rawRootDir);
+const rel = (p) => path.resolve(rootDir, p).replace(/\\/g, "/");
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-    "./vendor/hub-ui/src/**/*.{js,ts,jsx,tsx}",
-    "../../packages/hub-ui/src/**/*.{js,ts,jsx,tsx}",
+    rel("./index.html"),
+    rel("./src/**/*.{js,ts,jsx,tsx}"),
+    rel("../../packages/hub-ui/src/**/*.{js,ts,jsx,tsx}"),
   ],
   theme: {
     extend: {

@@ -4,7 +4,7 @@ import { pushDeskNotifyAlert } from "./desk-notify";
 import { getDeskActiveScreen, subscribeDeskActiveScreen } from "./desk-active-screen";
 import type { AppScreen } from "./app-screen";
 
-type Options = {
+type Options<T> = {
   intervalMs?: number;
   scope: string;
   /** When set, poll/refresh only while this desk screen is active (no React re-render on tab leave). */
@@ -14,9 +14,22 @@ type Options = {
   rowStableKey?: (row: T) => string;
 };
 
+function defaultRowStableKey(row: unknown): string {
+  if (!row || typeof row !== "object") return String(row);
+  const r = row as Record<string, unknown>;
+  if ("id" in r && ("updated" in r || "status" in r || "extra" in r)) {
+    return `${String(r.id ?? "")}|${String(r.name ?? "")}|${String(r.status ?? "")}|${String(r.updated ?? "")}|${String(r.pinned ?? "")}|${String(r.clipFormat ?? "")}|${String(r.extra ?? "")}`;
+  }
+  try {
+    return JSON.stringify(row);
+  } catch {
+    return String(row);
+  }
+}
+
 export function useDeskLive<T>(
   loader: () => Promise<T[]>,
-  { intervalMs = 6000, scope, screenId, tabActive = true, rowStableKey }: Options,
+  { intervalMs = 6000, scope, screenId, tabActive = true, rowStableKey }: Options<T>,
 ) {
   const [rows, setRows] = useState<T[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +64,10 @@ export function useDeskLive<T>(
       const next = await loader();
       if (id < applied.current) return;
       applied.current = id;
-      if (rowStableKey && Array.isArray(next) && next.length > 0) {
-        const sig = next.map((row) => rowStableKey(row)).join("\n");
-        if (sig === lastStableSig.current) {
+      const keyFn = rowStableKey ?? defaultRowStableKey;
+      if (Array.isArray(next)) {
+        const sig = next.map((row) => keyFn(row)).join("\n");
+        if (applied.current > 1 && sig === lastStableSig.current) {
           setError(null);
           lastLoggedError.current = null;
           return;

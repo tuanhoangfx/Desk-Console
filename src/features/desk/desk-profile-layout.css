@@ -1,23 +1,37 @@
-/* P0001 Desk — split profile layout (Runners · Tasks). P0003/P0020 golden parity. */
+/* P0001 Desk — split profile layout (Clips · Jobs · Drives · Runners · Cron). P0003/P0020 golden parity. */
 
+.hub-main.hub-main--clips,
+.hub-main.hub-main--jobs,
+.hub-main.hub-main--drives,
 .hub-main.hub-main--runners,
-.hub-main.hub-main--tasks {
+.hub-main.hub-main--cron {
   padding-bottom: 0;
   scroll-padding-top: 0;
   scrollbar-gutter: auto;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
+.hub-main--clips .hub-split-workspace > div,
+.hub-main--jobs .hub-split-workspace > div,
+.hub-main--drives .hub-split-workspace > div,
 .hub-main--runners .hub-split-workspace > div,
-.hub-main--tasks .hub-split-workspace > div,
+.hub-main--cron .hub-split-workspace > div,
+.hub-main--clips .hub-tab-chrome-stack,
+.hub-main--jobs .hub-tab-chrome-stack,
+.hub-main--drives .hub-tab-chrome-stack,
 .hub-main--runners .hub-tab-chrome-stack,
-.hub-main--tasks .hub-tab-chrome-stack {
+.hub-main--cron .hub-tab-chrome-stack {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
 }
 
+.hub-main--clips .hub-tab-content-zone,
+.hub-main--jobs .hub-tab-content-zone,
+.hub-main--drives .hub-tab-content-zone,
 .hub-main--runners .hub-tab-content-zone,
-.hub-main--tasks .hub-tab-content-zone {
+.hub-main--cron .hub-tab-content-zone {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -26,13 +40,24 @@
   margin-top: 0;
 }
 
+.hub-main--clips .hub-split-workspace .app-tab-header,
+.hub-main--jobs .hub-split-workspace .app-tab-header,
+.hub-main--drives .hub-split-workspace .app-tab-header,
 .hub-main--runners .hub-split-workspace .app-tab-header,
-.hub-main--tasks .hub-split-workspace .app-tab-header {
+.hub-main--cron .hub-split-workspace .app-tab-header {
   margin-bottom: 0;
 }
 
+/* Wide RAM chip: `18.2 / 32 GB · 57%` — hub-ui value cap is 7.5rem (P0003 parity). */
+.desk-host-ram-stat .app-tab-header-stat-value {
+  max-width: 16rem;
+}
+
+.hub-main--clips .hub-split-workspace .hub-tab-body-zone--split,
+.hub-main--jobs .hub-split-workspace .hub-tab-body-zone--split,
+.hub-main--drives .hub-split-workspace .hub-tab-body-zone--split,
 .hub-main--runners .hub-split-workspace .hub-tab-body-zone--split,
-.hub-main--tasks .hub-split-workspace .hub-tab-body-zone--split {
+.hub-main--cron .hub-split-workspace .hub-tab-body-zone--split {
   margin-top: 0;
   display: flex;
   flex: 1 1 0;
@@ -98,12 +123,14 @@
 }
 
 /*
- * Split tabs (Runners/Tasks) — fill pane, clip (panel-fill + rail).
- * Directory tabs (Clips/System) — grow with content so `.hub-main`
- * `overflow-y: auto` can scroll and HubTablePager stays reachable (P0004 SSOT).
+ * Split tabs (Clips/Jobs/Drives/Runners/Cron) — fill pane, clip (panel-fill + rail).
+ * Document tabs (Dashboard) — grow with content so `.hub-main` can scroll.
  */
+.hub-main.hub-main--clips > .desk-tab-panel--active,
+.hub-main.hub-main--jobs > .desk-tab-panel--active,
+.hub-main.hub-main--drives > .desk-tab-panel--active,
 .hub-main.hub-main--runners > .desk-tab-panel--active,
-.hub-main.hub-main--tasks > .desk-tab-panel--active {
+.hub-main.hub-main--cron > .desk-tab-panel--active {
   position: relative;
   z-index: 1;
   display: flex !important;
@@ -115,17 +142,15 @@
   visibility: visible;
 }
 
-.hub-main:not(.hub-main--runners):not(.hub-main--tasks) > .desk-tab-panel--active {
+.hub-main:not(.hub-main--clips):not(.hub-main--jobs):not(.hub-main--drives):not(.hub-main--runners):not(.hub-main--cron) > .desk-tab-panel--active {
   position: relative;
   z-index: 1;
   display: flex !important;
-  flex: 1 0 auto;
+  flex: 1 1 0;
   flex-direction: column;
   width: 100%;
-  min-height: 100%;
-  height: auto;
+  min-height: 0;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
   visibility: visible;
 }
-

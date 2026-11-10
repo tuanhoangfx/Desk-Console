@@ -5,6 +5,7 @@
  * Ship / NSIS stays `release-desktop.ps1` (P0003 Fast).
  */
 import { spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -41,7 +42,6 @@ function killPackLocks() {
 killPackLocks();
 
 const appDir = path.join(out, "resources", "app");
-fs.rmSync(appDir, { recursive: true, force: true });
 fs.mkdirSync(appDir, { recursive: true });
 
 for (const rel of ["electron", "host", "dist", "package.json"]) {
@@ -50,7 +50,11 @@ for (const rel of ["electron", "host", "dist", "package.json"]) {
     console.error(`[assemble] missing ${rel}`);
     process.exit(1);
   }
-  fs.cpSync(src, path.join(appDir, rel === "package.json" ? "package.json" : rel), { recursive: true });
+  const dst = path.join(appDir, rel === "package.json" ? "package.json" : rel);
+  if (rel !== "package.json") {
+    fs.rmSync(dst, { recursive: true, force: true });
+  }
+  fs.cpSync(src, dst, { recursive: true });
 }
 
 /**
@@ -59,7 +63,35 @@ for (const rel of ["electron", "host", "dist", "package.json"]) {
  */
 const MAIN_NODE_MODULES = ["koffi", path.join("@koromix", "koffi-win32-x64")];
 const nmDest = path.join(appDir, "node_modules");
+const nmStampFile = path.join(nmDest, ".stage-stamp.json");
 fs.mkdirSync(nmDest, { recursive: true });
+
+function computeKoffiStageStamp() {
+  const h = crypto.createHash("sha256");
+  const electronPkg = path.join(root, "node_modules", "electron", "package.json");
+  if (fs.existsSync(electronPkg)) {
+    try {
+      h.update(JSON.parse(fs.readFileSync(electronPkg, "utf8")).version || "");
+    } catch {
+      /* ignore */
+    }
+  }
+  for (const name of MAIN_NODE_MODULES) {
+    const linkOrDir = path.join(root, "node_modules", name);
+    if (!fs.existsSync(linkOrDir)) continue;
+    try {
+      const real = fs.realpathSync(linkOrDir);
+      const pkgJson = path.join(real, "package.json");
+      const ver = fs.existsSync(pkgJson)
+        ? JSON.parse(fs.readFileSync(pkgJson, "utf8")).version || ""
+        : "";
+      h.update(`${name}@${ver}:${real}\n`);
+    } catch {
+      /* ignore */
+    }
+  }
+  return h.digest("hex");
+}
 
 function findKoffiNode(dir) {
   if (!fs.existsSync(dir)) return null;
@@ -121,23 +153,53 @@ function ensureKoffiPrebuild(koffiRoot) {
   return false;
 }
 
-for (const name of MAIN_NODE_MODULES) {
-  const linkOrDir = path.join(root, "node_modules", name);
-  if (!fs.existsSync(linkOrDir)) {
-    if (String(name).includes("@koromix")) {
-      console.warn(`[assemble] missing node_modules/${name} — pnpm add @koromix/koffi-win32-x64`);
-      continue;
+const expectedKoffiStamp = computeKoffiStageStamp();
+let koffiStageWarm = false;
+if (!process.argv.includes("--force") && fs.existsSync(nmStampFile)) {
+  try {
+    const prev = JSON.parse(fs.readFileSync(nmStampFile, "utf8"));
+    if (
+      prev &&
+      prev.stamp === expectedKoffiStamp &&
+      (findKoffiNode(path.join(nmDest, "koffi")) ||
+        findKoffiNode(path.join(nmDest, "@koromix", "koffi-win32-x64")))
+    ) {
+      koffiStageWarm = true;
+      console.log("[assemble] koffi node_modules already staged (stamp match) — skip copy");
     }
-    console.error(`[assemble] missing node_modules/${name} — pnpm install in product root`);
-    process.exit(1);
+  } catch {
+    /* ignore */
   }
-  const real = fs.realpathSync(linkOrDir);
-  if (name === "koffi") ensureKoffiPrebuild(real);
-  const dest = path.join(nmDest, name);
-  fs.rmSync(dest, { recursive: true, force: true });
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.cpSync(real, dest, { recursive: true });
-  console.log(`[assemble] node_modules/${name} ← ${real}`);
+}
+
+if (!koffiStageWarm) {
+  for (const name of MAIN_NODE_MODULES) {
+    const linkOrDir = path.join(root, "node_modules", name);
+    if (!fs.existsSync(linkOrDir)) {
+      if (String(name).includes("@koromix")) {
+        console.warn(`[assemble] missing node_modules/${name} — pnpm add @koromix/koffi-win32-x64`);
+        continue;
+      }
+      console.error(`[assemble] missing node_modules/${name} — pnpm install in product root`);
+      process.exit(1);
+    }
+    const real = fs.realpathSync(linkOrDir);
+    if (name === "koffi") ensureKoffiPrebuild(real);
+    const dest = path.join(nmDest, name);
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.cpSync(real, dest, { recursive: true });
+    console.log(`[assemble] node_modules/${name} ← ${real}`);
+  }
+  try {
+    fs.writeFileSync(
+      nmStampFile,
+      `${JSON.stringify({ stamp: expectedKoffiStamp, stagedAt: new Date().toISOString() }, null, 2)}\n`,
+      "utf8",
+    );
+  } catch {
+    /* ignore */
+  }
 }
 
 // Optional Electron ABI rebuild — warn only (cnoke targets Node; Electron may still soft-fail).
@@ -204,6 +266,15 @@ const staleAsar = path.join(out, "resources", "app.asar");
 if (fs.existsSync(staleAsar)) {
   fs.rmSync(staleAsar, { force: true });
   console.log("[assemble] removed stale resources/app.asar (app/ is SSOT for this path)");
+}
+
+// Bundled rclone engine — copy resources/rclone into out/resources/rclone
+const rcloneSrc = path.join(root, "resources", "rclone");
+if (fs.existsSync(rcloneSrc)) {
+  const rcloneDst = path.join(out, "resources", "rclone");
+  fs.mkdirSync(rcloneDst, { recursive: true });
+  fs.cpSync(rcloneSrc, rcloneDst, { recursive: true });
+  console.log("[assemble] resources/rclone ← resources/rclone");
 }
 
 // Native window + taskbar icon — must live unpacked (BrowserWindow cannot load .ico from asar).

@@ -235,11 +235,20 @@ export type PcDiagnosticsPayload = {
     adaptiveThrottle?: PcAdaptiveThrottle;
     antigravityBrain?: {
       sessionCount: number;
+      openTabCount?: number;
       totalMB: number;
       brainMB: number;
       convMB: number;
+      sumDbMB?: number;
       bloatedCount: number;
       bloatedIds?: string[];
+      openBloatedTabs?: Array<{
+        id: string;
+        title: string;
+        steps: number;
+        dbMB: number;
+        openInIde: boolean;
+      }>;
       lsRamMB: number;
     };
     suppressedConsolePopups?: number;

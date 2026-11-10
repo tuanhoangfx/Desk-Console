@@ -1,0 +1,504 @@
+/* P0009 Jobs — P0003 Profiles split. System uses the same flex column. */
+
+.hub-main.hub-main--jobs,
+.hub-main.hub-main--drives,
+.hub-main.hub-main--system {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.hub-main--jobs > div:not([hidden]),
+.hub-main--jobs .hub-tab-chrome-stack,
+.hub-main--jobs .hub-tab-content-zone,
+.hub-main--jobs .hub-tab-body-zone--split,
+.hub-main--jobs .folder-sync-workspace-body,
+.hub-main--jobs .hub-split-workspace,
+.hub-main--jobs .folder-sync-shell-host,
+.hub-main--drives > div:not([hidden]),
+.hub-main--drives .hub-tab-chrome-stack,
+.hub-main--drives .hub-tab-content-zone,
+.hub-main--drives .hub-tab-body-zone--split,
+.hub-main--drives .folder-sync-workspace-body,
+.hub-main--drives .hub-split-workspace,
+.hub-main--drives .folder-sync-shell-host,
+.hub-main--system > div:not([hidden]),
+.hub-main--system .hub-tab-chrome-stack,
+.hub-main--system .hub-tab-content-zone,
+.hub-main--system .hub-tab-body-zone--split,
+.hub-main--system .folder-sync-workspace-body,
+.hub-main--system .hub-split-workspace {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-main--jobs > div[hidden],
+.hub-main--drives > div[hidden],
+.hub-main--system > div[hidden] {
+  display: none !important;
+}
+
+.hub-main--jobs .hub-tab-chrome-stack > .hub-tab-content-zone,
+.hub-main--drives .hub-tab-chrome-stack > .hub-tab-content-zone,
+.hub-main--system .hub-tab-chrome-stack > .hub-tab-content-zone {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.folder-sync-workspace-body {
+  min-height: 0;
+  flex: 1 1 0;
+  width: 100%;
+}
+
+.folder-sync-shell-host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.folder-sync-directory {
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+/* Jobs table — P0005 Orders wrap. The pane still fills the split, but the table
+   sizes to its rows. Horizontal scroll stays on `.hub-users-table-wrap` (thin hub
+   bar directly under the last row). A flex-pane split left a void and a bar at
+   the bottom of that void. */
+.folder-sync-directory .hub-directory-frame:not(.hub-directory-frame--panel-fill):not(.hub-split-directory-pane--fixed-rows)
+  .hub-split-directory-pane__body
+  .hub-paginated-table-shell
+  > .hub-users-table-wrap:not(.hub-directory-table-split):not(.hub-directory-table-scroll--flex-pane) {
+  flex: 0 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+}
+
+.folder-sync-directory td.hub-users-col--run .hub-directory-icon-cell__label {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.folder-sync-directory-body {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Column split, gap, and rail: hub-profile-split-layout.css (P0003 Profiles SSOT).
+   Jobs rail is History + Console only (stealth-runtime-rail-only). */
+.hub-main--jobs .folder-sync-shell-host > .folder-sync-jobs-layout.stealth-profile-layout {
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  width: 100%;
+}
+
+/* Browse chevron sits inside the field, same mark as Mode / Sync after. */
+.hub-account-detail-modal .hub-adm-inline-field__value:has(.fs-browse-chevron) > .hub-adm-click-edit {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hub-account-detail-modal .fs-browse-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(100, 116, 139);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.hub-account-detail-modal .hub-adm-click-edit:hover .fs-browse-chevron,
+.hub-account-detail-modal .fs-browse-chevron:hover,
+.hub-account-detail-modal .fs-browse-chevron[aria-expanded="true"] {
+  opacity: 1;
+  color: rgb(203, 213, 225);
+}
+
+.hub-account-detail-modal .fs-browse-chevron svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Same open-folder control as P0010 MixDirectoryPathCell. */
+.folder-sync-path-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #a7f3d0;
+  cursor: pointer;
+}
+
+.folder-sync-path-btn:hover {
+  background: rgba(16, 185, 129, 0.22);
+}
+
+/* Design V1 — Goodsync outline. Not a directory table. */
+.fs-outline {
+  min-height: 0;
+  color: rgb(226 232 240);
+  font-size: 12px;
+}
+
+.fs-outline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.45rem;
+  margin-bottom: 0.25rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  min-height: 1.9rem;
+}
+
+.fs-outline-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.fs-outline-crumb-root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgb(203, 213, 225);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.fs-outline-crumb-root.is-active,
+.fs-outline-crumb-root:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.12);
+  color: rgb(186, 230, 253);
+}
+
+.fs-outline-crumb-placeholder {
+  color: rgb(100, 116, 139);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fs-outline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.fs-outline-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.45rem;
+  padding: 0 0.45rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgb(203, 213, 225);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.fs-outline-action-btn:hover:not(:disabled) {
+  border-color: rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.14);
+  color: rgb(224, 231, 255);
+}
+
+.fs-outline-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fs-outline-spacer {
+  grid-column: 1 / -1;
+  pointer-events: none;
+}
+
+/* One grid for the caption and every row. Indent stays inside the name cell. */
+.fs-outline-scroll {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem 5.5rem;
+  column-gap: 0.65rem;
+  align-content: start;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.fs-outline-line {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+  min-height: 1.65rem;
+  min-width: 0;
+  cursor: default;
+}
+
+.fs-outline-line.is-caption {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: inherit;
+  background: var(--hub-modal-panel-surface, var(--panel, #12141c));
+}
+
+.fs-outline-namebox {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.fs-outline-namebox.is-caption {
+  padding-left: calc(1.1rem + 0.35rem + 20px + 0.35rem);
+}
+
+.fs-outline-metric {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: rgb(148 163 184);
+  font-variant-numeric: tabular-nums;
+}
+
+.fs-outline-metric.is-head {
+  display: flex;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
+.fs-outline .hub-users-th-heading {
+  gap: 0;
+}
+
+.fs-outline .hub-users-th-emoji {
+  margin-right: 0;
+}
+
+.fs-outline .hub-users-th-heading > .hub-users-th-emoji + .hub-users-th-text {
+  padding-left: 0;
+}
+
+.fs-outline-metric .hub-directory-timestamp {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.fs-outline-line.is-selected {
+  background: rgb(14 116 144 / 0.22);
+  border-radius: 0.3rem;
+}
+
+.fs-outline-line.is-placeholder {
+  color: rgb(148 163 184);
+}
+
+.fs-outline-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fs-outline-metric.is-folder {
+  color: rgb(100 116 139);
+}
+
+.fs-outline-metric.is-status {
+  display: flex;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
+.fs-outline-ico {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.fs-outline-twist {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  color: rgb(148 163 184);
+  background: transparent;
+  border: 0;
+}
+
+.fs-outline-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.2rem 0.45rem;
+  color: rgb(148 163 184);
+  font-size: 12px;
+}
+
+.fs-outline-note.is-error {
+  color: rgb(254 205 211);
+}
+
+/* Drive Jobs — inline directory table (P0004 Users). Flex-pane wrap collapses to an empty slab here. */
+.fs-drive-jobs {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.fs-drive-jobs .hub-users-table-wrap {
+  max-width: 100%;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+/* Job Folders and Drive Files give the folder tree a generous viewport (~14-18 rows) and scroll inside it. */
+.hub-account-detail-modal__main-scroll:has(.folder-sync-browse) > .hub-tool-detail-modal__sections {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+
+.hub-tool-detail-section:has(.folder-sync-browse) {
+  flex: 1 0 auto;
+  min-height: min-content;
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-tool-detail-section:has(.folder-sync-browse) > .hub-tool-detail-section__body {
+  flex: 1 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.folder-sync-browse {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.folder-sync-browse .hub-modal-directory-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 0 auto;
+  overflow: visible;
+}
+
+.folder-sync-browse .fs-outline {
+  flex: 1 1 auto;
+  min-height: 22rem;
+  height: clamp(22rem, 52vh, 32rem);
+  max-height: 32rem;
+  overflow: hidden;
+}
+
+.folder-sync-browse .fs-outline-scroll {
+  flex: 1 1 auto;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Local and Drive Browse share the Drive Files tree, hanging under the field. */
+.fs-drive-folder-dropdown {
+  --hub-control-h: 26px;
+  font-size: 12px;
+  position: fixed;
+  z-index: 1200;
+  height: min(24rem, calc(100vh - 10rem));
+  margin-top: 2px;
+  overflow: hidden;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--panel, #161a27);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.fs-drive-folder-dropdown .hub-filter-trigger {
+  height: 26px;
+  min-height: 26px;
+  padding-inline: 0.55rem;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.fs-drive-folder-dropdown [data-hub-single-filter-panel] button {
+  font-size: 12px;
+  line-height: 1.35;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.fs-drive-folder-dropdown .fs-outline,
+.fs-drive-folder-dropdown .fs-outline-scroll {
+  height: 100%;
+  max-height: min(24rem, calc(100vh - 10rem));
+  min-height: 0;
+}
+
+.fs-drive-folder-dropdown .fs-outline-scroll {
+  overflow: auto;
+}
+
+
+

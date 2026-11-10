@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight, CheckCircle2, Play, Sparkles, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, Play, Zap, X } from "lucide-react";
 import type { AppScreen } from "../../lib/app-screen";
 import { openP0009Guide } from "../../lib/guide-url";
 import { P0009_ONBOARDING_STEPS } from "./onboarding-steps";
@@ -55,7 +55,7 @@ export function FolderSyncGuidedTourModal({ open, onClose, onSelectScreen }: Pro
       <div className="flex items-center justify-between gap-2 border-b border-slate-800/90 pb-2.5">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-sky-500/20 text-sky-300">
-            <Sparkles size={13} />
+            <Zap size={13} />
           </span>
           <span className="text-xs font-bold uppercase tracking-wider text-sky-300">
             Guided Setup · Step {step.stepNumber} of {P0009_ONBOARDING_STEPS.length}

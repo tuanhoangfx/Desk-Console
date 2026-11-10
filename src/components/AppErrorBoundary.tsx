@@ -1,5 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { checkAndReloadIfBundleSkewed } from "@tool-workspace/hub-ui";
+import {
+  checkAndReloadIfBundleSkewed,
+  recordHubCaughtBoundaryError,
+} from "@tool-workspace/hub-ui";
 import packageJson from "../../package.json";
 
 type Props = {
@@ -9,19 +12,54 @@ type Props = {
 type State = {
   error: Error | null;
   componentStack: string | null;
+  devAutoRetried: boolean;
 };
 
 export class AppErrorBoundary extends Component<Props, State> {
-  state: State = { error: null, componentStack: null };
+  state: State = { error: null, componentStack: null, devAutoRetried: false };
+  private devRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
   }
 
+  private clearError = () => {
+    if (this.state.error) {
+      this.setState({ error: null, componentStack: null, devAutoRetried: false });
+    }
+  };
+
+  componentDidMount() {
+    window.addEventListener("popstate", this.clearError);
+    if (import.meta.hot) {
+      import.meta.hot.on("vite:afterUpdate", this.clearError);
+    }
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("popstate", this.clearError);
+    if (import.meta.hot) {
+      import.meta.hot.off("vite:afterUpdate", this.clearError);
+    }
+    if (this.devRetryTimer) {
+      clearTimeout(this.devRetryTimer);
+      this.devRetryTimer = null;
+    }
+  }
+
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[P0001] Uncaught render error:", error, info.componentStack);
+    recordHubCaughtBoundaryError("screen", error);
     this.setState({ componentStack: info.componentStack ?? null });
     void checkAndReloadIfBundleSkewed(packageJson.version);
+
+    if (import.meta.env.DEV && !this.state.devAutoRetried) {
+      if (this.devRetryTimer) clearTimeout(this.devRetryTimer);
+      this.devRetryTimer = setTimeout(() => {
+        this.devRetryTimer = null;
+        this.setState({ error: null, componentStack: null, devAutoRetried: true });
+      }, 800);
+    }
   }
 
   private handleReload = () => {
@@ -51,9 +89,25 @@ export class AppErrorBoundary extends Component<Props, State> {
             Desk Console encountered a render error
           </h1>
           <p style={{ margin: "0 0 16px", color: "#94a3b8", fontSize: 13 }}>
-            A runtime exception stopped this screen from rendering. Reload to recover cleanly.
+            A runtime exception stopped this screen from rendering. Retry or reload to recover cleanly.
           </p>
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <button
+              type="button"
+              onClick={this.clearError}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 6,
+                border: "1px solid rgba(148, 163, 184, 0.35)",
+                background: "rgba(30, 41, 59, 0.55)",
+                color: "#e2e8f0",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              Retry
+            </button>
             <button
               type="button"
               onClick={this.handleReload}

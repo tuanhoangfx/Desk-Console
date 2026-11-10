@@ -204,7 +204,7 @@ export function renderJobsDirectoryBodyCell(
           tone={view.tone}
           live={live}
           title={detail}
-          popoverTitle="Sync status"
+          popoverTitle={`🚦 Status · ${view.label}`}
         />
       </DirectoryTableBodyCell>
     );
@@ -251,6 +251,7 @@ export function renderJobsDirectoryBodyCell(
         <HubDirectoryTimestampTooltipCell
           at={at}
           title={col.key === "updated" ? "Update" : "Created"}
+          variant={col.key === "created" ? "date" : "activity"}
           fallback={<DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />}
         />
       </DirectoryTableBodyCell>

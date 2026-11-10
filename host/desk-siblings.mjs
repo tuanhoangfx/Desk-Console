@@ -13,7 +13,21 @@ import { fileURLToPath } from "node:url";
 import { DEV_ROOT } from "./windows.mjs";
 
 const require = createRequire(import.meta.url);
-const { spawnInteractiveDesktopProcess } = require(path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs"));
+function getSpawnInteractiveDesktopProcess() {
+  try {
+    const winShellPath = path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs");
+    if (fs.existsSync(winShellPath)) {
+      const mod = require(winShellPath);
+      if (typeof mod?.spawnInteractiveDesktopProcess === "function") {
+        return mod.spawnInteractiveDesktopProcess;
+      }
+    }
+  } catch {
+    /* end-user machine without E:\Dev monorepo */
+  }
+  return () => null;
+}
+const spawnInteractiveDesktopProcess = getSpawnInteractiveDesktopProcess();
 
 const HOST_DIR = path.dirname(fileURLToPath(import.meta.url));
 

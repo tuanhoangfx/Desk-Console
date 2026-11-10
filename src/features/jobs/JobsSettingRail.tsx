@@ -66,11 +66,33 @@ import { signedInDrives, useDriveAccounts } from "../drives/use-drive-accounts";
 
 const MODE_OPTIONS: FilterOption[] = JOB_MODE_OPTIONS;
 
-export function buildJobProxyModeOptions(inheritOptionLabel = "Inherit Drive / Global"): FilterOption[] {
+export function buildJobProxyModeOptions(
+  inheritOptionLabel = "Follow Drive",
+  inheritOptionDetail = "Direct (No proxy)",
+  inheritOptionTip = "Follow the proxy setting configured on this Job's Google Drive account.",
+): FilterOption[] {
   return [
-    { value: "inherit", label: inheritOptionLabel },
-    { value: "direct", label: "Direct (bypass proxy)" },
-    { value: "custom", label: "Custom proxy…" },
+    {
+      value: "inherit",
+      label: inheritOptionLabel,
+      emoji: "☁️",
+      detail: inheritOptionDetail,
+      tip: inheritOptionTip,
+    },
+    {
+      value: "direct",
+      label: "Direct",
+      emoji: "⚡",
+      detail: "Bypass proxy",
+      tip: "Always connect directly using your PC's internet, ignoring any Drive proxy.",
+    },
+    {
+      value: "custom",
+      label: "Custom…",
+      emoji: "🔌",
+      detail: "HTTP / SOCKS5",
+      tip: "Use a dedicated HTTP or SOCKS5 proxy URL only for this sync job.",
+    },
   ];
 }
 
@@ -447,8 +469,17 @@ export function JobSettingsForm({ job, busy, onSaved, saveRef, onDirtyChange }: 
   );
 
   const proxyOptions = useMemo(
-    () => buildJobProxyModeOptions(effectiveProxyInfo.inheritOptionLabel),
-    [effectiveProxyInfo.inheritOptionLabel],
+    () =>
+      buildJobProxyModeOptions(
+        effectiveProxyInfo.inheritOptionLabel,
+        effectiveProxyInfo.inheritOptionDetail,
+        effectiveProxyInfo.inheritOptionTip,
+      ),
+    [
+      effectiveProxyInfo.inheritOptionLabel,
+      effectiveProxyInfo.inheritOptionDetail,
+      effectiveProxyInfo.inheritOptionTip,
+    ],
   );
 
   async function runProxyTest(targetProxyUrl: string) {
@@ -539,6 +570,8 @@ export function JobSettingsForm({ job, busy, onSaved, saveRef, onDirtyChange }: 
                   options={proxyOptions}
                   value={proxyMode}
                   allowClear={false}
+                  showCopyAction={Boolean(effectiveProxyInfo.effectiveProxyUrl)}
+                  copyValue={effectiveProxyInfo.effectiveProxyUrl}
                   trailingAction={
                     proxyMode !== "custom" ? (
                       <button

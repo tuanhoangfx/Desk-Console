@@ -35,6 +35,10 @@ export function opsConsoleMeta(text) {
   return `[spawn] ${String(text || "").trim()}`;
 }
 
+export function opsConsoleErr(text) {
+  return `[ERR] ${String(text || "").trim()}`;
+}
+
 export function appendTerminalLine(targetId, kind, line) {
   const file = terminalLogPath(targetId, kind);
   const stamp = new Date().toISOString();

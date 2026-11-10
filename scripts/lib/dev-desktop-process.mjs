@@ -115,10 +115,16 @@ function killOrphanDevElectron() {
       "-NoProfile",
       "-Command",
       [
-        "$procs = Get-CimInstance Win32_Process -Filter \"Name='electron.exe'\" -ErrorAction SilentlyContinue",
-        `| Where-Object { $_.CommandLine -match '${DEV_DIR}' }`,
-        "foreach ($p in $procs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }",
-      ].join(" "),
+        "$pids = New-Object System.Collections.Generic.HashSet[int]",
+        "Get-CimInstance Win32_Process -Filter \"Name='electron.exe'\" -ErrorAction SilentlyContinue | ForEach-Object {",
+        "  $c = [string]$_.CommandLine",
+        `  if ($c -match '${DEV_DIR}' -or $c -match 'P0001-Desk-Console' -or $c -match 'electron\\.exe\"?\\s+\\.\\s*$') {`,
+        "    [void]$pids.Add([int]$_.ProcessId)",
+        "    if ($_.ParentProcessId -gt 0 -and $c -like '*--type=*') { [void]$pids.Add([int]$_.ParentProcessId) }",
+        "  }",
+        "}",
+        "foreach ($id in $pids) { & taskkill /PID $id /T /F 2>$null | Out-Null }",
+      ].join("; "),
     ],
     winSpawnOpts({ stdio: "ignore" }),
   );
@@ -151,7 +157,10 @@ export function startDevDetached() {
     cwd: root,
     detached: true,
     stdio: ["ignore", logFd, logFd],
-    env: deskElectronEnv({ DESK_DEV_LOG: "1" }),
+    env: deskElectronEnv({
+      DESK_DEV_LOG: "1",
+      VITE_DEV_SERVER_URL: `http://127.0.0.1:${DESK_VITE_PORT}/`,
+    }),
   }));
   child.unref();
   fs.writeFileSync(PID_FILE, String(child.pid));

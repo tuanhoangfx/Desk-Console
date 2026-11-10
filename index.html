@@ -7,7 +7,7 @@
     <meta name="hub-dev-folder" content="Tool/P0001-Desk-Console" />
     <meta name="theme-color" content="#0170FE" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=414676bd" />
-    <link rel="stylesheet" href="/hub-boot.css" />
+    <link rel="stylesheet" href="/hub-boot.css?v=mobile2" />
     <title>Desk Console</title>
     <style>
       html,
@@ -17,6 +17,23 @@
         height: 100%;
         background: #0b1020;
         color: #e8ecff;
+      }
+          @media (max-width: 767.98px) {
+        :root {
+          --hub-sidebar-width: 0px;
+          --hub-loader-inset-left: 0px;
+        }
+        #hub-boot-loader.hub-boot-loader--pane,
+        .hub-tab-loader-fill {
+          left: 0 !important;
+          right: 0 !important;
+          width: 100% !important;
+        }
+        #hub-boot-loader.hub-boot-loader--pane::before {
+          display: none !important;
+          content: none !important;
+          width: 0 !important;
+        }
       }
     </style>
   </head>

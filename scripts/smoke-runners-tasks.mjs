@@ -93,9 +93,9 @@ async function probeUi() {
   try {
     const runners = await probeUiTab(send, "runners", /runners/i);
     if (!runners?.ok) throw new Error(`runners UI probe failed: ${JSON.stringify(runners)}`);
-    const tasks = await probeUiTab(send, "tasks", /tasks/i);
-    if (!tasks?.ok) throw new Error(`tasks UI probe failed: ${JSON.stringify(tasks)}`);
-    return { profile, runners, tasks };
+    const cron = await probeUiTab(send, "cron", /cron/i);
+    if (!cron?.ok) throw new Error(`cron UI probe failed: ${JSON.stringify(cron)}`);
+    return { profile, runners, cron };
   } finally {
     await close();
   }

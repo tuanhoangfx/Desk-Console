@@ -20,7 +20,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const node = process.execPath;
 const viteBin = path.join(root, "node_modules", "vite", "bin", "vite.js");
 const require = createRequire(path.join(root, "package.json"));
-const electronCli = require.resolve("electron/cli.js");
+const electronBin = require("electron");
 const hostEntry = path.join(root, "host", "server.mjs");
 const LOG_FILE = path.join(root, ".dev-vite.log");
 const interactive = Boolean(process.stdout.isTTY && !process.env.DESK_DEV_LOG);
@@ -121,11 +121,14 @@ function spawnElectron() {
   console.log(
     `[dev-node] electron isolated userData=${deskEnv.DESK_USER_DATA} api=:${hostPort} ui=:${DESK_VITE_PORT}`,
   );
-  electron = spawn(node, [electronCli, "."], winSpawnOpts({
-    cwd: root,
-    stdio: childStdio(),
-    env: deskEnv,
-  }));
+  electron = spawn(electronBin, [root], {
+    ...winSpawnOpts({
+      cwd: root,
+      stdio: childStdio(),
+      env: deskEnv,
+    }),
+    windowsHide: false,
+  });
   electron.on("exit", (code, signal) => {
     if (shuttingDown) return;
     console.warn(

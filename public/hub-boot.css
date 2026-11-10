@@ -50,6 +50,26 @@ body {
   pointer-events: none;
 }
 
+@media (max-width: 767.98px) {
+  :root {
+    --hub-sidebar-width: 0px;
+    --hub-loader-inset-left: 0px;
+  }
+
+  #hub-boot-loader.hub-boot-loader--pane,
+  .hub-tab-loader-fill {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+  }
+
+  #hub-boot-loader.hub-boot-loader--pane::before {
+    display: none !important;
+    content: none !important;
+    width: 0 !important;
+  }
+}
+
 .hub-boot-orb {
   position: relative;
   width: 6rem;

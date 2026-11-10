@@ -1,5 +1,405 @@
 # Changelog
 
+## 2026-11-11 - Unify Host Metrics poller & formatters onto @tool-workspace/hub-ui SSOT
+
+- Version: `3.1.164`
+- Timestamp: 2026-11-11 05:25 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Patch bump for uncommitted code changes (P0001).
+
+### Verification
+
+- pending
+
+---
+## 2026-11-11 - Unify Host Metrics poller & formatters onto @tool-workspace/hub-ui SSOT
+
+- Version: `3.1.163`
+- Timestamp: 2026-11-11 04:30 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced duplicate useHostMetrics, useHeaderWide, and host-header-metrics formatters with shared Hub-UI / @dev/hub-host-metrics SSOT
+
+### Verification
+
+- tsc --noEmit
+
+---
+## 2026-11-11 - Adopt @dev/hub-desktop-host-kit Desktop Updater & Preload SSOT
+
+- Version: `3.1.162`
+- Timestamp: 2026-11-11 03:46 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced 355-line local desktop-updater.cjs and preload update IPC boilerplate with shared @dev/hub-desktop-host-kit synced via sync-electron-shared-libs.cjs.
+
+### Verification
+
+- node --check electron/desktop-updater.cjs + verify-desktop-exe-ssot
+
+---
+## 2026-11-11 - Runtime Timer Gating, SQLite Busy Timeout, Cached Predev & Typography SSOT
+
+- Version: `3.1.161`
+- Timestamp: 2026-11-11 02:50 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Gated hidden picker snapshot polling, throttled idle clipboard prime/foreground poll, added SQLite busy_timeout, cached Electron PE version in predev, and normalized Hub-UI typography.
+
+### Verification
+
+- node Tool/scripts/hub-ui-duplication-check.mjs
+
+---
+## 2026-11-10 - Preserve active conversation scratch & steps; only prune closed expired sessions
+
+- Version: `3.1.160`
+- Timestamp: 2026-11-10 19:49 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Reverted automatic scratch/ and open-session step deletion from sweepAntigravityStaleTranscripts so files in active/surviving conversations are never touched; only prune closed sessions unused > 48h, finished subagents > 6h, and orphan summary DB records
+
+### Verification
+
+- Restored all brain/<id>/scratch/ files and verified sweepAntigravityStaleTranscripts leaves active sessions and scratch folders intact
+
+---
+## 2026-11-10 - Antigravity deep sweep: scratch/steps/chunks/transcript_full & 15m bridge daemon hook
+
+- Version: `3.1.159`
+- Timestamp: 2026-11-10 19:17 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Upgrade sweepAntigravityStaleTranscripts and compactOversizedTranscripts to prune temporary brain/<id>/scratch (>6h), finished open-session steps/tasks (>2h), log chunks (>12h), VACUUM conversation_summaries.db, compact transcript_full.jsonl (>15MB), and run every 15m via Always-On Telegram Bridge & daily auto-prune task.
+
+### Verification
+
+- node --input-type=module -e sweepAntigravityStaleTranscripts + readAntigravityBrainStats (freed 5.23 GB: 8.15 GB -> 2.92 GB)
+
+---
+## 2026-11-10 - Add Live NVMe Storage & I/O Latency Telemetry
+
+- Version: `3.1.158`
+- Timestamp: 2026-11-10 17:24 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added readStorageAndIoTelemetry() to diagnosePcHost() in P0001 Desk Console to track C:/D:/E: usage, free space, and sub-millisecond I/O latency probes, and ensured chrome-headless/chrome-headless-shell stay at NORMAL_PRIORITY_CLASS.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/pc-optimizer.mjs
+
+---
+## 2026-11-10 - Zero-Throttle PC Optimizer & Stop 1.5s Win32 Console Window Polling
+
+- Version: `3.1.157`
+- Timestamp: 2026-11-10 16:51 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Removed 1.5s FindWindowExW/GetWindowTextW/ShowWindow console-popup polling on WinSta0\Default and stopped autoHealSystemHandleLeaks from demoting node, nodew, esbuild, powershell, ssh, and python to BELOW_NORMAL_PRIORITY_CLASS or restricting CPU affinity masks.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/pc-optimizer.mjs
+
+---
+## 2026-11-10 - Auto-Tick 4-Tier Farm Supervisor in Desk Console 20s Maintenance Loop
+
+- Version: `3.1.156`
+- Timestamp: 2026-11-10 09:27 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wired runFarmSupervisorTick(scan) into startAutoPcMaintenanceWatch() in host/pc-optimizer.mjs so Desk Console (:6010) continuously supervises and auto-resumes all 6 Primary Always-On Daemons every 20s.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/pc-optimizer.mjs
+
+---
+## 2026-11-10 - perf(tables): stabilize row callbacks with useCallback, O(1) column map, and 0ms visibilitychange metrics refresh
+
+- Version: `3.1.155`
+- Timestamp: 2026-11-10 00:48 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wrapped getRowKey and getRowClassName in useCallback across DeskDirectoryTable, JobsDirectoryTable, and DrivesDirectoryTable; replaced O(C^2) columns.find with O(1) colByKey Map in DeskDirectoryTable; added instant 0ms refresh on visibilitychange in useHostMetrics.
+
+### Verification
+
+- node Tool/scripts/deploy-lenovo-static.mjs --code P0001 --force-build
+
+---
+## 2026-11-09 - feat(tasks): surface Dual-Xeon NUMA balance & NVMe SSD ReTrim in Dev-Agent-Daily-Kaizen description
+
+- Version: `3.1.154`
+- Timestamp: 2026-11-09 23:38 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Updated KNOWN_SCHTASK_DESCRIPTIONS for Dev-Agent-Daily-Kaizen in host/windows.mjs to reflect Daily Agent RCA, Dual-Xeon NUMA Group 0/1 Balance, and NVMe SSD ReTrim (06:45).
+
+### Verification
+
+- node Tool/scripts/audit-workstation-hardware-health.mjs --fix
+
+---
+## 2026-11-09 - Perf: standardize Vite runtime exclusions & Desk Host Core 0-3 anti-freeze shield
+
+- Version: `3.1.153`
+- Timestamp: 2026-11-09 02:17 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Standardize Vite Chokidar exclusions and apply Core 0-3 anti-freeze shield in host/server.mjs.
+
+### Verification
+
+- node Tool/scripts/verify-vite-daemon-fleet-ssot.mjs
+
+---
+## 2026-11-08 - Enable hardware GPU acceleration by default in Desk Console
+
+- Version: `3.1.152`
+- Timestamp: 2026-11-08 15:01 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Gate app.disableHardwareAcceleration() behind DESK_DISABLE_GPU=1 so Desk Console uses the dedicated GPU instead of CPU SwiftShader software rendering.
+
+### Verification
+
+- Verified main.cjs syntax and synced to installed Desk Console runtime
+
+---
+## 2026-11-08 - Display Antigravity DB size and Heavy Open Tabs telemetry on PC Hygiene panel
+
+- Version: `3.1.151`
+- Timestamp: 2026-11-08 10:38 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Enrich readAntigravityBrainStats with openTabCount, sumDbMB, and top 5 openBloatedTabs (title, steps, dbMB, openInIde) and render Heavy Tabs pills on DashboardScreen Cron & PC Hygiene panel.
+
+### Verification
+
+- Verified readAntigravityBrainStats returns openTabCount and openBloatedTabs (P0020 Auto 27.1k/358M, Mobile Antidetect 16.9k/95M, etc.) and built P0001 frontend cleanly
+
+---
+## 2026-11-08 - Enable automatic SQLite trajectory compaction and 48h Claude/Cursor/Antigravity sweep
+
+- Version: `3.1.150`
+- Timestamp: 2026-11-08 10:02 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Auto-compact closed Antigravity conversations/*.db (>20 MB) by trimming old gen_metadata/executor_metadata and running VACUUM inside the 10-minute background maintenance loop; unify Claude Code transcript retention to 48h.
+
+### Verification
+
+- Synced P0001 unpacked desktop bundles and restarted Desk Console.exe --hidden (PID verified)
+
+---
+## 2026-11-08 - Lower Antigravity & Cursor chat retention threshold to 48h (2 days)
+
+- Version: `3.1.149`
+- Timestamp: 2026-11-08 09:49 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Update sweepAntigravityStaleTranscripts, cursor-chat-auto-prune.mjs, and prune-agent-transcripts.mjs to enforce a 48h (2-day) retention threshold and hard max-age cleanup for closed conversations.
+
+### Verification
+
+- Verified 48h sweep pruned closed conversations >48h (including 3205db33, a9565dea, 3ac3f557, 8cb62c84, f920f0c6) and synced P0001 unpacked desktop builds
+
+---
+## 2026-11-08 - Sync Antigravity conversation_summaries.db pruning and rebalance IDE/LSP CPU priorities
+
+- Version: `3.1.148`
+- Timestamp: 2026-11-08 03:31 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Prune stale and ghost rows from ~/.gemini/antigravity/conversation_summaries.db + conversations_fts alongside brain/, conversations/, annotations/, and presence/; rebalance Antigravity.exe to ABOVE_NORMAL and language_server.exe to NORMAL while demoting LS-spawned background tool shells/builds to BELOW_NORMAL excluding Cores 0-3.
+
+### Verification
+
+- Verified 119 stale/ghost conversations pruned from conversation_summaries.db (82.3 MB -> 13.3 MB) and 1.05 GB freed across conversations/brain
+
+---
+## 2026-11-08 - Hot-reload Desk Console, restore User Chrome NORMAL_PRIORITY_CLASS, and add orphan-reaper-audit.jsonl
+
+- Version: `3.1.147`
+- Timestamp: 2026-11-08 03:03 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Restore NORMAL_PRIORITY_CLASS on User Headed Chrome and desktop UI apps, relax consolePopupGuardTimer to 1500ms, and write audit records to orphan-reaper-audit.jsonl.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/pc-optimizer.mjs
+
+---
+## 2026-11-08 - Delay rclone boot sync to 180s uptime and protect active Antigravity session steps & parent PIDs
+
+- Version: `3.1.146`
+- Timestamp: 2026-11-08 02:42 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Extend rclone boot cooldown to 180s after Windows boot, remove premature RAM-based Vite termination and ppid cascade kill, and guard active Antigravity conversation steps.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/server.mjs
+
+---
+## 2026-11-06 - Standardize Vitest maxWorkers to unified cap of 3
+
+- Version: `3.1.145`
+- Timestamp: 2026-11-06 20:13 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Set test.maxWorkers = 3 in vite.config.ts to enforce the unified 3-worker ceiling.
+
+### Verification
+
+- git diff Tool/P0001-Desk-Console/vite.config.ts
+
+---
+## 2026-11-06 - 45s boot cooldown & serialized rclone remote polling
+
+- Version: `3.1.144`
+- Timestamp: 2026-11-06 19:52 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Add 45s boot cooldown when os.uptime() < 90s and serialize listRemoteFiles rclone lsjson --recursive in host/server.mjs and host/drive-inventory.mjs.
+
+### Verification
+
+- unit check + unpacked sync
+
+---
+## 2026-11-06 - Chokidar server.watch.ignored path predicate for zero idle IOPS
+
+- Version: `3.1.143`
+- Timestamp: 2026-11-06 18:04 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replace glob array in vite.config.ts server.watch.ignored with backslash-normalized path predicate function to prevent Chokidar lstat storms on Windows.
+
+### Verification
+
+- audit-agent-sessions-rca.mjs viteWatcherIopsOk
+
+---
+## 2026-11-05 - Preserve tracked Stealth headless browsers during Smoke Pool cleanup
+
+- Version: `3.1.142`
+- Timestamp: 2026-11-05 05:07 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Update inspectSmokePoolBrowsers in pc-optimizer.mjs to exclude profiles and debug ports actively tracked by Stealth API :6003
+
+### Verification
+
+- Verified task-5558 and task-5693 completed with zero external browser kills
+
+---
+## 2026-11-04 - Recognize chrome-headless.exe in PC Optimizer & Sync Prod Host
+
+- Version: `3.1.141`
+- Timestamp: 2026-11-04 22:41 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Update pc-optimizer.mjs process matcher for chrome-headless.exe alongside chrome.exe and sync directly to installed Desk Console Prod host directory
+
+### Verification
+
+- Prod host pc-optimizer.mjs synced and verified
+
+---
+## 2026-11-04 - Disable legacy .farm-supervisor.json auto-resume and sync installed host runtime
+
+- Version: `3.1.140`
+- Timestamp: 2026-11-04 21:34 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Set enabled=false in legacy host/.farm-supervisor.json and sync host/*.mjs to installed Desk Console resources/app/host to prevent unauthorized background farm spawns
+
+### Verification
+
+- Verified zero background process spawns over 15s window
+
+---
 ## 2026-11-04 - Autonomous 10m scheduled task self-heal and NSIS installer build
 
 - Version: `3.1.139`

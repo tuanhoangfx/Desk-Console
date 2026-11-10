@@ -117,7 +117,7 @@ for (let i = 0; i < 12; i++) {
       hasHub: Boolean(document.querySelector(".hub-app")),
     }))()`,
   );
-  if (migrated?.hasHub && String(migrated.pathname || "") === "/tasks") break;
+  if (migrated?.hasHub && String(migrated.pathname || "") === "/cron") break;
 }
 
 const report = {
@@ -125,7 +125,7 @@ const report = {
     boot?.hasHub === true &&
     clicked?.ok === true &&
     String(after?.pathname || "") === "/runners" &&
-    String(migrated?.pathname || "") === "/tasks" &&
+    String(migrated?.pathname || "") === "/cron" &&
     !String(migrated?.search || "").includes("screen="),
   profile,
   boot,

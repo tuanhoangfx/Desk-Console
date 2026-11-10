@@ -1,100 +1,184 @@
 {
-  "generatedAt": "2026-09-12T23:08:14.211Z",
+  "generatedAt": "2026-11-08T08:01:42.302Z",
   "entries": [
     {
-      "version": "3.1.1",
-      "date": "2026-09-13",
-      "at": "2026-09-13T06:08:00+07:00",
-      "title": "Patch bump for completed agent task (release)",
+      "version": "3.1.152",
+      "date": "2026-11-08",
+      "at": "2026-11-08T15:01:00+07:00",
+      "title": "Enable hardware GPU acceleration by default in Desk Console",
       "bullets": [
-        "Release Major bump (P0001): 2.1.7 → 3.1.1 (MAJOR+1, MINOR=1, PATCH=1)."
+        "Gate app.disableHardwareAcceleration() behind DESK_DISABLE_GPU=1 so Desk Console uses the dedicated GPU instead of CPU SwiftShader software rendering."
       ],
       "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
+      "userTitle": "Enable hardware GPU acceleration by default in Desk Console",
       "userSummary": "",
       "userHighlights": [
-        "Release Major bump : 2.1.7 → 3.1.1 ."
+        "Gate app.disable Hardware Acceleration behind DESK DISABLE GPU=1 so Desk Console uses the dedicat…"
       ]
     },
     {
-      "version": "2.1.7",
-      "date": "2026-09-13",
-      "at": "2026-09-13T05:58:00+07:00",
-      "title": "Patch bump for completed agent task",
+      "version": "3.1.151",
+      "date": "2026-11-08",
+      "at": "2026-11-08T10:38:00+07:00",
+      "title": "Display Antigravity DB size and Heavy Open Tabs telemetry on PC Hygiene panel",
       "bullets": [
-        "Automatic patch bump after completed P0001 task."
+        "Enrich readAntigravityBrainStats with openTabCount, sumDbMB, and top 5 openBloatedTabs (title, steps, dbMB, openInIde) and render Heavy Tabs pills on DashboardScreen Cron & PC Hygiene panel."
       ],
       "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
+      "userTitle": "Display Antigravity DB size and Heavy Open Tabs telemetry on PC Hygie…",
       "userSummary": "",
       "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
+        "Enrich read Antigravity Brain Stats with open Tab Count, sum Db MB, and top 5 open Bloated Tabs a…"
       ]
     },
     {
-      "version": "2.1.3",
-      "date": "2026-09-13",
-      "at": "2026-09-13T04:50:00+07:00",
-      "title": "Patch bump for completed agent task (release)",
+      "version": "3.1.150",
+      "date": "2026-11-08",
+      "at": "2026-11-08T10:02:00+07:00",
+      "title": "Enable automatic SQLite trajectory compaction and 48h Claude/Cursor/Antigravity sweep",
       "bullets": [
-        "Automatic patch bump after completed P0001 task.",
-        "Release Major bump (P0001): 1.1.1 → 2.1.1 (MAJOR+1, MINOR=1, PATCH=1).",
-        "Release Major bump (P0001): 0.1.66 → 1.1.1 (MAJOR+1, MINOR=1, PATCH=1)."
+        "Auto-compact closed Antigravity conversations/*.db (>20 MB) by trimming old gen_metadata/executor_metadata and running VACUUM inside the 10-minute background maintenance loop; unify Claude Code transcript retention to 48h."
       ],
       "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
+      "userTitle": "Enable automatic SQLite trajectory compaction and 48h Claude Cursor A…",
       "userSummary": "",
       "userHighlights": [
-        "Automatic patch bump after completed P0001 task.",
-        "Release Major bump : 1.1.1 → 2.1.1 .",
-        "Release Major bump : 0.1.66 → 1.1.1 ."
+        "Auto-compact closed Antigravity conversations *.db by trimming old gen metadata executor metadata…"
       ]
     },
     {
-      "version": "0.1.66",
-      "date": "2026-09-04",
-      "at": "2026-09-04T02:54:00+07:00",
-      "title": "Patch bump for completed agent task",
+      "version": "3.1.149",
+      "date": "2026-11-08",
+      "at": "2026-11-08T09:49:00+07:00",
+      "title": "Lower Antigravity & Cursor chat retention threshold to 48h (2 days)",
       "bullets": [
-        "Automatic patch bump after completed P0001 task."
+        "Update sweepAntigravityStaleTranscripts, cursor-chat-auto-prune.mjs, and prune-agent-transcripts.mjs to enforce a 48h (2-day) retention threshold and hard max-age cleanup for closed conversations."
       ],
       "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
+      "userTitle": "Lower Antigravity & Cursor chat retention threshold to 48h",
       "userSummary": "",
       "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
+        "Update sweep Antigravity Stale Transcripts, , and to enforce a 48h retention threshold and hard m…"
       ]
     },
     {
-      "version": "0.1.8",
-      "date": "2026-08-29",
-      "at": "2026-08-24T05:14:00+07:00",
-      "title": "Rollback to v0.1.8 (2026-08-24 known-good)",
+      "version": "3.1.148",
+      "date": "2026-11-08",
+      "at": "2026-11-08T03:31:00+07:00",
+      "title": "Sync Antigravity conversation_summaries.db pruning and rebalance IDE/LSP CPU priorities",
       "bullets": [
-        "Revert P0001 UI to v0.1.8: Runners + Tasks separate, DeskDirectoryScreen full-width.",
-        "URL: ?screen=runners / ?screen=tasks (removed path routing)."
+        "Prune stale and ghost rows from ~/.gemini/antigravity/conversation_summaries.db + conversations_fts alongside brain/, conversations/, annotations/, and presence/; rebalance Antigravity.exe to ABOVE_NORMAL and language_server.exe to NORMAL while demoting LS-spawned background tool shells/builds to BELOW_NORMAL excluding Cores 0-3."
       ],
       "kind": "improve",
-      "userTitle": "Rollback to v0.1.8",
+      "userTitle": "Sync Antigravity conversation summaries.db pruning and rebalance IDE…",
       "userSummary": "",
       "userHighlights": [
-        "Revert P0001 UI to v0.1.8: Runners + Tasks separate, Desk Directory Screen full-width.",
-        "URL: ?screen=runners ?screen=tasks ."
+        "Prune stale and ghost rows from ~ .gemini antigravity conversation summaries.db + conversations f…"
       ]
     },
     {
-      "version": "0.1.28",
-      "date": "2026-08-29",
-      "at": "2026-08-29T05:19:00+07:00",
-      "title": "Patch bump for completed agent task",
+      "version": "3.1.147",
+      "date": "2026-11-08",
+      "at": "2026-11-08T03:03:00+07:00",
+      "title": "Hot-reload Desk Console, restore User Chrome NORMAL_PRIORITY_CLASS, and add orphan-reaper-audit.jsonl",
       "bullets": [
-        "Automatic patch bump after completed P0001 task."
+        "Restore NORMAL_PRIORITY_CLASS on User Headed Chrome and desktop UI apps, relax consolePopupGuardTimer to 1500ms, and write audit records to orphan-reaper-audit.jsonl."
       ],
       "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
+      "userTitle": "Hot-reload Desk Console, restore User Chrome NORMAL PRIORITY CLASS, a…",
       "userSummary": "",
       "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
+        "Restore NORMAL PRIORITY CLASS on User Headed Chrome and desktop UI apps, relax console Popup Guar…"
+      ]
+    },
+    {
+      "version": "3.1.146",
+      "date": "2026-11-08",
+      "at": "2026-11-08T02:42:00+07:00",
+      "title": "Delay rclone boot sync to 180s uptime and protect active Antigravity session steps & parent PIDs",
+      "bullets": [
+        "Extend rclone boot cooldown to 180s after Windows boot, remove premature RAM-based Vite termination and ppid cascade kill, and guard active Antigravity conversation steps."
+      ],
+      "kind": "improve",
+      "userTitle": "Delay rclone boot sync to 180s uptime and protect active Antigravity…",
+      "userSummary": "",
+      "userHighlights": [
+        "Extend rclone boot cooldown to 180s after Windows boot, remove premature RAM-based Vite terminati…"
+      ]
+    },
+    {
+      "version": "3.1.145",
+      "date": "2026-11-06",
+      "at": "2026-11-06T20:13:00+07:00",
+      "title": "Standardize Vitest maxWorkers to unified cap of 3",
+      "bullets": [
+        "Set test.maxWorkers = 3 in vite.config.ts to enforce the unified 3-worker ceiling."
+      ],
+      "kind": "improve",
+      "userTitle": "Standardize Vitest max Workers to unified cap of 3",
+      "userSummary": "",
+      "userHighlights": [
+        "Set test.max Workers = 3 in to enforce the unified 3-worker ceiling."
+      ]
+    },
+    {
+      "version": "3.1.144",
+      "date": "2026-11-06",
+      "at": "2026-11-06T19:52:00+07:00",
+      "title": "45s boot cooldown & serialized rclone remote polling",
+      "bullets": [
+        "Add 45s boot cooldown when os.uptime() < 90s and serialize listRemoteFiles rclone lsjson --recursive in host/server.mjs and host/drive-inventory.mjs."
+      ],
+      "kind": "improve",
+      "userTitle": "45s boot cooldown & serialized rclone remote polling",
+      "userSummary": "",
+      "userHighlights": [
+        "Add 45s boot cooldown when os.uptime < 90s and serialize list Remote Files rclone lsjson --recurs…"
+      ]
+    },
+    {
+      "version": "3.1.143",
+      "date": "2026-11-06",
+      "at": "2026-11-06T18:04:00+07:00",
+      "title": "Chokidar server.watch.ignored path predicate for zero idle IOPS",
+      "bullets": [
+        "Replace glob array in vite.config.ts server.watch.ignored with backslash-normalized path predicate function to prevent Chokidar lstat storms on Windows."
+      ],
+      "kind": "improve",
+      "userTitle": "Chokidar server.watch.ignored path predicate for zero idle IOPS",
+      "userSummary": "",
+      "userHighlights": [
+        "Replace glob array in server.watch.ignored with backslash-normalized path predicate function to p…"
+      ]
+    },
+    {
+      "version": "3.1.142",
+      "date": "2026-11-05",
+      "at": "2026-11-05T05:07:00+07:00",
+      "title": "Preserve tracked Stealth headless browsers during Smoke Pool cleanup",
+      "bullets": [
+        "Update inspectSmokePoolBrowsers in pc-optimizer.mjs to exclude profiles and debug ports actively tracked by Stealth API :6003"
+      ],
+      "kind": "improve",
+      "userTitle": "Preserve tracked Stealth headless browsers during Smoke Pool cleanup",
+      "userSummary": "",
+      "userHighlights": [
+        "Update inspect Smoke Pool Browsers in to exclude profiles and debug ports actively tracked by Ste…"
+      ]
+    },
+    {
+      "version": "3.1.141",
+      "date": "2026-11-04",
+      "at": "2026-11-04T22:41:00+07:00",
+      "title": "Recognize chrome-headless.exe in PC Optimizer & Sync Prod Host",
+      "bullets": [
+        "Update pc-optimizer.mjs process matcher for chrome-headless.exe alongside chrome.exe and sync directly to installed Desk Console Prod host directory"
+      ],
+      "kind": "improve",
+      "userTitle": "Recognize chrome-headless.exe in PC Optimizer & Sync Prod Host",
+      "userSummary": "",
+      "userHighlights": [
+        "Update process matcher for chrome-headless.exe alongside chrome.exe and sync directly to installe…"
       ]
     }
   ]

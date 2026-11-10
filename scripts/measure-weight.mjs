@@ -17,7 +17,7 @@ function walkBytes(dir) {
 const ram = Number(
   execSync(
     'powershell -NoProfile -Command "(Get-Process -Name \\"Desk Console\\" -ErrorAction SilentlyContinue | Measure-Object WorkingSet64 -Sum).Sum"',
-    { encoding: "utf8" },
+    { encoding: "utf8" , windowsHide: true },
   ).trim() || "0",
 );
 

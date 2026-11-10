@@ -136,6 +136,8 @@ export const JobsDirectoryTable = memo(function JobsDirectoryTable({
     (a, b) => compareJobCodes(a.code, b.code),
   );
 
+  const getRowKey = useCallback((r: SyncJob) => r.id, []);
+
   const renderRowCells = useCallback(
     (row: SyncJob) => (
       <>
@@ -169,7 +171,7 @@ export const JobsDirectoryTable = memo(function JobsDirectoryTable({
         sortKey={sortKey as JobsColumnKey}
         sortDir={sortDir as HubSortDir}
         onSort={onSort}
-        getRowKey={(r) => r.id}
+        getRowKey={getRowKey}
         selectedIds={selectable ? selectedIds : undefined}
         onToggleSelect={selectable ? onToggleSelect : undefined}
         onToggleSelectAll={selectable ? onToggleSelectAll : undefined}

@@ -1,0 +1,160 @@
+/* AUTO-GENERATED — scripts/generate-p0009-jobs-fixed-col-css.mjs */
+/* Code/date fixed columns only — edit tool manifest then re-run generator. */
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--job-id,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--job-id,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--job-id,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--job-id,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--job-id,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--job-id {
+  width: 8.75rem;
+  min-width: 8.75rem;
+  max-width: 8.75rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--name,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--name,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--name,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--name,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--name,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--name {
+  width: 12rem;
+  min-width: 12rem;
+  max-width: 12rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--path,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--path,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--path,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--path,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--path,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--path {
+  width: 14rem;
+  min-width: 14rem;
+  max-width: 14rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--email,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--email,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--email,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--email,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--email,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--email {
+  width: 16rem;
+  min-width: 16rem;
+  max-width: 16rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--status,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--status,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--status,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--status,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--status,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--status {
+  width: 8.75rem;
+  min-width: 8.75rem;
+  max-width: 8.75rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--run,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--run,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--run,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--run,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--run,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--run {
+  width: 7.25rem;
+  min-width: 7.25rem;
+  max-width: 7.25rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--next,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--next,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--next,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--next,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--next,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--next {
+  width: 9.5rem;
+  min-width: 9.5rem;
+  max-width: 9.5rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--mode,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--mode,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--mode,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--mode,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--mode,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--mode {
+  width: 8.5rem;
+  min-width: 8.5rem;
+  max-width: 8.5rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--notes,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--notes,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--notes,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--notes,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--notes,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--notes {
+  width: 15rem;
+  min-width: 15rem;
+  max-width: 15rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--updated,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--updated,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--updated,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--updated,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--updated,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--updated {
+  width: 8.25rem;
+  min-width: 8.25rem;
+  max-width: 8.25rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--created,
+table.hub-users-table.p0009-jobs-directory-table col.hub-users-col--created,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.hub-users-col--created,
+table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--created,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--created,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--created {
+  width: 8.5rem;
+  min-width: 8.5rem;
+  max-width: 8.5rem;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--job-id,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--job-id,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--name,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--name,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--path,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--path,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--email,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--email,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--notes,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--notes {
+  text-align: left;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--status,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--status,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--run,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--run,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--next,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--next,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--mode,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--mode,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--updated,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--updated,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--created,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--created {
+  text-align: center;
+}
+
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--job-id .customer-copy-text,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--job-id .customer-copy-text,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--updated .hub-directory-timestamp,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--updated .hub-directory-timestamp,
+table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--created .hub-directory-timestamp,
+table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--created .hub-directory-timestamp {
+  font-variant-numeric: tabular-nums;
+}

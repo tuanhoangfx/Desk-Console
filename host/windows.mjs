@@ -491,7 +491,7 @@ export async function pasteToForegroundHwndAsync(hwnd) {
 }
 
 const KNOWN_SCHTASK_DESCRIPTIONS = {
-  "Dev-Agent-Daily-Kaizen": "Daily Agent Session RCA & Kaizen Audit",
+  "Dev-Agent-Daily-Kaizen": "Daily Agent RCA, Dual-Xeon NUMA Balance & NVMe SSD ReTrim (06:45)",
   "Dev-Cursor-Chat-Auto-Prune": "Cursor IDE Chat Transcript Auto-Prune (3d retention)",
   "Dev-Cursor-Storage-Purge-If-Closed": "Cursor IDE Workspace Storage Purge when closed",
   "Dev-Home-Server-External-Probe": "Home Server External Reachability & Alert Probe",

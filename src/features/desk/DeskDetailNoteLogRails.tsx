@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { HubAdmNoteLogRails, HubDirectoryReadonlyCopyText, useHubAppLog } from "@tool-workspace/hub-ui";
+import { HubAdmNoteLogRails, HubDirectoryReadonlyCopyText, searchTextIncludes, useHubAppLog } from "@tool-workspace/hub-ui";
 import { DESK_DETAIL_LOG_SECTION } from "./desk-detail-modal-shell";
 import { readDeskOpsLogs } from "./desk-ops-session-log";
 
@@ -10,10 +10,10 @@ type Props = {
 
 export function DeskDetailNoteLogRails({ targetId, note = "" }: Props) {
   const { allLogs } = useHubAppLog();
-  const needle = targetId.trim().toLowerCase();
+  const needle = targetId.trim();
   const sessionRows = useMemo(() => {
-    const fromDesk = readDeskOpsLogs().filter((row) => row.message.toLowerCase().includes(needle));
-    const fromHub = allLogs.filter((row) => row.message.toLowerCase().includes(needle));
+    const fromDesk = readDeskOpsLogs().filter((row) => searchTextIncludes(row.message, needle));
+    const fromHub = allLogs.filter((row) => searchTextIncludes(row.message, needle));
     return [...fromDesk, ...fromHub].slice(0, 80);
   }, [allLogs, needle]);
 
@@ -21,9 +21,12 @@ export function DeskDetailNoteLogRails({ targetId, note = "" }: Props) {
     () =>
       sessionRows.map((row, index) => ({
         id: row.id ?? `${targetId}-${index}`,
-        at: row.at,
+        at: String(row.at),
         message: row.message,
-        actor: row.channel ?? "desk",
+        actor: {
+          label: ("channel" in row ? row.channel : row.scope) ?? "desk",
+          source: "system" as const,
+        },
       })),
     [sessionRows, targetId],
   );
