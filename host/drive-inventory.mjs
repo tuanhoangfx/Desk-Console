@@ -332,9 +332,18 @@ function readJson(filePath) {
 
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmp = `${filePath}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(value), "utf8");
-  fs.renameSync(tmp, filePath);
+  const tmp = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(value), "utf8");
+    fs.renameSync(tmp, filePath);
+  } catch (err) {
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {
+      /* ignore cleanup */
+    }
+    throw err;
+  }
 }
 
 export function readDriveSummary(name) {
@@ -444,7 +453,9 @@ function streamLines(args, onLine, timeoutMs, remoteName = "") {
     const ledgerRow = remoteName ? readDriveAccountLedger()[cleanName(remoteName)] : undefined;
     const proxyEnv = buildRcloneProxyEnv(readNetworkSettings(), ledgerRow);
     const child = spawn(bin, args, {
+      detached: process.platform === "win32",
       windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, ...proxyEnv },
     });
     const rl = readline.createInterface({ input: child.stdout });

@@ -80,7 +80,7 @@ type Props = {
 };
 
 export function CronCreateModal({ open, onClose, onCreated }: Props) {
-  const { pushToast } = useHubToast();
+  const toast = useHubToast();
   const [presetKey, setPresetKey] = useState<string>("custom");
   const [name, setName] = useState("Dev-Custom-Maintenance");
   const [schedulePreset, setSchedulePreset] = useState<SchedulePresetKey>("daily-0415");
@@ -102,7 +102,7 @@ export function CronCreateModal({ open, onClose, onCreated }: Props) {
     const cleanName = name.trim();
     const cleanCmd = command.trim();
     if (!cleanName || !cleanCmd) {
-      pushToast({ type: "error", title: "Create Cron Task", message: "Name and Command are required." });
+      toast?.pushRichToast({ type: "error", title: "Create Cron Task", message: "Name and Command are required." });
       return;
     }
     const sched = SCHEDULE_PRESETS[schedulePreset] || SCHEDULE_PRESETS["daily-0415"];
@@ -117,7 +117,7 @@ export function CronCreateModal({ open, onClose, onCreated }: Props) {
         description: description.trim() || undefined,
         scheduleLabel: sched.label,
       });
-      pushToast({
+      toast?.pushRichToast({
         type: "success",
         title: "Cron Task Created",
         message: `${res.name} scheduled (${sched.label}).`,
@@ -125,7 +125,7 @@ export function CronCreateModal({ open, onClose, onCreated }: Props) {
       onCreated(res.name);
       onClose();
     } catch (error) {
-      pushToast({
+      toast?.pushRichToast({
         type: "error",
         title: "Create Cron Failed",
         message: error instanceof Error ? error.message : "Could not register scheduled task",

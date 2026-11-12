@@ -28,10 +28,15 @@ function readJson(file, fallback) {
 
 const mediaDataUrlCache = new Map();
 
-function hydrateMediaDataUrl(id, imageMediaFile) {
+function resolveMediaFilePath(id, imageMediaFile) {
   const fileName = imageMediaFile || `${String(id || "").replace(/[^a-zA-Z0-9_-]/g, "")}.png`;
   if (!fileName) return "";
-  const fullPath = path.join(dataRoot(), "clips-media", path.basename(fileName));
+  return path.join(dataRoot(), "clips-media", path.basename(fileName));
+}
+
+function hydrateMediaDataUrl(id, imageMediaFile) {
+  const fullPath = resolveMediaFilePath(id, imageMediaFile);
+  if (!fullPath) return "";
   const cached = mediaDataUrlCache.get(fullPath);
   if (cached) return cached;
   try {
@@ -46,17 +51,79 @@ function hydrateMediaDataUrl(id, imageMediaFile) {
   return "";
 }
 
-function normalize(row, kind) {
+function readPickerClipMediaBuffer(idOrRow) {
+  let id = "";
+  let imageMediaFile = "";
+  if (idOrRow && typeof idOrRow === "object") {
+    id = String(idOrRow.id || "");
+    imageMediaFile = String(idOrRow.imageMediaFile || "");
+  } else {
+    id = String(idOrRow || "");
+  }
+  if (!imageMediaFile && id) {
+    const samples = readJson(path.join(dataRoot(), "samples.json"), []);
+    const history = readJson(path.join(dataRoot(), "clips.json"), []);
+    const found = [...samples, ...history].find((r) => String(r?.id || "") === id);
+    if (found?.imageMediaFile) imageMediaFile = String(found.imageMediaFile);
+  }
+  const fullPath = resolveMediaFilePath(id, imageMediaFile);
+  if (!fullPath) return null;
+  try {
+    if (fs.existsSync(fullPath)) {
+      return fs.readFileSync(fullPath);
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function normalize(row, kind, opts = {}) {
+  const summary = Boolean(opts.summary);
+  const apiPort = Number(opts.apiPort || process.env.DESK_API_PORT || 6010);
   const id = String(row?.id || "");
   const createdAt = String(row?.createdAt || "");
-  let imageDataUrl = String(row?.imageDataUrl || "").trim();
+  const rawInlineDataUrl = String(row?.imageDataUrl || "").trim();
   const imageMediaFile = String(row?.imageMediaFile || "").trim();
-  if (!imageDataUrl && (imageMediaFile || row?.contentType === "image" || row?.hasImage)) {
+  const declaredImage = Boolean(
+    rawInlineDataUrl.startsWith("data:image/") ||
+      imageMediaFile ||
+      row?.contentType === "image" ||
+      row?.hasImage,
+  );
+  const imageWidth = Number(row?.imageWidth) || 0;
+  const imageHeight = Number(row?.imageHeight) || 0;
+
+  if (summary) {
+    let mediaExists = rawInlineDataUrl.startsWith("data:image/");
+    if (!mediaExists && declaredImage) {
+      const fullPath = resolveMediaFilePath(id, imageMediaFile);
+      mediaExists = Boolean(fullPath && fs.existsSync(fullPath));
+    }
+    const ver = encodeURIComponent(imageMediaFile || id);
+    const imageUrl = mediaExists
+      ? `http://127.0.0.1:${apiPort}/api/clips/${encodeURIComponent(id)}/image?v=${ver}`
+      : "";
+    return {
+      id,
+      name: String(row?.name || "").trim(),
+      text: String(row?.text || (mediaExists ? `[Image ${imageWidth}×${imageHeight}]` : "")),
+      contentType: mediaExists || row?.contentType === "image" ? "image" : "text",
+      ...(mediaExists ? { hasImage: true, imageUrl, imageWidth, imageHeight } : {}),
+      ...(imageMediaFile ? { imageMediaFile } : {}),
+      kind,
+      pinned: Boolean(row?.pinned),
+      source: String(row?.source || (kind === "sample" ? "sample" : "clipboard")),
+      createdAt,
+      updatedAt: String(row?.updatedAt || createdAt),
+    };
+  }
+
+  let imageDataUrl = rawInlineDataUrl;
+  if (!imageDataUrl && declaredImage) {
     imageDataUrl = hydrateMediaDataUrl(id, imageMediaFile);
   }
   const hasImage = imageDataUrl.startsWith("data:image/");
-  const imageWidth = Number(row?.imageWidth) || 0;
-  const imageHeight = Number(row?.imageHeight) || 0;
   return {
     id,
     name: String(row?.name || "").trim(),
@@ -111,18 +178,23 @@ function snapshotSignature() {
     .join("|");
 }
 
-function readPickerSnapshot() {
+function readPickerSnapshot(opts = {}) {
   const samples = readJson(path.join(dataRoot(), "samples.json"), [])
     .filter((row) => !row?.deletedAt)
-    .map((row) => normalize(row, "sample"));
+    .map((row) => normalize(row, "sample", opts));
   const history = readJson(path.join(dataRoot(), "clips.json"), [])
     .filter((row) => !row?.deletedAt)
-    .map((row) => normalize(row, "history"));
+    .map((row) => normalize(row, "history", opts));
   const keys = readHotkeys();
   return {
-    rows: [...samples, ...history].filter((row) => row.id && (row.text || row.imageDataUrl)),
+    rows: [...samples, ...history].filter((row) => row.id && (row.text || row.imageDataUrl || row.hasImage)),
     labels: keys.labels,
   };
 }
 
-module.exports = { readPickerSnapshot, snapshotSignature, dataRoot };
+module.exports = {
+  readPickerSnapshot,
+  readPickerClipMediaBuffer,
+  snapshotSignature,
+  dataRoot,
+};

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
@@ -27,7 +28,18 @@ function getResolveNodeExe() {
   } catch {
     /* ignore */
   }
-  return () => process.execPath;
+  return () => {
+    if (process.platform === "win32") {
+      const candidates = [
+        path.join(DEV_ROOT, ".tools", "node-v22", "node.exe"),
+        "C:\\Program Files\\nodejs\\node.exe",
+      ];
+      for (const c of candidates) {
+        if (fs.existsSync(c)) return c;
+      }
+    }
+    return process.execPath;
+  };
 }
 const resolveNodeExe = getResolveNodeExe();
 
@@ -288,24 +300,104 @@ export function resolveRunnerPort(code, doc = loadPorts()) {
   return null;
 }
 
-export async function stopRunner(code) {
-  const upper = String(code).toUpperCase();
-  const port = resolveRunnerPort(upper);
-  if (!port) return { ok: false, error: "not found" };
-  setRunnerWatchdogPinned(upper, false);
-  appendTerminalLine(upper, "runner", opsConsoleCmd(`stop-process :${port} ${upper}`));
+let _nativeTcpTableFn = undefined;
+
+function getNativeTcpTableFn() {
+  if (_nativeTcpTableFn !== undefined) return _nativeTcpTableFn;
+  if (process.platform !== "win32") {
+    _nativeTcpTableFn = null;
+    return null;
+  }
   try {
-    const ps = [
-      "$c = Get-NetTCPConnection -LocalPort " + port + " -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1",
-      "if ($c) { Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue; 'stopped' } else { 'idle' }",
-    ].join("; ");
-    const { stdout } = await execFileAsync(
-      "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-Command", ps],
-      { windowsHide: true, timeout: 8000 },
+    const koffi = require("koffi");
+    const iphlpapi = koffi.load("iphlpapi.dll");
+    _nativeTcpTableFn = iphlpapi.func(
+      "uint32_t __stdcall GetExtendedTcpTable(void* pTcpTable, _Inout_ uint32_t* pdwSize, int bOrder, uint32_t ulAf, uint32_t TableClass, uint32_t Reserved)",
     );
+  } catch {
+    _nativeTcpTableFn = null;
+  }
+  return _nativeTcpTableFn;
+}
+
+/**
+ * Finds all PIDs listening on `targetPort` (IPv4 `AF_INET` + IPv6 `AF_INET6`) in <0.5ms
+ * via Win32 `iphlpapi!GetExtendedTcpTable(TCP_TABLE_OWNER_PID_LISTENER = 3)` (0 PowerShell spawns).
+ */
+export function findListeningPidsByPortNative(targetPort) {
+  const portNum = Number(targetPort);
+  if (!Number.isInteger(portNum) || portNum <= 0 || portNum > 65535) return [];
+  const getTable = getNativeTcpTableFn();
+  if (!getTable) return [];
+  const pids = new Set();
+  const TCP_TABLE_OWNER_PID_LISTENER = 3;
+  for (const [af, rowSize, portOff, pidOff] of [
+    [2 /* AF_INET */, 24, 8, 20],
+    [23 /* AF_INET6 */, 56, 20, 52],
+  ]) {
+    try {
+      const sizeRef = [0];
+      getTable(null, sizeRef, 0, af, TCP_TABLE_OWNER_PID_LISTENER, 0);
+      if (sizeRef[0] <= 0) continue;
+      const buf = Buffer.alloc(sizeRef[0] + 512);
+      sizeRef[0] = buf.length;
+      const rc = getTable(buf, sizeRef, 0, af, TCP_TABLE_OWNER_PID_LISTENER, 0);
+      if (rc !== 0) continue;
+      const count = buf.readUInt32LE(0);
+      for (let i = 0; i < count; i++) {
+        const base = 4 + i * rowSize;
+        if (base + rowSize > buf.length) break;
+        const rawPort = buf.readUInt32LE(base + portOff);
+        const port = ((rawPort & 0xff) << 8) | ((rawPort >> 8) & 0xff);
+        if (port === portNum) {
+          const pid = buf.readUInt32LE(base + pidOff);
+          if (pid > 0) pids.add(pid);
+        }
+      }
+    } catch {
+      /* ignore per-family query error */
+    }
+  }
+  return [...pids];
+}
+
+export async function stopRunner(code, opts = {}) {
+  const upper = String(code).toUpperCase();
+  const port = Number(opts.portOverride) > 0 ? Number(opts.portOverride) : resolveRunnerPort(upper);
+  if (!port) return { ok: false, error: "not found" };
+  if (!opts.portOverride) {
+    setRunnerWatchdogPinned(upper, false);
+    appendTerminalLine(upper, "runner", opsConsoleCmd(`stop-process :${port} ${upper}`));
+  }
+  try {
+    let pids = findListeningPidsByPortNative(port);
+    if (pids.length === 0 && process.platform === "win32" && !getNativeTcpTableFn()) {
+      const { stdout } = await execFileAsync("netstat.exe", ["-ano", "-p", "tcp"], {
+        windowsHide: true,
+        timeout: 4000,
+      });
+      const matched = new Set();
+      for (const line of String(stdout || "").split(/\r?\n/)) {
+        if (!line.includes("LISTENING")) continue;
+        const parts = line.trim().split(/\s+/);
+        const localAddr = parts[1] || "";
+        const pid = Number(parts[parts.length - 1]);
+        if (localAddr.endsWith(`:${port}`) && pid > 0) matched.add(pid);
+      }
+      pids = [...matched];
+    }
+    let killedCount = 0;
+    for (const pid of pids) {
+      if (pid === process.pid || pid <= 4) continue;
+      try {
+        process.kill(pid);
+        killedCount += 1;
+      } catch {
+        /* already exited or access denied */
+      }
+    }
     cache = { at: 0, rows: [] };
-    return { ok: true, port, state: String(stdout || "").trim() || "stopped" };
+    return { ok: true, port, state: killedCount > 0 ? "stopped" : "idle", killedPids: pids.filter((p) => p !== process.pid) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -331,15 +423,21 @@ export function startRunner(code, mode = "start") {
   appendTerminalLine(upper, "runner", opsConsoleOk(`ensure-dev-lean ${upper} pid pending`));
   const out = fs.openSync(logFile, "a");
   const nodeExe = resolveNodeExe();
+  const isSelfElectron = nodeExe === process.execPath && Boolean(process.versions?.electron || process.env.ELECTRON_RUN_AS_NODE);
   const startedAt = Date.now();
   const child = spawn(nodeExe, args, {
     cwd: DEV_ROOT,
     detached: true,
     stdio: ["ignore", out, out],
     windowsHide: true,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "" },
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" },
   });
   child.unref();
+  try {
+    fs.closeSync(out);
+  } catch {
+    /* ignore */
+  }
   const pid = child.pid;
   startOutcome.set(upper, { pid, startedAt });
   cache = { at: 0, rows: [] };
@@ -393,6 +491,30 @@ export function startRunner(code, mode = "start") {
 let watchdogInflight = null;
 /** @type {Map<string, number>} */
 const watchdogHungStreak = new Map();
+const VITE_IDLE_LEASE_MAX_AGE_MS = 30 * 60_000;
+
+/**
+ * Returns true ONLY when `<toolRoot>/.vite-active-lease.txt` was refreshed during the current
+ * Windows boot session AND within the 30-minute idle window (`user-standing-orders.mdc` line 27).
+ * Prevents cold-boot stampeding 5+ idle Vite dev servers at Windows login AND prevents fighting
+ * Vite's 30-minute idle auto-close reaper.
+ */
+function hasActiveViteLease(code, doc = loadPorts(), now = Date.now()) {
+  const relRoot = doc?.products?.[code]?.root;
+  if (!relRoot) return false;
+  const leasePath = path.join(DEV_ROOT, relRoot, ".vite-active-lease.txt");
+  try {
+    if (!fs.existsSync(leasePath)) return false;
+    const st = fs.statSync(leasePath);
+    const rawTs = Number(String(fs.readFileSync(leasePath, "utf8") || "").trim());
+    const leaseMs = Number.isFinite(rawTs) && rawTs > 0 ? rawTs : st.mtimeMs;
+    const bootEpochMs = now - Math.max(0, (typeof os.uptime === "function" ? os.uptime() : 0) * 1000);
+    if (leaseMs < bootEpochMs - 5_000) return false;
+    return now - leaseMs < VITE_IDLE_LEASE_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
 
 export async function runRunnerWatchdogTick(opts = {}) {
   if (watchdogInflight) return watchdogInflight;
@@ -413,10 +535,21 @@ export async function runRunnerWatchdogTick(opts = {}) {
       const code = String(rawCode || "").trim().toUpperCase();
       const target = byCode.get(code);
       if (!target) continue;
+      // Probe via TCP connect rather than HTTP GET / every 30s: HTTP GET / triggers Vite's
+      // hubDevRuntimeGuardPlugin middleware to rewrite .vite-active-lease.txt every 30s forever,
+      // defeating the 30-minute idle auto-close policy!
       const tcpUp = await probePort(target.port);
-      const httpUp = tcpUp ? (target.url ? await probeHttp(target.url, 4000) : true) : false;
-      checked.push({ code, port: target.port, up: httpUp, tcpUp });
+      const httpUp = tcpUp ? (opts.force && target.url ? await probeHttp(target.url, 4000) : true) : false;
+      const activeLease = hasActiveViteLease(code, doc, now);
+      checked.push({ code, port: target.port, up: httpUp, tcpUp, activeLease });
       if (httpUp) {
+        watchdogHungStreak.set(code, 0);
+        continue;
+      }
+
+      // Respect 30m idle auto-close & post-reboot on-demand wake: never cold-boot an idle UI Vite server
+      // unless its .vite-active-lease.txt is active in this boot session (or opts.force === true).
+      if (!opts.force && !tcpUp && !activeLease) {
         watchdogHungStreak.set(code, 0);
         continue;
       }
@@ -433,6 +566,9 @@ export async function runRunnerWatchdogTick(opts = {}) {
         watchdogHungStreak.set(code, streak);
         if (!opts.force && streak < 2) continue;
       }
+      // Stagger at most 1 runner recovery per tick to avoid process spawn bursts.
+      if (!opts.force && healed.length >= 1) continue;
+
       watchdogHungStreak.set(code, 0);
       lastWatchdogHealAt.set(code, now);
       const mode = tcpUp ? "restart" : "recover";

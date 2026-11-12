@@ -2,57 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { compareDriveCodes } from "../../../host/job-code.mjs";
 import { rememberDriveAccountEmails } from "../../lib/job-activity-actor";
 import {
+  hydrateP0001DrivesMirror,
+  readCachedP0001Drives,
+  reconcileP0001DrivesDelta,
+} from "../../lib/p0001-desk-mirror-store";
+import {
   fetchDriveAccountIdentities,
   fetchDriveAccounts,
   fetchDriveInventory,
   type DriveAccount,
 } from "../../lib/sync-api";
-
-const DRIVE_IDENTITY_CACHE = "p0009.drive-account-identity";
-
-function readCachedIdentities(): DriveAccount[] {
-  try {
-    const raw = localStorage.getItem(DRIVE_IDENTITY_CACHE);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((row) => row && typeof row.name === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function rememberIdentities(accounts: readonly DriveAccount[]) {
-  const slim = accounts.map((account) => ({
-    name: account.name,
-    code: account.code,
-    authorized: account.authorized,
-    email: account.email,
-    displayName: account.displayName,
-    deletedAt: account.deletedAt || null,
-  }));
-  try {
-    localStorage.setItem(DRIVE_IDENTITY_CACHE, JSON.stringify(slim));
-  } catch {
-    /* quota — the next fetch still fills memory */
-  }
-  rememberDriveAccountEmails(accounts);
-}
-
-/** Keep inventory already on screen while a name/email refresh lands first. */
-function mergeDriveIdentity(prev: DriveAccount[], identity: DriveAccount[]): DriveAccount[] {
-  const byName = new Map(prev.map((account) => [account.name, account]));
-  return identity.map((next) => {
-    const old = byName.get(next.name);
-    if (!old) return next;
-    return {
-      ...old,
-      code: next.code || old.code,
-      authorized: next.authorized,
-      email: next.email || old.email,
-      displayName: next.displayName || old.displayName,
-      deletedAt: next.deletedAt ?? null,
-    };
-  });
-}
 
 type StoreState = {
   accounts: DriveAccount[];
@@ -63,13 +22,14 @@ type StoreState = {
 let storeState: StoreState | null = null;
 const listeners = new Set<() => void>();
 let inflightReload: Promise<void> | null = null;
+let hydratedFromIdb = false;
 let lastReloadAt = 0;
 let pollTimer: number | null = null;
 let invTimer: number | null = null;
 
 function getStoreState(): StoreState {
   if (!storeState) {
-    const cached = readCachedIdentities();
+    const cached = readCachedP0001Drives();
     if (cached.length) rememberDriveAccountEmails(cached);
     storeState = {
       accounts: cached,
@@ -82,6 +42,13 @@ function getStoreState(): StoreState {
 
 function emitStore(patch: Partial<StoreState>) {
   const prev = getStoreState();
+  if (
+    (patch.accounts === undefined || patch.accounts === prev.accounts) &&
+    (patch.loading === undefined || patch.loading === prev.loading) &&
+    (patch.error === undefined || patch.error === prev.error)
+  ) {
+    return;
+  }
   storeState = { ...prev, ...patch };
   for (const fn of listeners) fn();
 }
@@ -104,11 +71,9 @@ async function pullPendingInventories() {
   if (!names.length) return;
   const rows = await Promise.all(names.map((name) => fetchDriveInventory(name).catch(() => null)));
   const current = getStoreState().accounts;
-  let changed = false;
-  const next = current.map((account) => {
+  const patched = current.map((account) => {
     const hit = rows.find((row) => row && row.name === account.name);
     if (!hit) return account;
-    changed = true;
     return {
       ...account,
       inventory: hit.inventory,
@@ -116,7 +81,8 @@ async function pullPendingInventories() {
       contentUpdatedAt: hit.contentUpdatedAt,
     };
   });
-  if (changed) emitStore({ accounts: next });
+  const reconciled = reconcileP0001DrivesDelta(current, patched, { view: "full" });
+  if (reconciled.changed) emitStore({ accounts: reconciled.rows });
 }
 
 export function reloadDriveAccountsStore(): Promise<void> {
@@ -125,18 +91,26 @@ export function reloadDriveAccountsStore(): Promise<void> {
     try {
       const identity = await fetchDriveAccountIdentities().catch(() => null);
       if (identity?.ok && identity.accounts?.length) {
-        rememberIdentities(identity.accounts);
+        rememberDriveAccountEmails(identity.accounts);
+        const mergedIdentity = reconcileP0001DrivesDelta(
+          getStoreState().accounts,
+          identity.accounts,
+          { view: "identity" },
+        );
         emitStore({
-          accounts: mergeDriveIdentity(getStoreState().accounts, identity.accounts),
+          accounts: mergedIdentity.rows,
           loading: false,
         });
       }
       const listed = await fetchDriveAccounts();
       const accounts = listed.accounts || [];
-      rememberIdentities(accounts);
+      rememberDriveAccountEmails(accounts);
+      const reconciled = reconcileP0001DrivesDelta(getStoreState().accounts, accounts, {
+        view: "full",
+      });
       lastReloadAt = Date.now();
       emitStore({
-        accounts,
+        accounts: reconciled.rows,
         loading: false,
         error: listed.ok ? null : listed.error || "Could not load Drive accounts.",
       });
@@ -164,6 +138,21 @@ function attachSubscriber(fn: () => void) {
   const wasEmpty = listeners.size === 0;
   listeners.add(fn);
   if (wasEmpty && typeof window !== "undefined") {
+    if (!hydratedFromIdb) {
+      hydratedFromIdb = true;
+      void hydrateP0001DrivesMirror().then((hydrated) => {
+        if (!hydrated.length) return;
+        rememberDriveAccountEmails(hydrated);
+        const reconciled = reconcileP0001DrivesDelta(getStoreState().accounts, hydrated, {
+          mode: "delta",
+          persist: false,
+        });
+        emitStore({
+          accounts: reconciled.rows,
+          loading: false,
+        });
+      });
+    }
     if (Date.now() - lastReloadAt > 2_500) {
       void reloadDriveAccountsStore();
     }

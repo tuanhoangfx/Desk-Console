@@ -7,7 +7,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { spawn, spawnSync } from "node:child_process";
+import { execFile, spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
@@ -150,7 +150,14 @@ import { listLocalEntries, mergeBrowseSides, safeRel, summarizeCheckCombined } f
 import { applyFolderSizes, inventoryScanning, kickDriveInventory, readDriveInventoryPublic } from "./drive-inventory.mjs";
 import { ensureCreatedJobLogs, readActivityActor, withJobActivity } from "./job-activity.mjs";
 import { assignJobCodes, nextJobCode } from "./job-code.mjs";
-import { cancelDriveOAuth, startDriveOAuth } from "./drive-oauth.mjs";
+import {
+  DRIVE_OAUTH_CALLBACK_PORT,
+  DRIVE_OAUTH_REDIRECT_URI,
+  cancelDriveOAuth,
+  getDriveOAuthCallbackStatus,
+  openDriveOAuthInStealthProfile,
+  startDriveOAuth,
+} from "./drive-oauth.mjs";
 import {
   DEFAULT_JOB_EXCLUDES,
   findExcludedPaths,
@@ -349,9 +356,57 @@ function readBody(req) {
   });
 }
 
-function browseFolderWin(initialPath = "") {
-  if (process.platform !== "win32") {
-    return { ok: false, error: "browse_unsupported_platform" };
+const _cursorPurgeSingleflight = new Map();
+
+export function runPurgeCursorChatsAsync(
+  scriptPath,
+  {
+    cwd = DEV_ROOT,
+    timeoutMs = 600_000,
+    command = "python",
+    args = [scriptPath, "--days", "2", "--apply", "--no-backup"],
+    singleflightKey = "cursor:purge-chats",
+  } = {},
+) {
+  const key = singleflightKey || "";
+  if (key && _cursorPurgeSingleflight.has(key)) {
+    return _cursorPurgeSingleflight.get(key);
+  }
+  const p = new Promise((resolve) => {
+    execFile(
+      command,
+      args,
+      {
+        cwd,
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: timeoutMs,
+        maxBuffer: 8 * 1024 * 1024,
+      },
+      (err, stdout, stderr) => {
+        resolve({
+          status: err && typeof err.code === "number" ? err.code : err ? 1 : 0,
+          stdout: String(stdout || ""),
+          stderr: String(stderr || (err?.message ?? "")),
+        });
+      },
+    );
+  }).finally(() => {
+    if (key) _cursorPurgeSingleflight.delete(key);
+  });
+  if (key) _cursorPurgeSingleflight.set(key, p);
+  return p;
+}
+
+const _browseFolderSingleflight = new Map();
+
+export function runBrowseFolderWinAsync(initialPath = "", opts = {}) {
+  if (process.platform !== "win32" && !opts.command) {
+    return Promise.resolve({ ok: false, error: "browse_unsupported_platform" });
+  }
+  const key = String(opts.singleflightKey ?? "browse:folder-dialog");
+  if (key && _browseFolderSingleflight.has(key)) {
+    return _browseFolderSingleflight.get(key);
   }
   const start = existingDirectory(initialPath);
   const selectedLine = start ? `$d.SelectedPath = '${start.replace(/'/g, "''")}'` : "";
@@ -365,15 +420,39 @@ function browseFolderWin(initialPath = "") {
   ]
     .filter(Boolean)
     .join("; ");
-  const r = spawnSync("powershell.exe", ["-NoProfile", "-STA", "-Command", script], {
-    encoding: "utf8",
-    windowsHide: false,
-    timeout: 300_000,
+  const cmd = opts.command || "powershell.exe";
+  const args = Array.isArray(opts.args) ? opts.args : ["-NoProfile", "-STA", "-Command", script];
+  const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 300_000;
+  const windowsHide = typeof opts.windowsHide === "boolean" ? opts.windowsHide : false;
+
+  const p = new Promise((resolve) => {
+    execFile(
+      cmd,
+      args,
+      {
+        encoding: "utf8",
+        windowsHide,
+        timeout: timeoutMs,
+        maxBuffer: 1024 * 1024,
+      },
+      (err, stdout) => {
+        if (err) {
+          resolve({ ok: false, error: String(err.message || err) });
+          return;
+        }
+        const selected = String(stdout || "").trim();
+        if (!selected) {
+          resolve({ ok: false, cancelled: true });
+          return;
+        }
+        resolve({ ok: true, path: selected });
+      },
+    );
+  }).finally(() => {
+    if (key) _browseFolderSingleflight.delete(key);
   });
-  if (r.error) return { ok: false, error: String(r.error.message || r.error) };
-  const selected = String(r.stdout || "").trim();
-  if (!selected) return { ok: false, cancelled: true };
-  return { ok: true, path: selected };
+  if (key) _browseFolderSingleflight.set(key, p);
+  return p;
 }
 
 function normalizeJob(input = {}, existing = null, jobs = []) {
@@ -1817,12 +1896,7 @@ async function handle(req, res) {
       const pid = startDetached([script]);
       return json(res, 200, { ok: true, detached: true, pid });
     }
-    const r = spawnSync("python", [script, "--days", "2", "--apply", "--no-backup"], {
-      cwd: DEV_ROOT,
-      encoding: "utf8",
-      windowsHide: true,
-      timeout: 600_000,
-    });
+    const r = await runPurgeCursorChatsAsync(script, { cwd: DEV_ROOT, timeoutMs: 600_000 });
     return json(res, r.status === 0 ? 200 : 500, {
       ok: r.status === 0,
       stdoutTail: String(r.stdout || "").split(/\r?\n/).slice(-16),
@@ -1865,7 +1939,7 @@ async function handle(req, res) {
 
   if (method === "POST" && pathname === "/api/browse/folder") {
     const body = await readBody(req).catch(() => ({}));
-    return json(res, 200, browseFolderWin(body.initialPath));
+    return json(res, 200, await runBrowseFolderWinAsync(body.initialPath));
   }
 
   if (method === "GET" && pathname === "/api/remotes") {
@@ -2051,7 +2125,22 @@ async function handle(req, res) {
       oauth: true,
       authUrl: auth.authUrl || null,
       hint: auth.hint,
+      callbackPort: auth.callbackPort || DRIVE_OAUTH_CALLBACK_PORT,
+      callbackListening: Boolean(auth.callbackListening),
+      redirectUri: auth.redirectUri || DRIVE_OAUTH_REDIRECT_URI,
+      clientIdPrefix: auth.clientIdPrefix || null,
+      reclaimedCallbackPid: auth.reclaimedCallbackPid || null,
     });
+  }
+
+  if (method === "GET" && pathname === "/api/remotes/authorize/callback-status") {
+    return json(res, 200, getDriveOAuthCallbackStatus());
+  }
+
+  if (method === "POST" && pathname === "/api/remotes/authorize/open-stealth") {
+    const body = await readBody(req).catch(() => ({}));
+    const opened = await openDriveOAuthInStealthProfile(body.profileCode || body.profileId, body.url);
+    return json(res, opened.ok ? 200 : 400, opened);
   }
 
   if (method === "POST" && pathname === "/api/remotes/authorize/cancel") {
@@ -2452,10 +2541,22 @@ function jobsForClient() {
 }
 
 const remotePollInflight = new Map();
+const remotePollCache = new Map();
+const REMOTE_POLL_CACHE_TTL_MS = 90_000;
 let remotePollSerialChain = Promise.resolve();
 
 async function listRemoteFiles(remote, excludeText) {
+  const upSec = typeof os.uptime === "function" ? os.uptime() : 999;
+  if (upSec < 180 && process.env.DESK_SKIP_BOOT_COOLDOWN !== "1") {
+    // Return immediately during the 3-minute post-reboot grace window instead of queueing
+    // delayed rclone lsjson timers that burst back-to-back once uptime hits 180s.
+    return null;
+  }
   const key = `${String(remote || "").trim()}\t${String(excludeText ?? "")}`;
+  const cached = remotePollCache.get(key);
+  if (cached && Date.now() - cached.at < REMOTE_POLL_CACHE_TTL_MS) {
+    return cached.entries;
+  }
   if (remotePollInflight.has(key)) return remotePollInflight.get(key);
   const task = (async () => {
     const prev = remotePollSerialChain;
@@ -2465,10 +2566,9 @@ async function listRemoteFiles(remote, excludeText) {
     });
     await prev.catch(() => undefined);
     try {
-      const upSec = typeof os.uptime === "function" ? os.uptime() : 999;
-      if (upSec < 180 && process.env.DESK_SKIP_BOOT_COOLDOWN !== "1") {
-        const waitMs = Math.max(5_000, Math.round((180 - upSec) * 1000));
-        await new Promise((r) => setTimeout(r, waitMs));
+      const freshCached = remotePollCache.get(key);
+      if (freshCached && Date.now() - freshCached.at < REMOTE_POLL_CACHE_TTL_MS) {
+        return freshCached.entries;
       }
       const remoteName = String(remote || "")
         .split(":")[0]
@@ -2482,11 +2582,13 @@ async function listRemoteFiles(remote, excludeText) {
       if (!listed.ok) return null;
       const rows = JSON.parse(listed.stdout || "[]");
       if (!Array.isArray(rows)) return null;
-      return rows.map((row) => ({
+      const entries = rows.map((row) => ({
         path: String(row?.Path || row?.Name || ""),
         size: Number(row?.Size ?? 0),
         modTime: String(row?.ModTime || ""),
       }));
+      remotePollCache.set(key, { at: Date.now(), entries });
+      return entries;
     } catch {
       return null;
     } finally {

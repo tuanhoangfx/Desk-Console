@@ -1,5 +1,342 @@
 # Changelog
 
+## 2026-11-12 - Ignore resources/rclone/*.exe in git & ship NSIS uninstaller unlock release
+
+- Version: `3.1.185`
+- Timestamp: 2026-11-12 18:44 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Added resources/rclone/*.exe to .gitignore and -SkipInstall/-SkipWorker switches to scripts/release-desktop.ps1.
+
+### Verification
+
+- pre-commit-large-file-gate + ship-desktop.ps1
+
+---
+## 2026-11-12 - Accept -SkipInstall & -SkipWorker in release-desktop.ps1 for ship-desktop.ps1 hybrid lane
+
+- Version: `3.1.184`
+- Timestamp: 2026-11-12 18:37 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added -SkipInstall and -SkipWorker switches to scripts/release-desktop.ps1 so ship-desktop.ps1 -Code P0001 -Lane User runs cleanly.
+
+### Verification
+
+- ship-desktop.ps1 -Code P0001 -Lane User
+
+---
+## 2026-11-12 - Auto-reclaim stale port 53682 OAuth listener, live Callback status dot, 1-click Open in Stealth Profile, and v3.1.182 GitHub Release
+
+- Version: `3.1.183`
+- Timestamp: 2026-11-12 17:45 (UTC+7)
+- Type: Patch
+- Status: Verified
+- Release: https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.183
+
+### Changes
+
+- Reclaim orphaned listeners on 127.0.0.1:53682 via native GetExtendedTcpTable before Google Drive OAuth, expose /api/remotes/authorize/callback-status and /api/remotes/authorize/open-stealth (blocking 8xxx customer profiles), render live Callback status + Open in Stealth in DriveSignInModal, and publish v3.1.182 NSIS installer.
+
+### Verification
+
+- tsc --noEmit && knip && node --test host/desk-host.test.mjs (54/54 PASS) + verify-desktop-auto-update v3.1.182
+
+---
+## 2026-11-12 - Eliminate stale app.asar.unpacked hijack and harden Drive OAuth host-fetch recovery
+
+- Version: `3.1.182`
+- Timestamp: 2026-11-12 17:29 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Removed stale resources/app.asar.unpacked during unpacked assembly, guarded electron/main.cjs hostCwd/hostEntry/distRoot against stale unpacked folders, lowered host respawn delay to 300ms, and added direct loopback :6010 fallback + 4.6s retry window in fetchDeskHost.
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console run build && node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-11-12 - Fix Google Drive OAuth sign-in on fresh PCs (GG0001) and auto-recover local host (:6010) on transient fetch failures
+
+- Version: `3.1.181`
+- Timestamp: 2026-11-12 16:47 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Stage git-ignored host/oauth-client.runtime.json during assemble/package so packaged Desk Console resolves the Google Desktop OAuth client on fresh PCs without .env.local; add desk:ensure-host IPC + fetchDeskHost auto-retry recovery across sync-api.ts and api.ts; default standalone Vite :5180 proxy to :6010 when DESK_DEV_ISOLATED!=1.
+
+### Verification
+
+- tsc --noEmit && knip && node --test host/desk-host.test.mjs (53/53 PASS) + live :6010 & clean-PC authorize verification
+
+---
+## 2026-11-12 - NSIS Uninstall.exe upgrade unlock & Update Release modal user download/guide chips
+
+- Version: `3.1.180`
+- Timestamp: 2026-11-12 15:17 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added build/installer.nsh + nsis-uninstaller-unlock.nsh, synced desktop-host-kit.cjs, and wired userDownloadUrl + introUrl into Update Release modal.
+
+### Verification
+
+- verify-desktop-exe-ssot + sync-electron-shared-libs PASS
+
+---
+## 2026-11-12 - Eliminate post-reboot IDC_APPSTARTING cursor spin, rclone/conhost churn, and idle Vite boot stampede
+
+- Version: `3.1.179`
+- Timestamp: 2026-11-12 14:52 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Spawn hidden child processes with CUI node.exe + DETACHED_PROCESS (zero nodew.exe IDC_APPSTARTING spin and zero conhost.exe spawns), gate Runner Watchdog recovery on active 30m .vite-active-lease.txt without resetting idle timers via HTTP GET, add 120s cadence + 90s cache to Drive lsjson polling, and enforce 3m farm respawn backoff.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs && node --test Tool/scripts/prune-stale-terminals-core.test.mjs
+
+---
+## 2026-11-12 - Zero-PowerShell native Win32 dev Electron orchestrator checks in dev-desktop-process.mjs
+
+- Version: `3.1.178`
+- Timestamp: 2026-11-12 05:07 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wire readProcessCommandLine and killOrphanDevElectron in dev-desktop-process.mjs to shared win-native-proc-net.mjs NtQueryInformationProcess and Toolhelp32Snapshot.
+
+### Verification
+
+- node --test Tool/scripts/lib/win-native-proc-net.test.mjs
+
+---
+## 2026-11-12 - Zero-PowerShell native Win32 exe folder lock killer in assemble-unpacked and run-electron-package
+
+- Version: `3.1.177`
+- Timestamp: 2026-11-12 04:50 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wire assemble-unpacked.mjs and run-electron-package.mjs lock cleanup to shared win-native-proc-net.mjs QueryFullProcessImageNameW + NtQueryInformationProcess (< 100ms, 0 PowerShell spawns).
+
+### Verification
+
+- node --test Tool/scripts/lib/win-native-proc-net.test.mjs && node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs
+
+---
+## 2026-11-12 - Native iphlpapi GetExtendedTcpTable stopRunner (<1ms, 0 PowerShell)
+
+- Version: `3.1.176`
+- Timestamp: 2026-11-12 03:32 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced PowerShell Get-NetTCPConnection in host/runners.mjs stopRunner with native Win32 iphlpapi!GetExtendedTcpTable (IPv4 + IPv6 TCP_TABLE_OWNER_PID_LISTENER) via koffi.
+
+### Verification
+
+- node --test host/desk-host.test.mjs (51/51 PASS) + agent-verify-gate P0001 PASS
+
+---
+## 2026-11-12 - TypeScript zero-error parity, HubToolLoadingProvider, and 14/14 hub-ssot-wave-gate enrollment
+
+- Version: `3.1.175`
+- Timestamp: 2026-11-12 01:42 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Healed all TypeScript errors across 15 files without casts, wired HubToolLoadingProvider in App.tsx, added tsc --noEmit to scripts.typecheck, and enrolled P0001 into HUB_SSOT_UI_SHELL_CODES (14/14 PASS).
+
+### Verification
+
+- pnpm run typecheck && pnpm run deadcode && pnpm build && node ../scripts/hub-ssot-wave-gate.mjs --all
+
+---
+## 2026-11-12 - Async singleflight runBrowseFolderWinAsync on :6010
+
+- Version: `3.1.174`
+- Timestamp: 2026-11-12 01:41 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced blocking spawnSync PowerShell FolderBrowserDialog in host/server.mjs with non-blocking execFile + _browseFolderSingleflight coalescing so :6010 stays responsive while folder dialog is open.
+
+### Verification
+
+- node --test host/desk-host.test.mjs (50/50 PASS) + agent-verify-gate P0001 PASS
+
+---
+## 2026-11-12 - Directory body cells: HubDirectoryValuePopover hover parity
+
+- Version: `3.1.173`
+- Timestamp: 2026-11-12 01:38 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced native HTML title= attributes on Desk in-flight and Drive account/files directory cells with HubDirectoryValuePopover (zero native title= gate).
+
+### Verification
+
+- node Tool/scripts/hub-directory-table-gate.mjs P0001 && node Tool/scripts/hub-ui-preflight.mjs --code P0001
+
+---
+## 2026-11-11 - Wire hub-sync-core IndexedDB warm mirror and watermark delta for Jobs, Drives, and Runners
+
+- Version: `3.1.172`
+- Timestamp: 2026-11-11 21:35 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added p0001-desk-mirror-store.ts + unit tests (5/5 pass) backed by @tool-workspace/hub-sync-core with 0ms warm RAM/slimmed localStorage reads, full IndexedDB log/inventory hydration, and reference-preserving delta reconciliation across Jobs, Drives, and Runners
+
+### Verification
+
+- pnpm run deadcode && pnpm run typecheck && pnpm build
+
+---
+## 2026-11-11 - Non-blocking async + singleflight POST /api/cursor/purge-chats on :6010
+
+- Version: `3.1.171`
+- Timestamp: 2026-11-11 20:22 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced synchronous spawnSync(python, purge-cursor-chats.py) in host/server.mjs with exported runPurgeCursorChatsAsync (execFile + singleflight coalescing) so :6010 remains responsive (< 5ms) during multi-minute Cursor chat SQLite cleanup.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs (49/49 PASS) + agent-verify-gate P0001 light PASS
+
+---
+## 2026-11-11 - Lazy URL Picker IPC snapshot & singleflight COM Task Scheduler batch
+
+- Version: `3.1.170`
+- Timestamp: 2026-11-11 19:10 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Eliminate multi-MB synchronous PNG-to-Base64 IPC serialization in picker-store.cjs and main.cjs via immutable /api/clips/:id/image URLs with full-res PNG buffer paste, and replace N concurrent schtasks.exe spawns in listDevTasks with a singleflight COM Schedule.Service batch query
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs (48/48 pass) + picker-store.test.cjs + Vite build + agent-verify-gate P0001
+
+---
+## 2026-11-11 - Farm Supervisor Shard-Aware Deduplication (Prevent Killing Multi-Shard Workers)
+
+- Version: `3.1.169`
+- Timestamp: 2026-11-11 18:59 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Preserve distinct --shard=<x>/<y> and --browsers=<list> worker instances in getFarmSupervisorStatus() so runFarmSupervisorTick() only deduplicates true duplicate instances of the same shard and ignores inline eval scripts.
+
+### Verification
+
+- node --check Tool/P0001-Desk-Console/host/pc-optimizer.mjs
+
+---
+## 2026-11-11 - Content-addressed SHA-256 clips-media & Dual-ABI SQLite
+
+- Version: `3.1.168`
+- Timestamp: 2026-11-11 18:26 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Deduplicate clipboard images via clips-media/sha256-<hex>.png across History and Samples with zero base64 write hydration, auto-migrate legacy UUID media files, GC unreferenced PNGs, and prefer Dual-ABI better-sqlite3 in pc-optimizer.mjs
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs (46/46 pass) + agent-verify-gate P0001
+
+---
+## 2026-11-11 - Native koffi clipboard image/HWND & picker close SSOT
+
+- Version: `3.1.167`
+- Timestamp: 2026-11-11 16:35 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced PowerShell READ_CLIP_IMAGE_PS, SetImage, GetClipboardSequenceNumber, and GetForegroundWindow in host/windows.mjs with 100% native koffi + node:zlib CF_DIB/PNG codecs (<1ms fast-exit on text-only Ctrl+C, 0 PowerShell spawns, 0 temp files) and aligned ClipPicker close inset.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs + audit-hub-modal-close --code P0001 --strict
+
+---
+## 2026-11-11 - Wire knip deadcode audit and prune orphan hub-identity-shim
+
+- Version: `3.1.166`
+- Timestamp: 2026-11-11 15:10 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Add knip.json + deadcode script and remove unused src/types/hub-identity-shim.ts.
+
+### Verification
+
+- pnpm run deadcode && pnpm run typecheck
+
+---
+## 2026-11-11 - PC Optimizer EVKey hook healer, User Headed/8xxx guard & atomic Drive inventory write
+
+- Version: `3.1.165`
+- Timestamp: 2026-11-11 14:04 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Lower EVKey64 handle leak auto-restart threshold to 4,000 handles (with schtasks fallback), strictly exclude User Headed and 8xxx customer profiles from headless farm sweeps, reap orphaned conhost/renderer children of untracked headless Chrome, guard optional P0004 farm-supervisor require, and use unique atomic temp files in drive-inventory writeJson to prevent ENOENT host crashes.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/drive-inventory.test.mjs && node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs (13/13 + 43/43 pass)
+
+---
 ## 2026-11-11 - Unify Host Metrics poller & formatters onto @tool-workspace/hub-ui SSOT
 
 - Version: `3.1.164`

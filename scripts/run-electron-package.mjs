@@ -10,9 +10,12 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { listProcessesNative, terminatePidNative } from "../../scripts/lib/win-native-proc-net.mjs";
+import { stagePackagedOAuthClient } from "./lib/stage-oauth-client.mjs";
 
 const rawRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const root = typeof fs.realpathSync?.native === "function" ? fs.realpathSync.native(rawRoot) : fs.realpathSync(rawRoot);
+stagePackagedOAuthClient(root);
 const syncSharedPath = path.resolve(root, "..", "scripts", "lib", "sync-electron-shared-libs.cjs");
 if (fs.existsSync(syncSharedPath)) {
   spawnSync(process.execPath, [syncSharedPath, "--code", "P0001"], { cwd: root, stdio: "inherit" });
@@ -33,6 +36,49 @@ const skipSign = process.env.DESKTOP_RELEASE_SIGN === "0";
 
 function killDesktopLocks() {
   if (process.platform !== "win32") return;
+  const userProfile = process.env.USERPROFILE || "";
+  const appData = process.env.APPDATA || "";
+  const localAppData = process.env.LOCALAPPDATA || "";
+  for (const lnk of [
+    userProfile && path.join(userProfile, "Desktop", "Folder Sync.lnk"),
+    appData && path.join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Folder Sync.lnk"),
+    appData && path.join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "Folder Sync.lnk"),
+  ].filter(Boolean)) {
+    try {
+      if (fs.existsSync(lnk)) fs.rmSync(lnk, { force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+  for (const legacyDir of [
+    localAppData && path.join(localAppData, "Programs", "folder-sync"),
+    localAppData && path.join(localAppData, "Programs", "Folder Sync"),
+  ].filter(Boolean)) {
+    try {
+      if (fs.existsSync(legacyDir)) fs.rmSync(legacyDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const natProcs = listProcessesNative({ includeExePath: true, includeCmdline: true });
+  if (natProcs) {
+    const exactNames = new Set(["desk console.exe", "folder sync.exe", "rclone.exe"]);
+    for (const proc of natProcs) {
+      if (proc.pid === process.pid) continue;
+      const nameLower = String(proc.name || "").toLowerCase();
+      const hay = `${proc.exePath || ""} ${proc.cmd || ""}`.toLowerCase();
+      const matched =
+        exactNames.has(nameLower) ||
+        hay.includes("desk console") ||
+        hay.includes("folder sync") ||
+        (/host[\\/]server\.mjs/.test(hay) &&
+          (hay.includes("p0001") || hay.includes("p0009") || hay.includes("desk-console") || hay.includes("folder-sync")));
+      if (matched) terminatePidNative(proc.pid);
+    }
+    return;
+  }
+
   const ps = [
     "Get-Process -Name 'Desk Console','Folder Sync','rclone' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue",
     "$needles = @('desk-console', 'folder-sync', 'p0001-desk-console', 'p0009-folder-sync')",
@@ -40,9 +86,6 @@ function killDesktopLocks() {
     "  $p = ($_.ExecutablePath + ' ' + $_.CommandLine).ToLower()",
     "  ($p -like '*desk console*' -or $p -like '*folder sync*' -or ($p -like '*host*server.mjs*' -and ($p -like '*p0001*' -or $p -like '*p0009*' -or $p -like '*desk-console*' -or $p -like '*folder-sync*')))",
     "} | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }",
-    "$shortcuts = @(\"$env:USERPROFILE\\Desktop\\Folder Sync.lnk\", \"$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Folder Sync.lnk\", \"$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Folder Sync.lnk\")",
-    "foreach ($s in $shortcuts) { if (Test-Path $s) { Remove-Item $s -Force -ErrorAction SilentlyContinue } }",
-    "foreach ($d in @(\"$env:LOCALAPPDATA\\Programs\\folder-sync\", \"$env:LOCALAPPDATA\\Programs\\Folder Sync\")) { if (Test-Path $d) { Remove-Item $d -Recurse -Force -ErrorAction SilentlyContinue } }",
   ].join("; ");
   spawnSync("powershell.exe", ["-NoProfile", "-Command", ps], { windowsHide: true, stdio: "ignore" });
 }

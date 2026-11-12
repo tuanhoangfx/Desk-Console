@@ -1,12 +1,7 @@
+import { fetchDeskHost, resolveDeskApiOrigin } from "./host-fetch-recovery";
+
 function apiOrigin(): string {
-  if (typeof window === "undefined") return "";
-  const bridged = String(
-    (window as Window & { deskConsole?: { apiOrigin?: string } }).deskConsole?.apiOrigin || "",
-  ).trim();
-  if (bridged) return bridged;
-  if (window.location.protocol === "file:") return "http://127.0.0.1:6010";
-  // Vite dev — same-origin `/api` proxy (host/server.mjs).
-  return "";
+  return resolveDeskApiOrigin();
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -14,7 +9,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(`${apiOrigin()}${path}`, {
+  const res = await fetchDeskHost(path, {
     ...init,
     headers,
     signal: init?.signal ?? AbortSignal.timeout(8000),
@@ -37,6 +32,8 @@ export type ClipRow = {
   contentType?: "text" | "image";
   hasImage?: boolean;
   imageDataUrl?: string;
+  imageUrl?: string;
+  imageMediaFile?: string;
   imageWidth?: number;
   imageHeight?: number;
   kind?: ClipKind;
@@ -47,6 +44,17 @@ export type ClipRow = {
   updatedAt: string;
   deletedAt?: string | null;
 };
+
+export function resolveClipImageSrc(row: ClipRow | null | undefined): string {
+  if (!row) return "";
+  if (row.imageDataUrl) return row.imageDataUrl;
+  if (row.imageUrl) return row.imageUrl;
+  if (row.hasImage || row.contentType === "image" || row.imageMediaFile) {
+    const v = row.imageMediaFile ? `?v=${encodeURIComponent(row.imageMediaFile)}` : "";
+    return `${apiOrigin()}/api/clips/${encodeURIComponent(row.id)}/image${v}`;
+  }
+  return "";
+}
 
 export type RunnerRow = {
   id: string;
@@ -259,7 +267,13 @@ export type PcDiagnosticsPayload = {
   topProcesses: PcProcessRow[];
 };
 
-export type PcOptimizeAction = "all" | "trim-ram" | "clean-smoke" | "prune-junk" | "sweep-antigravity";
+export type PcOptimizeAction =
+  | "all"
+  | "trim-ram"
+  | "clean-smoke"
+  | "prune-junk"
+  | "sweep-antigravity"
+  | "deep-maintenance";
 
 export type PcOptimizeResult = {
   ok: boolean;
@@ -282,6 +296,11 @@ export type PcOptimizeResult = {
       ok: boolean;
       pruned: boolean;
       output?: string;
+    };
+    antigravitySweep?: {
+      ok: boolean;
+      removedSessions: number;
+      prunedArtifacts: number;
     };
   };
   diagnostics: PcDiagnosticsPayload;

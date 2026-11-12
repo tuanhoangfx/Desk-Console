@@ -1,0 +1,47 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "src/App.tsx"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}"
+  ],
+  "ignore": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "electron/**",
+    "host/**",
+    "scripts/**",
+    "resources/**",
+    "public/**",
+    "data/**"
+  ],
+  "ignoreBinaries": [
+    "powershell",
+    "vite"
+  ],
+  "ignoreDependencies": [
+    "autoprefixer",
+    "postcss",
+    "tailwindcss",
+    "@tool-workspace/hub-sync-core",
+    "@tool-workspace/hub-ui",
+    "@supabase/supabase-js",
+    "cross-env",
+    "electron",
+    "electron-builder",
+    "koffi",
+    "@koromix/koffi-win32-x64"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "exclude": [
+    "enumMembers",
+    "duplicates",
+    "exports",
+    "types"
+  ],
+  "ignoreUnresolved": [
+    "^/src/"
+  ]
+}

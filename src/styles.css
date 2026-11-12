@@ -103,8 +103,8 @@ body:has(.desk-picker-root) #hub-boot-loader {
 .desk-picker-frame .hub-modal-close.desk-picker-close {
   position: absolute;
   z-index: 50;
-  top: -9px !important;
-  right: -9px !important;
+  top: 0.45rem !important;
+  right: 0.45rem !important;
   transform: none !important;
   width: 32px !important;
   height: 32px !important;

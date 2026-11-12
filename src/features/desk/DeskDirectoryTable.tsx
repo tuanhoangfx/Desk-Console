@@ -12,10 +12,15 @@ import {
 } from "@tool-workspace/hub-ui";
 import type { AppScreen } from "../../lib/app-screen";
 import { getDeskColumnMeta } from "./desk-column-meta";
-import { renderDeskDirectoryBodyCell, type DeskOpsCellHandlers, type DeskRow } from "./desk-directory-cells";
+import {
+  renderDeskDirectoryBodyCell,
+  type DeskOpsAction,
+  type DeskOpsCellHandlers,
+  type DeskRow,
+} from "./desk-directory-cells";
 import { deskDirectoryScreenOrClips, deskTablePrefsFor, type DeskCol } from "./desk-table-prefs";
 
-export type { DeskRow };
+export type { DeskOpsAction, DeskOpsCellHandlers, DeskRow };
 
 type Props = {
   screen: AppScreen;

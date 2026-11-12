@@ -264,12 +264,14 @@ export function startJobWatchers({ readJobs, runSync, onArmed }) {
   };
 }
 
+export const DRIVE_POLL_INTERVAL_MS = 120_000;
+
 /**
- * Drive has no filesystem watch. Compare the remote listing on the same 20s cadence.
+ * Drive has no filesystem watch. Compare the remote listing on a calm 120s cadence (local edits still use fs.watch).
  * The first successful listing is remembered and does not sync.
  * @param {{ readJobs: () => Array<{ id: string, localPath?: string, remote?: string, status?: string }>, listRemote: (remote: string) => Promise<Array<{ path: string, size?: number, modTime?: string }> | null>, runSync: (jobId: string) => Promise<void>, intervalMs?: number }} opts
  */
-export function startDrivePoll({ readJobs, listRemote, runSync, onArmed, intervalMs = WATCH_SETTLE_MS }) {
+export function startDrivePoll({ readJobs, listRemote, runSync, onArmed, intervalMs = DRIVE_POLL_INTERVAL_MS }) {
   /** @type {Map<string, { remote: string, signature: string }>} */
   const seen = new Map();
   const delays = new Map();

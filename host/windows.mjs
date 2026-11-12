@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import zlib from "node:zlib";
 import { dataRoot } from "./store.mjs";
 
 const require = createRequire(import.meta.url);
@@ -43,6 +44,9 @@ function getWinNativeBindings() {
       OpenClipboard: user32.func("int __stdcall OpenClipboard(void* hWndNewOwner)"),
       CloseClipboard: user32.func("int __stdcall CloseClipboard()"),
       EmptyClipboard: user32.func("int __stdcall EmptyClipboard()"),
+      GetClipboardSequenceNumber: user32.func("uint32_t __stdcall GetClipboardSequenceNumber()"),
+      RegisterClipboardFormatW: user32.func("uint32_t __stdcall RegisterClipboardFormatW(str16 lpszFormat)"),
+      GetForegroundWindow: user32.func("uintptr_t __stdcall GetForegroundWindow()"),
       IsClipboardFormatAvailable: user32.func("int __stdcall IsClipboardFormatAvailable(uint32_t format)"),
       GetClipboardData: user32.func("void* __stdcall GetClipboardData(uint32_t uFormat)"),
       SetClipboardData: user32.func("void* __stdcall SetClipboardData(uint32_t uFormat, void* hMem)"),
@@ -53,6 +57,7 @@ function getWinNativeBindings() {
       GlobalFree: kernel32.func("void* __stdcall GlobalFree(void* hMem)"),
       RtlMoveMemory: kernel32.func("void __stdcall RtlMoveMemory(void* Destination, const void* Source, uintptr_t Length)"),
     };
+    _winNativeBindings.pngFormatId = Number(_winNativeBindings.RegisterClipboardFormatW("PNG")) || 0;
   } catch {
     _winNativeBindings = null;
   }
@@ -207,6 +212,10 @@ export function winSpawn(cmd, args, opts = {}) {
 }
 
 export function getClipboardSequenceNumber() {
+  const b = getWinNativeBindings();
+  if (b && typeof b.GetClipboardSequenceNumber === "function") {
+    return Number(b.GetClipboardSequenceNumber()) >>> 0;
+  }
   if (nativeHwndOnce && typeof nativeHwndOnce.getClipboardSequenceNumber === "function") {
     return nativeHwndOnce.getClipboardSequenceNumber();
   }
@@ -247,7 +256,11 @@ export function readClipboardTextAsync(timeoutMs = 2000) {
         "-Command",
         "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Clipboard -Raw",
       ],
-      { windowsHide: true },
+      {
+        detached: process.platform === "win32",
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
     );
     let out = "";
     const timer = setTimeout(() => {
@@ -273,7 +286,9 @@ let ignoreClipboardText = "";
 function runPsAsync(args, opts = {}) {
   return new Promise((resolve) => {
     const child = spawn("powershell", ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ...args], {
+      detached: process.platform === "win32",
       windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
       env: opts.env || process.env,
     });
     let out = "";
@@ -297,7 +312,12 @@ function runPsAsync(args, opts = {}) {
 
 function spawnWinAsync(cmd, args, timeoutMs = 8000) {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { windowsHide: true, cwd: safeSpawnCwd() });
+    const child = spawn(cmd, args, {
+      detached: process.platform === "win32",
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+      cwd: safeSpawnCwd(),
+    });
     let stdout = "";
     let stderr = "";
     const timer = setTimeout(() => {
@@ -349,6 +369,280 @@ export async function writeClipboardTextAsync(text) {
   return r.ok;
 }
 
+const PNG_CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function pngCrc32(buf) {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i += 1) {
+    c = PNG_CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function makePngChunk(type, data) {
+  const lenBuf = Buffer.alloc(4);
+  lenBuf.writeUInt32BE(data.length, 0);
+  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const crcBuf = Buffer.alloc(4);
+  crcBuf.writeUInt32BE(pngCrc32(body), 0);
+  return Buffer.concat([lenBuf, body, crcBuf]);
+}
+
+function encodeRgbaScanlinesToPng(rawFilteredScanlines, width, height) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // 8-bit
+  ihdr[9] = 6; // RGBA
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+  const idat = zlib.deflateSync(rawFilteredScanlines, { level: 5 });
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    makePngChunk("IHDR", ihdr),
+    makePngChunk("IDAT", idat),
+    makePngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+function maskShiftAndScale(mask) {
+  const m = mask >>> 0;
+  if (!m) return { shift: 0, max: 0 };
+  let shift = 0;
+  while (((m >>> shift) & 1) === 0 && shift < 32) shift += 1;
+  const max = m >>> shift;
+  return { shift, max };
+}
+
+function extractChannel(val, info) {
+  if (!info.max) return 0;
+  const raw = (val >>> info.shift) & info.max;
+  return info.max === 255 ? raw : Math.round((raw * 255) / info.max);
+}
+
+/**
+ * Decode a Win32 CF_DIB (BITMAPINFOHEADER / BITMAPV4HEADER / BITMAPV5HEADER) buffer
+ * into `{ imageWidth, imageHeight, imageDataUrl }` in memory (0 child processes).
+ */
+export function dibBufferToClipboardImage(dibBuf) {
+  if (!Buffer.isBuffer(dibBuf) || dibBuf.length < 44) return null;
+  const headerSize = dibBuf.readUInt32LE(0);
+  if (headerSize < 40 || headerSize > dibBuf.length) return null;
+  const width = dibBuf.readInt32LE(4);
+  const rawHeight = dibBuf.readInt32LE(8);
+  const topDown = rawHeight < 0;
+  const height = Math.abs(rawHeight);
+  const bpp = dibBuf.readUInt16LE(14);
+  const compression = dibBuf.readUInt32LE(16);
+  const clrUsed = dibBuf.readUInt32LE(32);
+
+  if (width <= 0 || height <= 0 || width > 16384 || height > 16384) return null;
+  // BI_PNG (5) embedded inside BITMAPV4/V5 header
+  if (compression === 5) {
+    const sub = dibBuf.subarray(headerSize);
+    if (sub.length > 24 && sub[0] === 0x89 && sub[1] === 0x50 && sub[2] === 0x4e && sub[3] === 0x47) {
+      return {
+        imageWidth: width,
+        imageHeight: height,
+        imageDataUrl: `data:image/png;base64,${sub.toString("base64")}`,
+      };
+    }
+    return null;
+  }
+  if ((bpp !== 32 && bpp !== 24) || (compression !== 0 && compression !== 3)) {
+    return null;
+  }
+
+  let rMask = 0x00ff0000;
+  let gMask = 0x0000ff00;
+  let bMask = 0x000000ff;
+  let aMask = bpp === 32 ? 0xff000000 : 0;
+  let pixelOffset = headerSize + clrUsed * 4;
+
+  if (compression === 3) {
+    // BI_BITFIELDS: masks sit at offset 40 (either right after 40-byte BITMAPINFOHEADER or inside V4/V5 header)
+    if (dibBuf.length < 52) return null;
+    rMask = dibBuf.readUInt32LE(40);
+    gMask = dibBuf.readUInt32LE(44);
+    bMask = dibBuf.readUInt32LE(48);
+    if (headerSize >= 56 && dibBuf.length >= 56) {
+      aMask = dibBuf.readUInt32LE(52);
+    } else {
+      aMask = 0;
+      if (headerSize === 40) pixelOffset = 52 + clrUsed * 4;
+    }
+  }
+
+  const srcStride = bpp === 32 ? width * 4 : (width * 3 + 3) & ~3;
+  if (pixelOffset + srcStride * height > dibBuf.length) return null;
+
+  const dstRowBytes = width * 4 + 1;
+  const rawScanlines = Buffer.allocUnsafe(dstRowBytes * height);
+  const standardBgra =
+    rMask === 0x00ff0000 && gMask === 0x0000ff00 && bMask === 0x000000ff;
+  const rInfo = maskShiftAndScale(rMask);
+  const gInfo = maskShiftAndScale(gMask);
+  const bInfo = maskShiftAndScale(bMask);
+  const aInfo = maskShiftAndScale(aMask);
+
+  let anyNonZeroAlpha = false;
+  for (let y = 0; y < height; y += 1) {
+    const srcY = topDown ? y : height - 1 - y;
+    const srcRow = pixelOffset + srcY * srcStride;
+    const dstRow = y * dstRowBytes;
+    rawScanlines[dstRow] = 0; // Filter: None
+    if (bpp === 24) {
+      for (let x = 0; x < width; x += 1) {
+        const s = srcRow + x * 3;
+        const d = dstRow + 1 + x * 4;
+        rawScanlines[d] = dibBuf[s + 2];
+        rawScanlines[d + 1] = dibBuf[s + 1];
+        rawScanlines[d + 2] = dibBuf[s];
+        rawScanlines[d + 3] = 255;
+      }
+      anyNonZeroAlpha = true;
+    } else if (standardBgra) {
+      for (let x = 0; x < width; x += 1) {
+        const s = srcRow + x * 4;
+        const d = dstRow + 1 + x * 4;
+        const a = aMask ? dibBuf[s + 3] : 255;
+        if (a !== 0) anyNonZeroAlpha = true;
+        rawScanlines[d] = dibBuf[s + 2];
+        rawScanlines[d + 1] = dibBuf[s + 1];
+        rawScanlines[d + 2] = dibBuf[s];
+        rawScanlines[d + 3] = a;
+      }
+    } else {
+      for (let x = 0; x < width; x += 1) {
+        const px = dibBuf.readUInt32LE(srcRow + x * 4);
+        const d = dstRow + 1 + x * 4;
+        const a = aInfo.max ? extractChannel(px, aInfo) : 255;
+        if (a !== 0) anyNonZeroAlpha = true;
+        rawScanlines[d] = extractChannel(px, rInfo);
+        rawScanlines[d + 1] = extractChannel(px, gInfo);
+        rawScanlines[d + 2] = extractChannel(px, bInfo);
+        rawScanlines[d + 3] = a;
+      }
+    }
+  }
+
+  // Classic GDI 32-bpp BI_RGB screenshots leave every alpha byte = 0x00; promote to opaque 255.
+  if (!anyNonZeroAlpha) {
+    for (let y = 0; y < height; y += 1) {
+      const dstRow = y * dstRowBytes;
+      for (let x = 0; x < width; x += 1) {
+        rawScanlines[dstRow + 1 + x * 4 + 3] = 255;
+      }
+    }
+  }
+
+  const pngBuf = encodeRgbaScanlinesToPng(rawScanlines, width, height);
+  return {
+    imageWidth: width,
+    imageHeight: height,
+    imageDataUrl: `data:image/png;base64,${pngBuf.toString("base64")}`,
+  };
+}
+
+const MAX_CLIPBOARD_IMAGE_BYTES = 64 * 1024 * 1024;
+
+function readClipboardImageNative() {
+  const b = getWinNativeBindings();
+  if (!b) return { supported: false, value: null };
+  const hasPng = b.pngFormatId > 0 && Boolean(b.IsClipboardFormatAvailable(b.pngFormatId));
+  const hasDib = Boolean(b.IsClipboardFormatAvailable(8)); // CF_DIB = 8
+  if (!hasPng && !hasDib) {
+    // Fast path (<0.01ms): no image on clipboard — return without even calling OpenClipboard!
+    return { supported: true, value: null };
+  }
+
+  let opened = false;
+  for (let i = 0; i < 5; i += 1) {
+    if (b.OpenClipboard(null)) {
+      opened = true;
+      break;
+    }
+  }
+  if (!opened) return { supported: true, value: null };
+
+  try {
+    if (hasPng) {
+      const hPng = b.GetClipboardData(b.pngFormatId);
+      if (hPng) {
+        const ptr = b.GlobalLock(hPng);
+        if (ptr) {
+          try {
+            const byteSize = Number(b.GlobalSize(hPng) || 0);
+            if (byteSize > 24 && byteSize <= MAX_CLIPBOARD_IMAGE_BYTES) {
+              const rawPng = Buffer.allocUnsafe(byteSize);
+              b.RtlMoveMemory(rawPng, ptr, byteSize);
+              if (
+                rawPng[0] === 0x89 &&
+                rawPng[1] === 0x50 &&
+                rawPng[2] === 0x4e &&
+                rawPng[3] === 0x47
+              ) {
+                const w = rawPng.readUInt32BE(16);
+                const h = rawPng.readUInt32BE(20);
+                if (w > 0 && h > 0) {
+                  return {
+                    supported: true,
+                    value: {
+                      imageWidth: w,
+                      imageHeight: h,
+                      imageDataUrl: `data:image/png;base64,${rawPng.toString("base64")}`,
+                    },
+                  };
+                }
+              }
+            }
+          } finally {
+            b.GlobalUnlock(hPng);
+          }
+        }
+      }
+    }
+
+    if (hasDib) {
+      const hDib = b.GetClipboardData(8);
+      if (hDib) {
+        const ptr = b.GlobalLock(hDib);
+        if (ptr) {
+          try {
+            const byteSize = Number(b.GlobalSize(hDib) || 0);
+            if (byteSize >= 44 && byteSize <= MAX_CLIPBOARD_IMAGE_BYTES) {
+              const dibBuf = Buffer.allocUnsafe(byteSize);
+              b.RtlMoveMemory(dibBuf, ptr, byteSize);
+              const decoded = dibBufferToClipboardImage(dibBuf);
+              if (decoded) {
+                return { supported: true, value: decoded };
+              }
+            }
+          } finally {
+            b.GlobalUnlock(hDib);
+          }
+        }
+      }
+    }
+    return { supported: true, value: null };
+  } catch {
+    return { supported: true, value: null };
+  } finally {
+    b.CloseClipboard();
+  }
+}
+
 const READ_CLIP_IMAGE_PS = `Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 $img = [System.Windows.Forms.Clipboard]::GetImage()
 if ($null -ne $img) {
@@ -363,6 +657,10 @@ if ($null -ne $img) {
 let ignoreClipboardImageDataUrl = "";
 
 export async function readClipboardImageAsync(timeoutMs = 2500) {
+  const nativeRes = readClipboardImageNative();
+  if (nativeRes.supported) {
+    return nativeRes.value;
+  }
   const r = await runPsAsync([READ_CLIP_IMAGE_PS], { timeoutMs });
   if (!r.ok || !r.stdout) return null;
   const line = String(r.stdout || "").trim();
@@ -375,14 +673,194 @@ export async function readClipboardImageAsync(timeoutMs = 2500) {
   };
 }
 
+function paethPredictor(a, b, c) {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) return a;
+  return pb <= pc ? b : c;
+}
+
+/**
+ * Convert an 8-bit non-interlaced RGB/RGBA PNG buffer into a Win32 CF_DIB (32-bpp BGRA BITMAPINFOHEADER)
+ * buffer in memory (0 child processes, 0 temp files).
+ */
+export function pngBufferToDibBuffer(pngBuf) {
+  if (
+    !Buffer.isBuffer(pngBuf) ||
+    pngBuf.length < 33 ||
+    pngBuf[0] !== 0x89 ||
+    pngBuf[1] !== 0x50 ||
+    pngBuf[2] !== 0x4e ||
+    pngBuf[3] !== 0x47
+  ) {
+    return null;
+  }
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = -1;
+  let interlace = -1;
+  const idatParts = [];
+  let pos = 8;
+  while (pos + 12 <= pngBuf.length) {
+    const len = pngBuf.readUInt32BE(pos);
+    const type = pngBuf.toString("ascii", pos + 4, pos + 8);
+    const dataStart = pos + 8;
+    const dataEnd = dataStart + len;
+    if (dataEnd + 4 > pngBuf.length) break;
+    if (type === "IHDR" && len >= 13) {
+      width = pngBuf.readUInt32BE(dataStart);
+      height = pngBuf.readUInt32BE(dataStart + 4);
+      bitDepth = pngBuf[dataStart + 8];
+      colorType = pngBuf[dataStart + 9];
+      interlace = pngBuf[dataStart + 12];
+    } else if (type === "IDAT") {
+      idatParts.push(pngBuf.subarray(dataStart, dataEnd));
+    } else if (type === "IEND") {
+      break;
+    }
+    pos = dataEnd + 4;
+  }
+  if (
+    width <= 0 ||
+    height <= 0 ||
+    width > 16384 ||
+    height > 16384 ||
+    bitDepth !== 8 ||
+    (colorType !== 6 && colorType !== 2) ||
+    interlace !== 0 ||
+    idatParts.length === 0
+  ) {
+    return null;
+  }
+  let inflated;
+  try {
+    inflated = zlib.inflateSync(Buffer.concat(idatParts));
+  } catch {
+    return null;
+  }
+  const channels = colorType === 6 ? 4 : 3;
+  const rowBytes = width * channels;
+  if (inflated.length < height * (1 + rowBytes)) return null;
+
+  const pixelBytes = width * height * 4;
+  const dib = Buffer.alloc(40 + pixelBytes);
+  dib.writeUInt32LE(40, 0); // biSize
+  dib.writeInt32LE(width, 4); // biWidth
+  dib.writeInt32LE(height, 8); // biHeight (bottom-up)
+  dib.writeUInt16LE(1, 12); // biPlanes
+  dib.writeUInt16LE(32, 14); // biBitCount
+  dib.writeUInt32LE(0, 16); // BI_RGB
+  dib.writeUInt32LE(pixelBytes, 20); // biSizeImage
+
+  const prevRow = new Uint8Array(rowBytes);
+  const curRow = new Uint8Array(rowBytes);
+  for (let y = 0; y < height; y += 1) {
+    const srcRowStart = y * (1 + rowBytes);
+    const filter = inflated[srcRowStart];
+    const srcPixels = srcRowStart + 1;
+    for (let i = 0; i < rowBytes; i += 1) {
+      const raw = inflated[srcPixels + i];
+      const left = i >= channels ? curRow[i - channels] : 0;
+      const up = prevRow[i];
+      const upLeft = i >= channels ? prevRow[i - channels] : 0;
+      let val = raw;
+      if (filter === 1) val = (raw + left) & 0xff;
+      else if (filter === 2) val = (raw + up) & 0xff;
+      else if (filter === 3) val = (raw + ((left + up) >>> 1)) & 0xff;
+      else if (filter === 4) val = (raw + paethPredictor(left, up, upLeft)) & 0xff;
+      else if (filter !== 0) return null;
+      curRow[i] = val;
+    }
+    const dstRow = 40 + (height - 1 - y) * width * 4;
+    if (channels === 4) {
+      for (let x = 0; x < width; x += 1) {
+        const s = x * 4;
+        const d = dstRow + x * 4;
+        dib[d] = curRow[s + 2]; // B
+        dib[d + 1] = curRow[s + 1]; // G
+        dib[d + 2] = curRow[s]; // R
+        dib[d + 3] = curRow[s + 3]; // A
+      }
+    } else {
+      for (let x = 0; x < width; x += 1) {
+        const s = x * 3;
+        const d = dstRow + x * 4;
+        dib[d] = curRow[s + 2]; // B
+        dib[d + 1] = curRow[s + 1]; // G
+        dib[d + 2] = curRow[s]; // R
+        dib[d + 3] = 255; // A
+      }
+    }
+    prevRow.set(curRow);
+  }
+  return dib;
+}
+
+function allocAndCopyGlobalMem(b, buf) {
+  const hMem = b.GlobalAlloc(0x0042, buf.length); // GHND (GMEM_MOVEABLE | GMEM_ZEROINIT)
+  if (!hMem) return null;
+  const ptr = b.GlobalLock(hMem);
+  if (!ptr) {
+    b.GlobalFree(hMem);
+    return null;
+  }
+  b.RtlMoveMemory(ptr, buf, buf.length);
+  b.GlobalUnlock(hMem);
+  return hMem;
+}
+
+function writeClipboardImageNative(pngBuf) {
+  const b = getWinNativeBindings();
+  if (!b) return false;
+  const dibBuf = pngBufferToDibBuffer(pngBuf);
+  if (!dibBuf) return false;
+
+  let opened = false;
+  for (let i = 0; i < 5; i += 1) {
+    if (b.OpenClipboard(null)) {
+      opened = true;
+      break;
+    }
+  }
+  if (!opened) return false;
+  try {
+    b.EmptyClipboard();
+    let ok = false;
+    if (b.pngFormatId > 0) {
+      const hPng = allocAndCopyGlobalMem(b, pngBuf);
+      if (hPng) {
+        if (b.SetClipboardData(b.pngFormatId, hPng)) ok = true;
+        else b.GlobalFree(hPng);
+      }
+    }
+    const hDib = allocAndCopyGlobalMem(b, dibBuf);
+    if (hDib) {
+      if (b.SetClipboardData(8, hDib)) ok = true;
+      else b.GlobalFree(hDib);
+    }
+    return ok;
+  } catch {
+    return false;
+  } finally {
+    b.CloseClipboard();
+  }
+}
+
 export async function writeClipboardImageAsync(imageDataUrl) {
   const raw = String(imageDataUrl || "").trim();
-  const m = raw.match(/^data:image\/[a-zA-Z0-9+.-]+;base64,(.+)$/);
+  const m = raw.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
   if (!m) return false;
   ignoreClipboardImageDataUrl = raw;
+  const imgBuf = Buffer.from(m[2], "base64");
+  if (m[1].toLowerCase() === "image/png" && writeClipboardImageNative(imgBuf)) {
+    return true;
+  }
   const tmpFile = path.join(os.tmpdir(), `desk-clip-img-${Date.now()}.png`);
   try {
-    fs.writeFileSync(tmpFile, Buffer.from(m[1], "base64"));
+    fs.writeFileSync(tmpFile, imgBuf);
     const ps = `Add-Type -AssemblyName System.Windows.Forms, System.Drawing; $img = [System.Drawing.Image]::FromFile($env:DESK_CLIP_IMG); [System.Windows.Forms.Clipboard]::SetImage($img); $img.Dispose()`;
     const r = await runPsAsync([ps], {
       timeoutMs: 2500,
@@ -423,6 +901,15 @@ public class DeskHwnd {
 [int64][DeskHwnd]::GetForegroundWindow()`;
 
 export function captureForegroundHwnd() {
+  const b = getWinNativeBindings();
+  if (b && typeof b.GetForegroundWindow === "function") {
+    try {
+      const h = b.GetForegroundWindow();
+      if (h) return String(h);
+    } catch {
+      /* ignore */
+    }
+  }
   if (nativeHwndOnce && typeof nativeHwndOnce.captureForegroundHwnd === "function") {
     const h = nativeHwndOnce.captureForegroundHwnd();
     if (h) return h;
@@ -636,8 +1123,108 @@ export function parseSchtasksListVerbose(text) {
 }
 
 let tasksCache = { at: 0, rows: [] };
-const TASKS_TTL_MS = 15_000;
+let tasksInflight = null;
+const TASKS_TTL_MS = 30_000;
 const NAMES_TTL_MS = 10 * 60_000;
+const QUERY_DEV_TASKS_JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "lib", "query-dev-tasks.js");
+
+function decodeXmlEntities(str) {
+  return String(str || "")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function parseIsoDurationRepeat(isoDur) {
+  const s = String(isoDur || "").trim().toUpperCase();
+  if (!s) return "";
+  const hm = s.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (hm) {
+    const h = Number(hm[1] || 0);
+    const m = Number(hm[2] || 0);
+    if (h > 0 && m === 0) return `${h} Hour(s), 0 Minute(s)`;
+    if (h > 0 || m > 0) return `${h} Hour(s), ${m} Minute(s)`;
+  }
+  const dm = s.match(/^P(\d+)D$/);
+  if (dm) return `${Number(dm[1]) * 24} Hour(s), 0 Minute(s)`;
+  return "";
+}
+
+function deriveScheduleFromTaskXml(xml, nextRun) {
+  const x = String(xml || "");
+  if (!x) return nextRun && nextRun !== "N/A" ? nextRun : "Scheduled";
+  const sbMatch = x.match(/<StartBoundary>\s*\d{4}-\d{2}-\d{2}T(\d{2}:\d{2})/i);
+  const st = sbMatch ? sbMatch[1] : "";
+  const repMatch = x.match(/<Repetition>[\s\S]*?<Interval>\s*([^<\s]+)\s*<\/Interval>/i);
+  const repeatEvery = repMatch ? parseIsoDurationRepeat(repMatch[1]) : "";
+  let scheduleType = "";
+  if (repeatEvery) scheduleType = "One Time Only, Minute";
+  else if (/<LogonTrigger\b/i.test(x)) scheduleType = "At Logon";
+  else if (/<BootTrigger\b/i.test(x)) scheduleType = "At System Start";
+  else if (/<IdleTrigger\b/i.test(x)) scheduleType = "On Idle";
+  else if (/<ScheduleByDay\b/i.test(x)) scheduleType = "Daily";
+  else if (/<ScheduleByWeek\b/i.test(x)) scheduleType = "Weekly";
+  else if (/<ScheduleByMonth\b/i.test(x)) scheduleType = "Monthly";
+  else if (/<TimeTrigger\b/i.test(x)) scheduleType = "One Time";
+  return formatSchtasksCycle(scheduleType, st, repeatEvery, nextRun);
+}
+
+function extractCommandFromTaskXml(xml) {
+  const x = String(xml || "");
+  const cmd = decodeXmlEntities((x.match(/<Command>\s*([\s\S]*?)\s*<\/Command>/i)?.[1] || "").trim());
+  const args = decodeXmlEntities((x.match(/<Arguments>\s*([\s\S]*?)\s*<\/Arguments>/i)?.[1] || "").trim());
+  if (!cmd) return "";
+  return args ? `${cmd} ${args}` : cmd;
+}
+
+export function parseTaskSchedulerComTsv(stdout) {
+  const rows = [];
+  const seen = new Set();
+  for (const rawLine of String(stdout || "").split(/\r?\n/)) {
+    if (!rawLine.trim()) continue;
+    const parts = rawLine.split("\t");
+    if (parts.length < 6) continue;
+    const [rawName, status, isoLastRun, localLastRun, rawLastResult, rawNextRun, xml = ""] = parts;
+    const name = String(rawName || "").replace(/^\\/, "").trim();
+    if (!name || !isActiveDevSchtaskName(name) || seen.has(name)) continue;
+    seen.add(name);
+    const unsignedRes = Number(rawLastResult);
+    const hexResult =
+      Number.isFinite(unsignedRes) && unsignedRes < 0
+        ? `0x${(unsignedRes >>> 0).toString(16)}`
+        : String(rawLastResult || "0").trim();
+    const normalizedResult =
+      hexResult === "267011" || hexResult === "0x41303" ? "0" : hexResult;
+    const taskToRun = extractCommandFromTaskXml(xml);
+    const cleanIso = isoLastRun || null;
+    rows.push({
+      id: name,
+      name,
+      status: String(status || "Ready").trim(),
+      lastRun: cleanIso || localLastRun || "N/A",
+      lastRunIso: cleanIso,
+      lastResult: normalizedResult,
+      nextRun: rawNextRun || "N/A",
+      schedule: deriveScheduleFromTaskXml(xml, rawNextRun),
+      description: summarizeTaskToRun(name, taskToRun),
+      command: taskToRun,
+    });
+  }
+  return rows;
+}
+
+async function queryDevTasksViaComBatch() {
+  if (process.platform !== "win32" || !fs.existsSync(QUERY_DEV_TASKS_JS)) return null;
+  const r = await spawnWinAsync("cscript.exe", ["//NoLogo", "//E:JScript", QUERY_DEV_TASKS_JS], 4500);
+  if (!r.ok) return null;
+  const rows = parseTaskSchedulerComTsv(r.stdout);
+  if (rows.length > 0) {
+    writeTaskNames(rows.map((row) => row.name));
+  }
+  return rows;
+}
 
 export function taskNamesPath() {
   return path.join(dataRoot(), "task-names.json");
@@ -677,18 +1264,33 @@ export async function listDevTasks(force = false) {
   if (!force && Date.now() - tasksCache.at < TASKS_TTL_MS && tasksCache.rows.length) {
     return tasksCache.rows;
   }
-  const stored = readTaskNames();
-  if (stored.names.length) {
-    const rows = (await Promise.all(stored.names.map(queryNamedTask))).filter(Boolean);
-    if (rows.length) {
-      tasksCache = { at: Date.now(), rows };
-      if (force || Math.abs(Date.now() - stored.at) > NAMES_TTL_MS) void discoverDevTasks();
-      return rows;
-    }
+  if (tasksInflight) {
+    return tasksInflight;
   }
-  const rows = await discoverDevTasks();
-  tasksCache = { at: Date.now(), rows };
-  return rows;
+  tasksInflight = (async () => {
+    try {
+      const comRows = await queryDevTasksViaComBatch();
+      if (Array.isArray(comRows)) {
+        tasksCache = { at: Date.now(), rows: comRows };
+        return comRows;
+      }
+      const stored = readTaskNames();
+      if (stored.names.length) {
+        const rows = (await Promise.all(stored.names.map(queryNamedTask))).filter(Boolean);
+        if (rows.length) {
+          tasksCache = { at: Date.now(), rows };
+          if (force || Math.abs(Date.now() - stored.at) > NAMES_TTL_MS) void discoverDevTasks();
+          return rows;
+        }
+      }
+      const rows = await discoverDevTasks();
+      tasksCache = { at: Date.now(), rows };
+      return rows;
+    } finally {
+      tasksInflight = null;
+    }
+  })();
+  return tasksInflight;
 }
 
 export async function runTask(taskName) {
@@ -811,11 +1413,27 @@ export async function cursorCountAsync() {
 }
 
 export function startDetached(nodeArgs) {
-  const child = spawn(process.execPath, nodeArgs, {
+  let bin = process.execPath;
+  if (process.platform === "win32") {
+    const candidates = [
+      path.join(DEV_ROOT, ".tools", "node-v22", "node.exe"),
+      "C:\\Program Files\\nodejs\\node.exe",
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) {
+        bin = c;
+        break;
+      }
+    }
+  }
+  const isSelfElectron =
+    bin === process.execPath && Boolean(process.versions?.electron || process.env.ELECTRON_RUN_AS_NODE);
+  const child = spawn(bin, nodeArgs, {
     cwd: DEV_ROOT,
     detached: true,
     stdio: "ignore",
     windowsHide: true,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" },
   });
   child.unref();
   return child.pid;

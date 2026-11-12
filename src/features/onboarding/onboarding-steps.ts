@@ -83,7 +83,7 @@ export const P0009_ONBOARDING_STEPS: OnboardingStep[] = [
       "Test Connection checks the proxy and the Google Drive API.",
       "Drive deletes go to Google Drive Trash; local deletes go to a timestamped backup folder.",
     ],
-    targetScreen: "system",
-    ctaLabel: "Open System",
+    targetScreen: "dashboard",
+    ctaLabel: "Open Dashboard",
   },
 ];

@@ -2,6 +2,7 @@ import { memo, startTransition, useEffect, useLayoutEffect, useState, type React
 import {
   HubAppLogProvider,
   HubToastShell,
+  HubToolLoadingProvider,
   hubMainShellClassFromManifest,
   useHubActiveScreenSync,
   useHubVisitedTabsLru,
@@ -169,29 +170,35 @@ function DeskApp() {
       activeScreen={screen}
       bootLog={{ scope: "P0001", message: "Desk Console started", screen }}
     >
-      <HubToastShell>
-        <div className="hub-app theme-hub flex h-full min-h-0">
-          <DeskSidebar screen={screen} onNavigate={onNavigate} runnersLocked={runnersLocked} />
-          <main
-            className={hubMainShellClassFromManifest(
-              screen,
-              toolManifest.uiShell as ToolManifestUiShell,
-              "flex flex-col",
-            )}
-          >
-            {SCREENS.map((id) => (
-              <DeskVisitedTabPanel key={id} tabId={id} active={screen === id} visited={visited}>
-                {SCREEN_SLOTS[id]}
-              </DeskVisitedTabPanel>
-            ))}
-            <FolderSyncGuidedTourModal
-              open={guidedTourOpen}
-              onClose={() => setGuidedTourOpen(false)}
-              onSelectScreen={onNavigate}
-            />
-          </main>
-        </div>
-      </HubToastShell>
+      <HubToolLoadingProvider
+        toolCode="P0001"
+        toolName="Desk Console"
+        iconSrc="/icons/tools/P0001.svg"
+      >
+        <HubToastShell>
+          <div className="hub-app theme-hub flex h-full min-h-0">
+            <DeskSidebar screen={screen} onNavigate={onNavigate} runnersLocked={runnersLocked} />
+            <main
+              className={hubMainShellClassFromManifest(
+                screen,
+                toolManifest.uiShell as ToolManifestUiShell,
+                "flex flex-col",
+              )}
+            >
+              {SCREENS.map((id) => (
+                <DeskVisitedTabPanel key={id} tabId={id} active={screen === id} visited={visited}>
+                  {SCREEN_SLOTS[id]}
+                </DeskVisitedTabPanel>
+              ))}
+              <FolderSyncGuidedTourModal
+                open={guidedTourOpen}
+                onClose={() => setGuidedTourOpen(false)}
+                onSelectScreen={onNavigate}
+              />
+            </main>
+          </div>
+        </HubToastShell>
+      </HubToolLoadingProvider>
     </HubAppLogProvider>
   );
 }

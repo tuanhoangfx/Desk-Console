@@ -185,18 +185,18 @@
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.164",
+    "version": "3.1.185",
     "latestPublished": {
-      "tag": "v3.1.139",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.139",
-      "publishedAt": "2026-11-04T09:37:34Z",
+      "tag": "v3.1.183",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.183",
+      "publishedAt": "2026-11-12T10:47:26Z",
       "asset": {
-        "name": "Desk-Console-Setup-3.1.139.exe",
-        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.139/Desk-Console-Setup-3.1.139.exe",
-        "size": 130780083,
-        "sha256": "71b9bce6c948960f8f6d27d488f10cfaa0edc1510c86890a3c28ad54028a8d9d",
-        "sha512": "Xccm/XvpF9Xkh531HA3adpHGfPz0/WRs1qFos4g/mIDGgVf1sXtvpBhK5bsnRpgyNxgsqVhkaMIfYoOQshV2Lg==",
-        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.139/latest.yml"
+        "name": "Desk-Console-Setup-3.1.183.exe",
+        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.183/Desk-Console-Setup-3.1.183.exe",
+        "size": 125254515,
+        "sha256": "814dad09545adb9c748363e436f192824f5c5381ee2028b18f0342e0e0272153",
+        "sha512": "k1D1TbRL0O2JqODPw/MW5GdezgwOrF0rU1+5Zu1DBCzyKEwQTCQtG4Wa/IMyF1HTpXZTRHy2XWZmEwDwMSDiyw==",
+        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.183/latest.yml"
       }
     }
   },
@@ -206,7 +206,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-10T22:25:09.262Z",
+  "manifestUpdatedAt": "2026-11-12T11:44:55.620Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -231,7 +231,7 @@
     "syncedAt": "2026-10-28T17:14:22.333Z"
   },
   "versions": {
-    "latestPublished": "3.1.139",
-    "current": "3.1.164"
+    "latestPublished": "3.1.183",
+    "current": "3.1.185"
   }
 }

@@ -12,7 +12,7 @@ import {
   useDirectorySearchQuery,
   type FilterValues,
 } from "@tool-workspace/hub-ui";
-import { deskApi, type ClipRow } from "../../lib/api";
+import { deskApi, resolveClipImageSrc, type ClipRow } from "../../lib/api";
 import { DESK_SCREEN_TITLE_EMOJI } from "../desk/desk-directory-stickers";
 import {
   clipFormatEmoji,
@@ -134,7 +134,7 @@ export function ClipPickerPage() {
   const activePreviewRow = useMemo(() => {
     const targetId = spacePreviewId || hoveredImageId;
     if (!targetId) return null;
-    return filtered.find((r) => r.id === targetId && Boolean(r.imageDataUrl)) ?? null;
+    return filtered.find((r) => r.id === targetId && Boolean(resolveClipImageSrc(r))) ?? null;
   }, [filtered, hoveredImageId, spacePreviewId]);
 
   const togglePin = async (row: ClipRow) => {
@@ -216,7 +216,7 @@ export function ClipPickerPage() {
       }
       if (!inInput && e.key === " " && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const row = filtered[index];
-        if (row?.imageDataUrl) {
+        if (resolveClipImageSrc(row)) {
           e.preventDefault();
           setSpacePreviewId((cur) => (cur === row.id ? null : row.id));
           return;
@@ -239,7 +239,7 @@ export function ClipPickerPage() {
           const next = Math.min(i + 1, Math.max(filtered.length - 1, 0));
           if (spacePreviewId) {
             const nextRow = filtered[next];
-            setSpacePreviewId(nextRow?.imageDataUrl ? nextRow.id : null);
+            setSpacePreviewId(resolveClipImageSrc(nextRow) ? nextRow.id : null);
           }
           return next;
         });
@@ -251,7 +251,7 @@ export function ClipPickerPage() {
           const next = Math.max(i - 1, 0);
           if (spacePreviewId) {
             const nextRow = filtered[next];
-            setSpacePreviewId(nextRow?.imageDataUrl ? nextRow.id : null);
+            setSpacePreviewId(resolveClipImageSrc(nextRow) ? nextRow.id : null);
           }
           return next;
         });
@@ -322,7 +322,8 @@ export function ClipPickerPage() {
               </p>
             ) : (
               filtered.map((row, i) => {
-                const isImage = Boolean(row.imageDataUrl);
+                const imgSrc = resolveClipImageSrc(row);
+                const isImage = Boolean(imgSrc);
                 const fmtLabel = clipPickerFormat(row);
                 const fmtEmoji = clipFormatEmoji(fmtLabel);
                 return (
@@ -355,7 +356,7 @@ export function ClipPickerPage() {
                     {isImage ? (
                       <div className="flex min-w-0 flex-1 items-center gap-2.5">
                         <img
-                          src={row.imageDataUrl}
+                          src={imgSrc}
                           alt={preview(row)}
                           loading="lazy"
                           decoding="async"
@@ -397,7 +398,7 @@ export function ClipPickerPage() {
                 </span>
               </div>
               <img
-                src={activePreviewRow.imageDataUrl}
+                src={resolveClipImageSrc(activePreviewRow)}
                 alt={preview(activePreviewRow)}
                 decoding="async"
                 className="max-h-56 w-full rounded border border-white/10 bg-black/60 object-contain"

@@ -20,8 +20,11 @@
       "@tool-workspace/hub-ui": ["../../packages/hub-ui/src/index.ts"],
       "@tool-workspace/hub-ui/*": ["../../packages/hub-ui/src/*"],
       "@tool-workspace/hub-identity": ["../../packages/hub-identity/src/index.ts"],
-      "@tool-workspace/hub-identity/*": ["../../packages/hub-identity/src/*"]
+      "@tool-workspace/hub-identity/*": ["../../packages/hub-identity/src/*"],
+      "@tool-workspace/hub-sync-core": ["../../packages/hub-sync-core/src/index.ts"],
+      "@tool-workspace/hub-sync-core/*": ["../../packages/hub-sync-core/src/*"]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

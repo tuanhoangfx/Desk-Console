@@ -1,184 +1,184 @@
 {
-  "generatedAt": "2026-11-08T08:01:42.302Z",
+  "generatedAt": "2026-11-12T11:45:05.183Z",
   "entries": [
     {
-      "version": "3.1.152",
-      "date": "2026-11-08",
-      "at": "2026-11-08T15:01:00+07:00",
-      "title": "Enable hardware GPU acceleration by default in Desk Console",
+      "version": "3.1.185",
+      "date": "2026-11-12",
+      "at": "2026-11-12T18:44:00+07:00",
+      "title": "Ignore resources/rclone/*.exe in git & ship NSIS uninstaller unlock release",
       "bullets": [
-        "Gate app.disableHardwareAcceleration() behind DESK_DISABLE_GPU=1 so Desk Console uses the dedicated GPU instead of CPU SwiftShader software rendering."
+        "Added resources/rclone/*.exe to .gitignore and -SkipInstall/-SkipWorker switches to scripts/release-desktop.ps1."
       ],
       "kind": "improve",
-      "userTitle": "Enable hardware GPU acceleration by default in Desk Console",
+      "userTitle": "Ignore resources rclone *.exe in git & ship NSIS uninstaller unlock r…",
       "userSummary": "",
       "userHighlights": [
-        "Gate app.disable Hardware Acceleration behind DESK DISABLE GPU=1 so Desk Console uses the dedicat…"
+        "Added resources rclone *.exe to .gitignore and -Skip Install -Skip Worker switches to scripts rel…"
       ]
     },
     {
-      "version": "3.1.151",
-      "date": "2026-11-08",
-      "at": "2026-11-08T10:38:00+07:00",
-      "title": "Display Antigravity DB size and Heavy Open Tabs telemetry on PC Hygiene panel",
+      "version": "3.1.184",
+      "date": "2026-11-12",
+      "at": "2026-11-12T18:37:00+07:00",
+      "title": "Accept -SkipInstall & -SkipWorker in release-desktop.ps1 for ship-desktop.ps1 hybrid lane",
       "bullets": [
-        "Enrich readAntigravityBrainStats with openTabCount, sumDbMB, and top 5 openBloatedTabs (title, steps, dbMB, openInIde) and render Heavy Tabs pills on DashboardScreen Cron & PC Hygiene panel."
+        "Added -SkipInstall and -SkipWorker switches to scripts/release-desktop.ps1 so ship-desktop.ps1 -Code P0001 -Lane User runs cleanly."
       ],
       "kind": "improve",
-      "userTitle": "Display Antigravity DB size and Heavy Open Tabs telemetry on PC Hygie…",
+      "userTitle": "Accept -Skip Install & -Skip Worker in release-desktop.ps1 for ship-d…",
       "userSummary": "",
       "userHighlights": [
-        "Enrich read Antigravity Brain Stats with open Tab Count, sum Db MB, and top 5 open Bloated Tabs a…"
+        "Added -Skip Install and -Skip Worker switches to scripts release-desktop.ps1 so ship-desktop.ps1…"
       ]
     },
     {
-      "version": "3.1.150",
-      "date": "2026-11-08",
-      "at": "2026-11-08T10:02:00+07:00",
-      "title": "Enable automatic SQLite trajectory compaction and 48h Claude/Cursor/Antigravity sweep",
+      "version": "3.1.183",
+      "date": "2026-11-12",
+      "at": "2026-11-12T17:45:00+07:00",
+      "title": "Auto-reclaim stale port 53682 OAuth listener, live Callback status dot, 1-click Open in Stealth Profile, and v3.1.182 GitHub Release",
       "bullets": [
-        "Auto-compact closed Antigravity conversations/*.db (>20 MB) by trimming old gen_metadata/executor_metadata and running VACUUM inside the 10-minute background maintenance loop; unify Claude Code transcript retention to 48h."
+        "Reclaim orphaned listeners on 127.0.0.1:53682 via native GetExtendedTcpTable before Google Drive OAuth, expose /api/remotes/authorize/callback-status and /api/remotes/authorize/open-stealth (blocking 8xxx customer profiles), render live Callback status + Open in Stealth in DriveSignInModal, and publish v3.1.182 NSIS installer."
       ],
       "kind": "improve",
-      "userTitle": "Enable automatic SQLite trajectory compaction and 48h Claude Cursor A…",
+      "userTitle": "Auto-reclaim stale port 53682 OAuth listener, live Callback status do…",
       "userSummary": "",
       "userHighlights": [
-        "Auto-compact closed Antigravity conversations *.db by trimming old gen metadata executor metadata…"
+        "Reclaim orphaned listeners on 127.0.0.1:53682 via native Get Extended Tcp Table before Google Dri…"
       ]
     },
     {
-      "version": "3.1.149",
-      "date": "2026-11-08",
-      "at": "2026-11-08T09:49:00+07:00",
-      "title": "Lower Antigravity & Cursor chat retention threshold to 48h (2 days)",
+      "version": "3.1.182",
+      "date": "2026-11-12",
+      "at": "2026-11-12T17:29:00+07:00",
+      "title": "Eliminate stale app.asar.unpacked hijack and harden Drive OAuth host-fetch recovery",
       "bullets": [
-        "Update sweepAntigravityStaleTranscripts, cursor-chat-auto-prune.mjs, and prune-agent-transcripts.mjs to enforce a 48h (2-day) retention threshold and hard max-age cleanup for closed conversations."
+        "Removed stale resources/app.asar.unpacked during unpacked assembly, guarded electron/main.cjs hostCwd/hostEntry/distRoot against stale unpacked folders, lowered host respawn delay to 300ms, and added direct loopback :6010 fallback + 4.6s retry window in fetchDeskHost."
       ],
       "kind": "improve",
-      "userTitle": "Lower Antigravity & Cursor chat retention threshold to 48h",
+      "userTitle": "Eliminate stale app.asar.unpacked hijack and harden Drive OAuth host-…",
       "userSummary": "",
       "userHighlights": [
-        "Update sweep Antigravity Stale Transcripts, , and to enforce a 48h retention threshold and hard m…"
+        "Removed stale resources app.asar.unpacked during unpacked assembly, guarded host Cwd host Entry d…"
       ]
     },
     {
-      "version": "3.1.148",
-      "date": "2026-11-08",
-      "at": "2026-11-08T03:31:00+07:00",
-      "title": "Sync Antigravity conversation_summaries.db pruning and rebalance IDE/LSP CPU priorities",
+      "version": "3.1.181",
+      "date": "2026-11-12",
+      "at": "2026-11-12T16:47:00+07:00",
+      "title": "Fix Google Drive OAuth sign-in on fresh PCs (GG0001) and auto-recover local host (:6010) on transient fetch failures",
       "bullets": [
-        "Prune stale and ghost rows from ~/.gemini/antigravity/conversation_summaries.db + conversations_fts alongside brain/, conversations/, annotations/, and presence/; rebalance Antigravity.exe to ABOVE_NORMAL and language_server.exe to NORMAL while demoting LS-spawned background tool shells/builds to BELOW_NORMAL excluding Cores 0-3."
+        "Stage git-ignored host/oauth-client.runtime.json during assemble/package so packaged Desk Console resolves the Google Desktop OAuth client on fresh PCs without .env.local; add desk:ensure-host IPC + fetchDeskHost auto-retry recovery across sync-api.ts and api.ts; default standalone Vite :5180 proxy to :6010 when DESK_DEV_ISOLATED!=1."
       ],
-      "kind": "improve",
-      "userTitle": "Sync Antigravity conversation summaries.db pruning and rebalance IDE…",
+      "kind": "fix",
+      "userTitle": "Fix Google Drive OAuth sign-in on fresh PCs and auto-recover local ho…",
       "userSummary": "",
       "userHighlights": [
-        "Prune stale and ghost rows from ~ .gemini antigravity conversation summaries.db + conversations f…"
+        "Stage git-ignored host oauth-client.runtime.json during assemble package so packaged Desk Console…"
       ]
     },
     {
-      "version": "3.1.147",
-      "date": "2026-11-08",
-      "at": "2026-11-08T03:03:00+07:00",
-      "title": "Hot-reload Desk Console, restore User Chrome NORMAL_PRIORITY_CLASS, and add orphan-reaper-audit.jsonl",
+      "version": "3.1.180",
+      "date": "2026-11-12",
+      "at": "2026-11-12T15:17:00+07:00",
+      "title": "NSIS Uninstall.exe upgrade unlock & Update Release modal user download/guide chips",
       "bullets": [
-        "Restore NORMAL_PRIORITY_CLASS on User Headed Chrome and desktop UI apps, relax consolePopupGuardTimer to 1500ms, and write audit records to orphan-reaper-audit.jsonl."
+        "Added build/installer.nsh + nsis-uninstaller-unlock.nsh, synced desktop-host-kit.cjs, and wired userDownloadUrl + introUrl into Update Release modal."
       ],
       "kind": "improve",
-      "userTitle": "Hot-reload Desk Console, restore User Chrome NORMAL PRIORITY CLASS, a…",
+      "userTitle": "NSIS Uninstall.exe upgrade unlock & Update Release modal user downloa…",
       "userSummary": "",
       "userHighlights": [
-        "Restore NORMAL PRIORITY CLASS on User Headed Chrome and desktop UI apps, relax console Popup Guar…"
+        "Added build installer.nsh + nsis-uninstaller-unlock.nsh, synced , and wired user Download Url + i…"
       ]
     },
     {
-      "version": "3.1.146",
-      "date": "2026-11-08",
-      "at": "2026-11-08T02:42:00+07:00",
-      "title": "Delay rclone boot sync to 180s uptime and protect active Antigravity session steps & parent PIDs",
+      "version": "3.1.179",
+      "date": "2026-11-12",
+      "at": "2026-11-12T14:52:00+07:00",
+      "title": "Eliminate post-reboot IDC_APPSTARTING cursor spin, rclone/conhost churn, and idle Vite boot stampede",
       "bullets": [
-        "Extend rclone boot cooldown to 180s after Windows boot, remove premature RAM-based Vite termination and ppid cascade kill, and guard active Antigravity conversation steps."
+        "Spawn hidden child processes with CUI node.exe + DETACHED_PROCESS (zero nodew.exe IDC_APPSTARTING spin and zero conhost.exe spawns), gate Runner Watchdog recovery on active 30m .vite-active-lease.txt without resetting idle timers via HTTP GET, add 120s cadence + 90s cache to Drive lsjson polling, and enforce 3m farm respawn backoff."
       ],
       "kind": "improve",
-      "userTitle": "Delay rclone boot sync to 180s uptime and protect active Antigravity…",
+      "userTitle": "Eliminate post-reboot IDC APPSTARTING cursor spin, rclone conhost chu…",
       "userSummary": "",
       "userHighlights": [
-        "Extend rclone boot cooldown to 180s after Windows boot, remove premature RAM-based Vite terminati…"
+        "Spawn hidden child processes with CUI node.exe + DETACHED PROCESS , gate Runner Watchdog recovery…"
       ]
     },
     {
-      "version": "3.1.145",
-      "date": "2026-11-06",
-      "at": "2026-11-06T20:13:00+07:00",
-      "title": "Standardize Vitest maxWorkers to unified cap of 3",
+      "version": "3.1.178",
+      "date": "2026-11-12",
+      "at": "2026-11-12T05:07:00+07:00",
+      "title": "Zero-PowerShell native Win32 dev Electron orchestrator checks in dev-desktop-process.mjs",
       "bullets": [
-        "Set test.maxWorkers = 3 in vite.config.ts to enforce the unified 3-worker ceiling."
+        "Wire readProcessCommandLine and killOrphanDevElectron in dev-desktop-process.mjs to shared win-native-proc-net.mjs NtQueryInformationProcess and Toolhelp32Snapshot."
       ],
       "kind": "improve",
-      "userTitle": "Standardize Vitest max Workers to unified cap of 3",
+      "userTitle": "Zero-Power Shell native Win32 dev Electron orchestrator checks in",
       "userSummary": "",
       "userHighlights": [
-        "Set test.max Workers = 3 in to enforce the unified 3-worker ceiling."
+        "Wire read Process Command Line and kill Orphan Dev Electron in to shared Nt Query Information Pro…"
       ]
     },
     {
-      "version": "3.1.144",
-      "date": "2026-11-06",
-      "at": "2026-11-06T19:52:00+07:00",
-      "title": "45s boot cooldown & serialized rclone remote polling",
+      "version": "3.1.177",
+      "date": "2026-11-12",
+      "at": "2026-11-12T04:50:00+07:00",
+      "title": "Zero-PowerShell native Win32 exe folder lock killer in assemble-unpacked and run-electron-package",
       "bullets": [
-        "Add 45s boot cooldown when os.uptime() < 90s and serialize listRemoteFiles rclone lsjson --recursive in host/server.mjs and host/drive-inventory.mjs."
+        "Wire assemble-unpacked.mjs and run-electron-package.mjs lock cleanup to shared win-native-proc-net.mjs QueryFullProcessImageNameW + NtQueryInformationProcess (< 100ms, 0 PowerShell spawns)."
       ],
       "kind": "improve",
-      "userTitle": "45s boot cooldown & serialized rclone remote polling",
+      "userTitle": "Zero-Power Shell native Win32 exe folder lock killer in assemble-unpa…",
       "userSummary": "",
       "userHighlights": [
-        "Add 45s boot cooldown when os.uptime < 90s and serialize list Remote Files rclone lsjson --recurs…"
+        "Wire and lock cleanup to shared Query Full Process Image Name W + Nt Query Information Process ."
       ]
     },
     {
-      "version": "3.1.143",
-      "date": "2026-11-06",
-      "at": "2026-11-06T18:04:00+07:00",
-      "title": "Chokidar server.watch.ignored path predicate for zero idle IOPS",
+      "version": "3.1.176",
+      "date": "2026-11-12",
+      "at": "2026-11-12T03:32:00+07:00",
+      "title": "Native iphlpapi GetExtendedTcpTable stopRunner (<1ms, 0 PowerShell)",
       "bullets": [
-        "Replace glob array in vite.config.ts server.watch.ignored with backslash-normalized path predicate function to prevent Chokidar lstat storms on Windows."
+        "Replaced PowerShell Get-NetTCPConnection in host/runners.mjs stopRunner with native Win32 iphlpapi!GetExtendedTcpTable (IPv4 + IPv6 TCP_TABLE_OWNER_PID_LISTENER) via koffi."
       ],
       "kind": "improve",
-      "userTitle": "Chokidar server.watch.ignored path predicate for zero idle IOPS",
+      "userTitle": "Native iphlpapi Get Extended Tcp Table stop Runner",
       "userSummary": "",
       "userHighlights": [
-        "Replace glob array in server.watch.ignored with backslash-normalized path predicate function to p…"
+        "Replaced Power Shell Get-Net TCPConnection in stop Runner with native Win32 iphlpapi!Get Extended…"
       ]
     },
     {
-      "version": "3.1.142",
-      "date": "2026-11-05",
-      "at": "2026-11-05T05:07:00+07:00",
-      "title": "Preserve tracked Stealth headless browsers during Smoke Pool cleanup",
+      "version": "3.1.175",
+      "date": "2026-11-12",
+      "at": "2026-11-12T01:42:00+07:00",
+      "title": "TypeScript zero-error parity, HubToolLoadingProvider, and 14/14 hub-ssot-wave-gate enrollment",
       "bullets": [
-        "Update inspectSmokePoolBrowsers in pc-optimizer.mjs to exclude profiles and debug ports actively tracked by Stealth API :6003"
+        "Healed all TypeScript errors across 15 files without casts, wired HubToolLoadingProvider in App.tsx, added tsc --noEmit to scripts.typecheck, and enrolled P0001 into HUB_SSOT_UI_SHELL_CODES (14/14 PASS)."
       ],
       "kind": "improve",
-      "userTitle": "Preserve tracked Stealth headless browsers during Smoke Pool cleanup",
+      "userTitle": "Type Script zero-error parity, Hub Tool Loading Provider, and 14 14 h…",
       "userSummary": "",
       "userHighlights": [
-        "Update inspect Smoke Pool Browsers in to exclude profiles and debug ports actively tracked by Ste…"
+        "Healed all Type Script errors across 15 files without casts, wired Hub Tool Loading Provider in ,…"
       ]
     },
     {
-      "version": "3.1.141",
-      "date": "2026-11-04",
-      "at": "2026-11-04T22:41:00+07:00",
-      "title": "Recognize chrome-headless.exe in PC Optimizer & Sync Prod Host",
+      "version": "3.1.174",
+      "date": "2026-11-12",
+      "at": "2026-11-12T01:41:00+07:00",
+      "title": "Async singleflight runBrowseFolderWinAsync on :6010",
       "bullets": [
-        "Update pc-optimizer.mjs process matcher for chrome-headless.exe alongside chrome.exe and sync directly to installed Desk Console Prod host directory"
+        "Replaced blocking spawnSync PowerShell FolderBrowserDialog in host/server.mjs with non-blocking execFile + _browseFolderSingleflight coalescing so :6010 stays responsive while folder dialog is open."
       ],
       "kind": "improve",
-      "userTitle": "Recognize chrome-headless.exe in PC Optimizer & Sync Prod Host",
+      "userTitle": "Async singleflight run Browse Folder Win Async on :6010",
       "userSummary": "",
       "userHighlights": [
-        "Update process matcher for chrome-headless.exe alongside chrome.exe and sync directly to installe…"
+        "Replaced blocking spawn Sync Power Shell Folder Browser Dialog in with non-blocking exec File + b…"
       ]
     }
   ]

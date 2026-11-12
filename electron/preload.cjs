@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("deskConsole", {
   apiOrigin: `http://127.0.0.1:${process.env.DESK_API_PORT || 6010}`,
   isDev: Boolean(process.env.VITE_DEV_SERVER_URL),
   appVersion: process.env.DESK_APP_VERSION || "",
+  ensureHost: () => ipcRenderer.invoke("desk:ensure-host"),
   openPicker: () => ipcRenderer.invoke("desk-picker-open"),
   closePicker: () => ipcRenderer.send("desk-picker-close"),
   rebindHotkeys: () => ipcRenderer.invoke("desk-hotkeys-rebind"),

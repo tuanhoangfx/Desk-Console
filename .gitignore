@@ -25,6 +25,7 @@ Thumbs.db
 
 # SSOT binary & build artifact guards
 release/
+resources/rclone/*.exe
 *.tsbuildinfo
 .runtime/
 .logs/
@@ -32,5 +33,6 @@ release/
 .tmp/
 .*.env.json
 desk-host.env.json
+host/oauth-client.runtime.json
 .*.pid
 .*.state.json

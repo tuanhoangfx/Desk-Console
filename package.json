@@ -1,6 +1,6 @@
 {
   "name": "desk-console",
-  "version": "3.1.164",
+  "version": "3.1.185",
   "private": true,
   "description": "Standalone desktop host for clips, runners, and Dev-* tasks.",
   "author": "Desk Console",
@@ -25,14 +25,16 @@
     "desktop:release": "powershell -ExecutionPolicy Bypass -File scripts/release-desktop.ps1",
     "build": "node node_modules/vite/bin/vite.js build",
     "preview": "vite preview --host 127.0.0.1 --port 4180",
-    "typecheck": "node --test host/desk-host.test.mjs",
+    "typecheck": "node ../scripts/run-script-chain.cjs -- node ./node_modules/typescript/bin/tsc --noEmit -- node --test host/desk-host.test.mjs",
     "test": "node --test host/desk-host.test.mjs",
     "lint": "node ../scripts/run-script-chain.cjs -- node ../scripts/hub-vite-alias-check.mjs --code P0001",
+    "deadcode": "node ../P0020-Data-Box/node_modules/knip/bin/knip.js --no-config-hints",
     "sync:hub-ui": "node scripts/sync-vendor-hub-ui.mjs"
   },
   "dependencies": {
     "@koromix/koffi-win32-x64": "3.1.6",
     "@supabase/supabase-js": "2.49.1",
+    "@tool-workspace/hub-sync-core": "workspace:*",
     "@tool-workspace/hub-ui": "workspace:*",
     "@vitejs/plugin-react": "^5.1.1",
     "cross-env": "^10.1.0",

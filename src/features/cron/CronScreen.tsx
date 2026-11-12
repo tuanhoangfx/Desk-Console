@@ -4,6 +4,7 @@ import {
   emitHubAppLog,
   useHubToast,
   type HubDirectoryBulkMoreAction,
+  type HubRichToastInput,
   type HubUsersStatusTone,
 } from "@tool-workspace/hub-ui";
 import { deskApi, type TaskRow } from "../../lib/api";
@@ -19,10 +20,10 @@ const POLL_IDLE_MS = 45_000;
 const ACTION_SETTLE_MS = 2_500;
 
 function taskStatusTone(status: string): HubUsersStatusTone {
-  if (/active|ready/i.test(status)) return "emerald";
-  if (/running|starting/i.test(status)) return "amber";
-  if (/disabled/i.test(status)) return "slate";
-  return "rose";
+  if (/active|ready/i.test(status)) return "online";
+  if (/running|starting/i.test(status)) return "active";
+  if (/disabled/i.test(status)) return "idle";
+  return "offline";
 }
 
 function parseTaskRunIso(raw: string): string {
@@ -86,8 +87,8 @@ function taskToDeskRow(
     status,
     statusTone: inFlight
       ? inFlight.action === "stopping"
-        ? "rose"
-        : "amber"
+        ? "idle"
+        : "active"
       : taskStatusTone(normalizedStatus),
     extra: `task · ${engineTag} · ${telemetryPrefix ? `${telemetryPrefix} · ` : ""}${detailText}`,
     log: row.lastSummary || (telemetryPrefix ? `${telemetryPrefix} · ${detailText}` : detailText),
@@ -104,7 +105,13 @@ function taskToDeskRow(
 }
 
 export function CronScreen({ tabActive = true }: { tabActive?: boolean }) {
-  const { pushToast } = useHubToast();
+  const toast = useHubToast();
+  const pushToast = useCallback(
+    (input: HubRichToastInput) => {
+      toast?.pushRichToast(input);
+    },
+    [toast],
+  );
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -262,9 +269,9 @@ export function CronScreen({ tabActive = true }: { tabActive?: boolean }) {
 
   const opsHandlers = useMemo<DeskOpsCellHandlers>(
     () => ({
-      onFocus: (id) => setSelectedId(id),
+      onFocus: (id: string) => setSelectedId(id),
       onRun: runCronById,
-      onDisable: (id) => toggleCronEnabled(id, false),
+      onDisable: (id: string) => toggleCronEnabled(id, false),
       pendingIds,
     }),
     [pendingIds, runCronById, toggleCronEnabled],
@@ -319,21 +326,21 @@ export function CronScreen({ tabActive = true }: { tabActive?: boolean }) {
   const moreActions = useCallback(
     ({ ids, hasSelection }: { ids: string[]; hasSelection: boolean }): HubDirectoryBulkMoreAction[] => [
       {
-        id: "run-now",
+        key: "run-now",
         label: "Start / Run Now",
         icon: Play,
         disabled: !hasSelection,
         onClick: () => void runBatch(ids, "run"),
       },
       {
-        id: "enable",
+        key: "enable",
         label: "Enable Selected",
         icon: CheckCircle2,
         disabled: !hasSelection,
         onClick: () => void runBatch(ids, "enable"),
       },
       {
-        id: "disable",
+        key: "disable",
         label: "Disable Selected",
         icon: PowerOff,
         disabled: !hasSelection,

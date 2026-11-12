@@ -32,6 +32,7 @@ import { useHostHeaderStats } from "../../hooks/useHostHeaderStats";
 import { applyDrivesDirectoryFilterHints } from "../../lib/folder-sync-directory-column-hints";
 import { remoteNameFromSpec } from "../../lib/remote-name";
 import { navScreenChrome } from "../../lib/nav-structure";
+import { readCachedP0001Jobs, reconcileP0001JobsDelta } from "../../lib/p0001-desk-mirror-store";
 import {
   createJob,
   deleteDriveAccount,
@@ -135,8 +136,8 @@ function driveDateRow(account: DriveAccount) {
 /** Drive accounts that finished Google OAuth. Jobs pick from this list. */
 export function DrivesScreen() {
   const { accounts, error, reload } = useDriveAccounts();
-  const [jobs, setJobs] = useState<SyncJob[]>([]);
-  const [jobsReady, setJobsReady] = useState(false);
+  const [jobs, setJobs] = useState<SyncJob[]>(() => readCachedP0001Jobs());
+  const [jobsReady, setJobsReady] = useState(() => readCachedP0001Jobs().length > 0);
   const search = useDirectorySearchQuery(DIRECTORY_SEARCH_CLIENT_FILTER_OPTS);
   const [filterValues, setFilterValues] = useState<FilterValues>({});
   const [viewMode, setViewMode] = useState<HubViewMode>("table");
@@ -156,19 +157,19 @@ export function DrivesScreen() {
     let cancelled = false;
     const unsub = subscribeSyncEvents((nextJobs) => {
       if (cancelled) return;
-      setJobs(nextJobs || []);
+      setJobs((prev) => reconcileP0001JobsDelta(prev, nextJobs || []).rows);
       setJobsReady(true);
     });
     const pullJobs = () => {
       void fetchJobs()
         .then((data) => {
           if (cancelled) return;
-          setJobs(data.jobs || []);
+          setJobs((prev) => reconcileP0001JobsDelta(prev, data.jobs || []).rows);
           setJobsReady(true);
         })
         .catch(() => {
           if (!cancelled) {
-            setJobs([]);
+            setJobs((prev) => (prev.length ? prev : []));
             setJobsReady(true);
           }
         });

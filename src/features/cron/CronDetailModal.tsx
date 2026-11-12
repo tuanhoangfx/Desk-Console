@@ -369,15 +369,21 @@ export function CronDetailModal({ row, busy = false, onRun, onToggleEnable, onUp
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <HubBulkActionButton
-                      icon={Play}
+                      icon={<Play size={13} aria-hidden />}
                       label="Run Now"
+                      title="Trigger immediate execution of this cron task"
                       tone="emerald"
                       disabled={busy || saving}
                       onClick={() => onRun(row.id)}
                     />
                     <HubBulkActionButton
-                      icon={isDisabled ? CheckCircle2 : PowerOff}
+                      icon={isDisabled ? <CheckCircle2 size={13} aria-hidden /> : <PowerOff size={13} aria-hidden />}
                       label={isDisabled ? "Enable Immediately" : "Disable Immediately"}
+                      title={
+                        isDisabled
+                          ? "Enable this scheduled cron task immediately"
+                          : "Disable this scheduled cron task immediately"
+                      }
                       tone={isDisabled ? "emerald" : "rose"}
                       disabled={busy || saving}
                       onClick={() => onToggleEnable(row.id, isDisabled)}

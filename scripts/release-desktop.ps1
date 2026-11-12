@@ -1,8 +1,10 @@
-param(
+﻿param(
   [string]$Version = "",
   [ValidateSet("", "patch", "minor", "major")]
   [string]$Bump = "",
   [switch]$Publish,
+  [switch]$SkipInstall,
+  [switch]$SkipWorker,
   [switch]$Fast,
   [switch]$Dir,
   [switch]$Smoke,

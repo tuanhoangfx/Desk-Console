@@ -7,7 +7,11 @@ const http = require("node:http");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { applyDeskDevPaths } = require("./lib/user-data-boot.cjs");
-const { readPickerSnapshot, snapshotSignature } = require("./picker-store.cjs");
+const {
+  readPickerSnapshot,
+  readPickerClipMediaBuffer,
+  snapshotSignature,
+} = require("./picker-store.cjs");
 const {
   applyPickerWindowRegion,
   captureForegroundHwnd,
@@ -117,7 +121,7 @@ function refreshPickerSnapshot(force) {
     const sig = snapshotSignature();
     if (!force && sig === lastPickerSig && lastPicker.rows.length) return lastPicker;
     lastPickerSig = sig;
-    lastPicker = readPickerSnapshot();
+    lastPicker = readPickerSnapshot({ summary: true, apiPort: API_PORT });
   } catch {
     /* keep last */
   }
@@ -131,9 +135,22 @@ function pushPickerData() {
 
 function probeHealth() {
   return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${API_PORT}/api/health`, { timeout: 800 }, (res) => {
-      res.resume();
-      resolve(res.statusCode === 200);
+    const req = http.get(`http://127.0.0.1:${API_PORT}/api/health`, { timeout: 1000 }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        resolve(false);
+        return;
+      }
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => {
+        try {
+          const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+          resolve(Boolean(parsed && parsed.ok === true && (parsed.code === "P0001" || parsed.name === "Desk Console")));
+        } catch {
+          resolve(false);
+        }
+      });
     });
     req.on("error", () => resolve(false));
     req.on("timeout", () => {
@@ -145,12 +162,16 @@ function probeHealth() {
 
 function hostEntry() {
   const packed = path.join(__dirname, "..", "host", "server.mjs");
+  if (!__dirname.includes("app.asar")) return packed;
   const unpacked = packed.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
   return fs.existsSync(unpacked) ? unpacked : packed;
 }
 
 /** Real filesystem root for spawn cwd — never `app.asar` (Windows CreateProcess → ENOENT). */
 function hostCwd() {
+  if (!__dirname.includes("app.asar")) {
+    return path.join(__dirname, "..");
+  }
   if (app.isPackaged) {
     const unpacked = path.join(process.resourcesPath, "app.asar.unpacked");
     if (fs.existsSync(unpacked)) return unpacked;
@@ -161,6 +182,7 @@ function hostCwd() {
 
 function distRoot() {
   const packed = path.join(__dirname, "..", "dist");
+  if (!__dirname.includes("app.asar")) return packed;
   const unpacked = packed.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
   if (fs.existsSync(path.join(unpacked, "index.html"))) return unpacked;
   if (fs.existsSync(path.join(packed, "index.html"))) return packed;
@@ -175,60 +197,73 @@ function bundledRclonePath() {
 }
 
 let hostRespawnTimer = null;
+let ensureHostInflight = null;
 
 async function ensureHost() {
-  if (await probeHealth()) return;
-  const rclone = bundledRclonePath();
-  const dist = distRoot();
-  const child = spawn(process.execPath, [hostEntry()], {
-    cwd: hostCwd(),
-    detached: false,
-    stdio: ["ignore", "ignore", "pipe"],
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: "1",
-      DESK_API_PORT: String(API_PORT),
-      FOLDER_SYNC_API_PORT: String(API_PORT),
-      RCLONE_PATH: rclone,
-      FOLDER_SYNC_DIST: dist,
-      FOLDER_SYNC_RESOURCES: app.isPackaged
-        ? process.resourcesPath
-        : path.join(__dirname, "..", "resources"),
-    },
-    windowsHide: true,
-  });
-  hostChild = child;
-  let errTail = "";
-  child.stderr?.on("data", (chunk) => {
-    errTail = (errTail + String(chunk)).slice(-4000);
-  });
-  child.on("exit", (code, sig) => {
-    if (errTail.trim()) {
-      try {
-        const logFile = path.join(app.getPath("userData"), "host-boot.log");
-        fs.appendFileSync(
-          logFile,
-          `[${new Date().toISOString()}] exit=${code ?? sig}\n${errTail.trim()}\n\n`,
-          "utf8",
-        );
-      } catch {
-        /* ignore log write failure */
-      }
-    }
-    if (!app.isQuiting && hostChild === child) {
-      if (hostRespawnTimer) clearTimeout(hostRespawnTimer);
-      hostRespawnTimer = setTimeout(() => {
-        hostRespawnTimer = null;
-        if (!app.isQuiting) void ensureHost();
-      }, 1500);
-      hostRespawnTimer.unref?.();
-    }
-  });
-  const deadline = Date.now() + 8000;
-  while (Date.now() < deadline) {
-    if (await probeHealth()) return;
-    await new Promise((r) => setTimeout(r, 200));
+  if (hostRespawnTimer) {
+    clearTimeout(hostRespawnTimer);
+    hostRespawnTimer = null;
   }
+  if (await probeHealth()) return true;
+  if (ensureHostInflight) return ensureHostInflight;
+  ensureHostInflight = (async () => {
+    if (await probeHealth()) return true;
+    const rclone = bundledRclonePath();
+    const dist = distRoot();
+    const child = spawn(process.execPath, [hostEntry()], {
+      cwd: hostCwd(),
+      detached: false,
+      stdio: ["ignore", "ignore", "pipe"],
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
+        DESK_API_PORT: String(API_PORT),
+        FOLDER_SYNC_API_PORT: String(API_PORT),
+        RCLONE_PATH: rclone,
+        FOLDER_SYNC_DIST: dist,
+        FOLDER_SYNC_RESOURCES: app.isPackaged
+          ? process.resourcesPath
+          : path.join(__dirname, "..", "resources"),
+      },
+      windowsHide: true,
+    });
+    hostChild = child;
+    let errTail = "";
+    child.stderr?.on("data", (chunk) => {
+      errTail = (errTail + String(chunk)).slice(-4000);
+    });
+    child.on("exit", (code, sig) => {
+      if (errTail.trim()) {
+        try {
+          const logFile = path.join(app.getPath("userData"), "host-boot.log");
+          fs.appendFileSync(
+            logFile,
+            `[${new Date().toISOString()}] exit=${code ?? sig}\n${errTail.trim()}\n\n`,
+            "utf8",
+          );
+        } catch {
+          /* ignore log write failure */
+        }
+      }
+      if (!app.isQuiting && hostChild === child) {
+        if (hostRespawnTimer) clearTimeout(hostRespawnTimer);
+        hostRespawnTimer = setTimeout(() => {
+          hostRespawnTimer = null;
+          if (!app.isQuiting) void ensureHost();
+        }, 300);
+        hostRespawnTimer.unref?.();
+      }
+    });
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      if (await probeHealth()) return true;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    return probeHealth();
+  })().finally(() => {
+    ensureHostInflight = null;
+  });
+  return ensureHostInflight;
 }
 
 function distIndexPath() {
@@ -906,8 +941,27 @@ function writeClipToSystemClipboard(rowId, text, imageDataUrl) {
       lastElectronClipImgHash = hash;
       clipboard.writeImage(img);
       lastElectronClipSeq = getClipboardSequenceNumber();
-      api("/api/clips/clipboard/prime", "POST", { imageDataUrl: imgUrl, electronWatch: true }).catch(() => {});
+      api("/api/clips/clipboard/prime", "POST", { electronWatch: true }).catch(() => {});
       return { ok: true, isImage: true };
+    }
+  } else if (
+    stored?.hasImage ||
+    stored?.contentType === "image" ||
+    stored?.imageMediaFile
+  ) {
+    const diskPngBuf = readPickerClipMediaBuffer(stored);
+    if (diskPngBuf && diskPngBuf.length > 0) {
+      const img = nativeImage.createFromBuffer(diskPngBuf);
+      if (!img.isEmpty()) {
+        const canonicalPng = img.toPNG();
+        const hash = crypto.createHash("sha256").update(canonicalPng).digest("hex");
+        ignoreElectronClipImgHash = hash;
+        lastElectronClipImgHash = hash;
+        clipboard.writeImage(img);
+        lastElectronClipSeq = getClipboardSequenceNumber();
+        api("/api/clips/clipboard/prime", "POST", { electronWatch: true }).catch(() => {});
+        return { ok: true, isImage: true };
+      }
     }
   }
   if (!clipText) return { ok: false, error: "Missing clip content" };
@@ -1077,6 +1131,10 @@ ipcMain.handle("desk-clip-pin", async (_event, rowId, pinned) => {
 ipcMain.handle("desk-hotkeys-rebind", async () => {
   const keys = await bindShortcuts();
   return { ok: true, ...keys };
+});
+ipcMain.handle("desk:ensure-host", async () => {
+  const ok = await ensureHost();
+  return { ok: Boolean(ok), apiOrigin: `http://127.0.0.1:${API_PORT}` };
 });
 ipcMain.handle("desk-prefs-login", async (_event, next) => {
   if (typeof next === "boolean") {

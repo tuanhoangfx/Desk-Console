@@ -21,7 +21,9 @@ import {
   authorizeRemote,
   cancelAuthorizeRemote,
   fetchAuthorizeSession,
+  fetchDriveOauthCallbackStatus,
   fetchDriveStatus,
+  openDriveOauthInStealth,
 } from "../../lib/sync-api";
 
 type Props = {
@@ -55,6 +57,9 @@ export function DriveSignInModal({
   const [autoCopied, setAutoCopied] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [callbackListening, setCallbackListening] = useState(false);
+  const [callbackPortBusy, setCallbackPortBusy] = useState(false);
+  const [reclaimedPid, setReclaimedPid] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pollGen = useRef(0);
   const onSignedInRef = useRef(onSignedIn);
@@ -74,6 +79,9 @@ export function DriveSignInModal({
       setWaitingConsent(false);
       setConnectedEmail(null);
       setAutoCopied(false);
+      setCallbackListening(false);
+      setCallbackPortBusy(false);
+      setReclaimedPid(null);
       setError(null);
       setHint(null);
       setAuthUrl(null);
@@ -82,6 +90,8 @@ export function DriveSignInModal({
         if (pollGen.current !== gen) return;
         const url = auth.authUrl || null;
         setAuthUrl(url);
+        setCallbackListening(Boolean(auth.callbackListening ?? Boolean(url)));
+        setReclaimedPid(auth.reclaimedCallbackPid ?? null);
         if (url) {
           try {
             await navigator.clipboard.writeText(url);
@@ -106,6 +116,7 @@ export function DriveSignInModal({
               finished = exitCode != null;
               if (finished && exitCode !== 0) {
                 setWaitingConsent(false);
+                setCallbackListening(false);
                 setError("Google sign-in was cancelled or failed. Click New link to try again.");
                 return;
               }
@@ -117,6 +128,7 @@ export function DriveSignInModal({
             const status = await fetchDriveStatus(clean);
             if (status.authorized) {
               setWaitingConsent(false);
+              setCallbackListening(false);
               setConnectedEmail(status.email || clean);
               setHint(`Connected${status.email ? ` · ${status.email}` : ""}.`);
               onSignedInRef.current();
@@ -128,7 +140,16 @@ export function DriveSignInModal({
         }
       } catch (e) {
         if (pollGen.current === gen) {
-          setError(e instanceof Error ? e.message : String(e));
+          const msg = e instanceof Error ? e.message : String(e);
+          setError(msg);
+          void fetchDriveOauthCallbackStatus()
+            .then((cb) => {
+              if (pollGen.current === gen) {
+                setCallbackListening(Boolean(cb.listening));
+                setCallbackPortBusy(Boolean(cb.portBusy));
+              }
+            })
+            .catch(() => undefined);
         }
       } finally {
         if (pollGen.current === gen) {
@@ -225,7 +246,27 @@ export function DriveSignInModal({
               />
             </HubAdmReadonlyField>
             <HubAdmReadonlyField header={{ label: "Callback", headerEmoji: "🔌" }} valueLayout="inline">
-              <span className="font-mono text-xs text-white/75">127.0.0.1:53682</span>
+              <div className="inline-flex items-center gap-1.5">
+                <span
+                  className={
+                    callbackListening
+                      ? "hub-users-status-dot hub-users-status-dot--online"
+                      : callbackPortBusy
+                        ? "hub-users-status-dot hub-users-status-dot--offline"
+                        : "hub-users-status-dot hub-users-status-dot--idle"
+                  }
+                  aria-hidden
+                />
+                <HubDirectoryCopyText
+                  value="127.0.0.1:53682"
+                  copyToastLabel="Callback address copied"
+                />
+                {reclaimedPid ? (
+                  <span className="rounded border border-emerald-400/30 bg-emerald-500/10 px-1 py-0.5 text-[10px] text-emerald-200">
+                    Healed PID {reclaimedPid}
+                  </span>
+                ) : null}
+              </div>
             </HubAdmReadonlyField>
           </HubDetailFieldRow>
         </HubDetailFieldsGroup>
@@ -279,6 +320,7 @@ export function DriveSignInModal({
               autoCopied={autoCopied}
               busy={busy}
               onRegenerate={() => void signIn()}
+              onOpenStealth={(profileCode) => openDriveOauthInStealth(profileCode, authUrl)}
             />
           ) : !busy ? (
             <div>

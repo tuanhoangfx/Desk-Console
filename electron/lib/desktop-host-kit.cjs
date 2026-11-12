@@ -181,22 +181,53 @@ function downloadFileWithProgress(url, destPath, onProgress, userAgent = "Hub-De
         }
         const total = Number.parseInt(res.headers["content-length"] || "0", 10) || 0;
         let transferred = 0;
-        const out = fs.createWriteStream(destPath);
+        const partPath = `${destPath}.${process.pid}.${Date.now()}.part`;
+        const cleanupPart = () => {
+          try {
+            if (fs.existsSync(partPath)) fs.unlinkSync(partPath);
+          } catch {
+            /* ignore */
+          }
+        };
+        fs.mkdirSync(path.dirname(destPath), { recursive: true });
+        const out = fs.createWriteStream(partPath);
         res.on("data", (chunk) => {
           transferred += chunk.length;
           const percent = total > 0 ? Math.min(99, Math.round((transferred / total) * 100)) : 50;
           onProgress?.({ percent, transferred, total });
         });
+        res.on("error", (err) => {
+          out.destroy();
+          cleanupPart();
+          reject(err);
+        });
         res.pipe(out);
         out.on("finish", () => {
-          out.close(() => resolve(destPath));
+          out.close(() => {
+            try {
+              if (fs.existsSync(destPath)) {
+                try {
+                  fs.unlinkSync(destPath);
+                } catch {
+                  fs.renameSync(destPath, `${destPath}.stale.${Date.now()}`);
+                }
+              }
+              fs.renameSync(partPath, destPath);
+              resolve(destPath);
+            } catch (err) {
+              try {
+                fs.copyFileSync(partPath, destPath);
+                cleanupPart();
+                resolve(destPath);
+              } catch {
+                cleanupPart();
+                reject(err);
+              }
+            }
+          });
         });
         out.on("error", (err) => {
-          try {
-            fs.unlinkSync(destPath);
-          } catch {
-            /* ignore */
-          }
+          cleanupPart();
           reject(err);
         });
       },
@@ -220,6 +251,12 @@ function downloadFileWithProgress(url, destPath, onProgress, userAgent = "Hub-De
  *   installerFallbackTemplate?: string,
  *   electronDir?: string,
  *   autoCheckDelayMs?: number,
+ *   feedConfig?: Record<string, unknown> | null,
+ *   resolveAuthToken?: ((app: import("electron").App) => string) | null,
+ *   autoDownload?: boolean,
+ *   autoInstallOnAppQuit?: boolean,
+ *   disableDifferentialDownload?: boolean,
+ *   legacyAppChannels?: boolean,
  *   onBeforeQuit?: () => void,
  * }} opts
  */
@@ -233,16 +270,95 @@ function createDesktopUpdaterIpcController(opts) {
     installerFallbackTemplate = "",
     electronDir = __dirname,
     autoCheckDelayMs = 0,
+    recheckIntervalMs = 0,
+    focusRecheckMs = 0,
+    feedConfig = null,
+    resolveAuthToken = null,
+    autoDownload = false,
+    autoInstallOnAppQuit = true,
+    quitAndInstallSilent = false,
+    disableDifferentialDownload = false,
+    legacyAppChannels = false,
   } = opts;
 
   let mainWindow = null;
   let onBeforeQuitHook = typeof opts.onBeforeQuit === "function" ? opts.onBeforeQuit : null;
   let downloadedInstallerPath = "";
+  let downloadedInstallerVersion = "";
+  let inFlightCheckPromise = null;
+  let inFlightDownloadPromise = null;
   let autoUpdaterInstance;
   let listenersBound = false;
+  let lastCheckAt = 0;
+  let recheckTimer = null;
 
+  const effectiveRepo =
+    githubRepo ||
+    (feedConfig && feedConfig.owner && feedConfig.repo ? `${feedConfig.owner}/${feedConfig.repo}` : "");
+  const effectiveFeedConfig =
+    feedConfig ||
+    (() => {
+      const slash = String(effectiveRepo || "").indexOf("/");
+      if (slash <= 0 || slash >= effectiveRepo.length - 1) return null;
+      return {
+        provider: "github",
+        owner: effectiveRepo.slice(0, slash),
+        repo: effectiveRepo.slice(slash + 1),
+      };
+    })();
   const userAgent = `${productName.replace(/\s+/g, "-")}-Updater/1.0`;
-  const latestYmlUrl = githubRepo ? `https://github.com/${githubRepo}/releases/latest/download/latest.yml` : "";
+  const latestYmlUrl = effectiveRepo
+    ? `https://github.com/${effectiveRepo}/releases/latest/download/latest.yml`
+    : "";
+  const releasePageUrl = effectiveRepo
+    ? `https://github.com/${effectiveRepo}/releases/latest`
+    : "";
+
+  function resolveDirectDownloadUrl(ver, fileName) {
+    if (!effectiveRepo) return "";
+    if (!ver) return releasePageUrl;
+    const defaultInstaller = installerFallbackTemplate
+      ? installerFallbackTemplate.replace(/\{version\}/g, ver)
+      : `${productName.replace(/\s+/g, "-")}-Setup-${ver}.exe`;
+    const resolvedFile = fileName || defaultInstaller;
+    return `https://github.com/${effectiveRepo}/releases/download/v${ver}/${encodeURIComponent(resolvedFile)}`;
+  }
+
+  function formatFriendlyError(err) {
+    const raw = err instanceof Error ? err.message : String(err || "Update check failed");
+    if (/404|not found/i.test(raw) && typeof resolveAuthToken === "function") {
+      const hasAuth = Boolean(resolveAuthToken(app));
+      return hasAuth
+        ? "Update feed not reachable — check GitHub Releases or updater token scope."
+        : "Update feed not reachable (GitHub Releases must be public, or add updater-gh-token for private repo).";
+    }
+    return raw.slice(0, 220);
+  }
+
+  function applyFeedAndAuth(updater) {
+    if (!updater) return;
+    if (effectiveFeedConfig && typeof updater.setFeedURL === "function") {
+      try {
+        updater.setFeedURL({ ...effectiveFeedConfig });
+      } catch {
+        /* ignore invalid feed URL in dev */
+      }
+    }
+    if (typeof resolveAuthToken === "function") {
+      const token = String(resolveAuthToken(app) || "").trim();
+      if (token) {
+        process.env.GH_TOKEN = token;
+        process.env.GITHUB_TOKEN = process.env.GITHUB_TOKEN || token;
+        updater.requestHeaders = {
+          ...(updater.requestHeaders || {}),
+          Authorization: `token ${token}`,
+        };
+        if (typeof updater.addAuthHeader === "function") {
+          updater.addAuthHeader(`token ${token}`);
+        }
+      }
+    }
+  }
 
   function runtimeChannel() {
     if (!app.isPackaged) return "dev";
@@ -266,19 +382,45 @@ function createDesktopUpdaterIpcController(opts) {
     releaseName: "",
     releaseDate: "",
     installerFileName: "",
+    releasePageUrl,
+    downloadUrl: releasePageUrl,
     progress: null,
   };
 
   function setUpdateStatus(next) {
-    updateStatus = {
+    const merged = {
       ...updateStatus,
       ...next,
+    };
+    updateStatus = {
+      ...merged,
       runtime: runtimeChannel(),
       supportsUpdates: app.isPackaged,
       currentVersion: currentVersion(),
+      releasePageUrl,
+      downloadUrl: resolveDirectDownloadUrl(merged.updateVersion, merged.installerFileName) || releasePageUrl,
     };
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(`${channelPrefix}:update-status`, updateStatus);
+      if (legacyAppChannels) {
+        const legacyStatusMap = {
+          latest: "none",
+          available: "available",
+          downloaded: "downloaded",
+          checking: "checking",
+          downloading: "downloading",
+          installing: "installing",
+          error: "error",
+        };
+        const mappedStatus = legacyStatusMap[updateStatus.state];
+        if (mappedStatus) {
+          mainWindow.webContents.send("app:update-event", {
+            status: mappedStatus,
+            version: updateStatus.updateVersion || undefined,
+            message: updateStatus.message,
+          });
+        }
+      }
     }
     return updateStatus;
   }
@@ -293,8 +435,13 @@ function createDesktopUpdaterIpcController(opts) {
     }
     if (autoUpdaterInstance && !listenersBound) {
       listenersBound = true;
-      autoUpdaterInstance.autoDownload = false;
-      autoUpdaterInstance.autoInstallOnAppQuit = true;
+      const isPortable = runtimeChannel() === "portable";
+      autoUpdaterInstance.autoDownload = Boolean(autoDownload) && !isPortable;
+      autoUpdaterInstance.autoInstallOnAppQuit = Boolean(autoInstallOnAppQuit) && !isPortable;
+      if (disableDifferentialDownload) {
+        autoUpdaterInstance.disableDifferentialDownload = true;
+      }
+      applyFeedAndAuth(autoUpdaterInstance);
       autoUpdaterInstance.on("before-quit-for-update", () => {
         onBeforeQuitHook?.();
       });
@@ -306,9 +453,13 @@ function createDesktopUpdaterIpcController(opts) {
         setUpdateStatus({
           state: "available",
           updateVersion: ver,
-          releaseName: ver ? `v${ver}` : "",
+          releaseName: ver ? `v${ver}` : String(info?.releaseName || ""),
           releaseDate: String(info?.releaseDate || ""),
-          message: ver ? `Version ${ver} is ready to download.` : "Update available",
+          message: isPortable
+            ? `Version ${ver} is available on GitHub Releases.`
+            : ver
+              ? `Version ${ver} is ready to download.`
+              : "Update available",
           progress: null,
         });
       });
@@ -328,12 +479,14 @@ function createDesktopUpdaterIpcController(opts) {
             percent: Number(prog?.percent || 0),
             transferred: Number(prog?.transferred || 0),
             total: Number(prog?.total || 0),
+            bytesPerSecond: Number(prog?.bytesPerSecond || 0),
           },
           message: `Downloading update (${pct}%)...`,
         });
       });
       autoUpdaterInstance.on("update-downloaded", (info) => {
         const ver = String(info?.version || updateStatus.updateVersion || "");
+        downloadedInstallerVersion = ver;
         setUpdateStatus({
           state: "downloaded",
           updateVersion: ver,
@@ -344,7 +497,7 @@ function createDesktopUpdaterIpcController(opts) {
       autoUpdaterInstance.on("error", (err) => {
         setUpdateStatus({
           state: "error",
-          message: err?.message ? String(err.message).slice(0, 160) : "Update check failed",
+          message: formatFriendlyError(err),
           progress: null,
         });
       });
@@ -360,113 +513,214 @@ function createDesktopUpdaterIpcController(opts) {
         progress: null,
       });
     }
-    const updater = getAutoUpdater();
-    setUpdateStatus({
-      state: "checking",
-      message: "Checking GitHub Releases for a new version...",
-      progress: null,
-    });
-    if (updater && hasPackagedAppUpdateYml(app)) {
-      try {
-        await updater.checkForUpdates();
-        return updateStatus;
-      } catch {
-        /* fall through to direct latest.yml check if githubRepo is configured */
-      }
+    if (inFlightDownloadPromise) {
+      return inFlightDownloadPromise;
     }
-    if (!latestYmlUrl) {
-      return setUpdateStatus({
-        state: "latest",
-        message: `${productName} ${currentVersion()} is up to date.`,
+    if (inFlightCheckPromise) {
+      return inFlightCheckPromise;
+    }
+    inFlightCheckPromise = (async () => {
+      lastCheckAt = Date.now();
+      const updater = getAutoUpdater();
+      applyFeedAndAuth(updater);
+      setUpdateStatus({
+        state: "checking",
+        message: "Checking GitHub Releases for a new version...",
         progress: null,
       });
-    }
-    try {
-      const yml = await fetchTextFollowingRedirects(latestYmlUrl, userAgent);
-      const parsed = parseLatestYml(yml);
-      if (!parsed.version) throw new Error("Invalid latest.yml response");
-      const cmp = compareSemver(parsed.version, currentVersion());
-      const defaultInstaller = installerFallbackTemplate
-        ? installerFallbackTemplate.replace(/\{version\}/g, parsed.version)
-        : `${productName.replace(/\s+/g, "-")}-Setup-${parsed.version}.exe`;
-      if (cmp > 0) {
+      if (updater && (hasPackagedAppUpdateYml(app) || effectiveFeedConfig)) {
+        try {
+          const result = await updater.checkForUpdates();
+          if (autoDownload && result?.downloadPromise) {
+            inFlightDownloadPromise = Promise.resolve(result.downloadPromise).then(
+              () => updateStatus,
+              (err) => {
+                setUpdateStatus({
+                  state: "error",
+                  message: formatFriendlyError(err),
+                  progress: null,
+                });
+                return updateStatus;
+              },
+            ).finally(() => {
+              inFlightDownloadPromise = null;
+            });
+            await inFlightDownloadPromise;
+          }
+          return updateStatus;
+        } catch (err) {
+          if (!latestYmlUrl) {
+            return setUpdateStatus({
+              state: "error",
+              message: formatFriendlyError(err),
+              progress: null,
+            });
+          }
+          /* fall through to direct latest.yml check if effectiveRepo is configured */
+        }
+      }
+      if (!latestYmlUrl) {
         return setUpdateStatus({
-          state: "available",
-          updateVersion: parsed.version,
-          releaseName: `v${parsed.version}`,
-          releaseDate: parsed.releaseDate,
-          installerFileName: parsed.fileName || defaultInstaller,
-          message: `Version ${parsed.version} is ready to download.`,
+          state: "latest",
+          message: `${productName} ${currentVersion()} is up to date.`,
           progress: null,
         });
       }
-      return setUpdateStatus({
-        state: "latest",
-        updateVersion: parsed.version,
-        releaseDate: parsed.releaseDate,
-        message: `${productName} ${currentVersion()} is up to date.`,
-        progress: null,
-      });
-    } catch (err) {
-      return setUpdateStatus({
-        state: "error",
-        message: err instanceof Error ? err.message : String(err),
-        progress: null,
-      });
+      try {
+        const yml = await fetchTextFollowingRedirects(latestYmlUrl, userAgent);
+        const parsed = parseLatestYml(yml);
+        if (!parsed.version) throw new Error("Invalid latest.yml response");
+        const cmp = compareSemver(parsed.version, currentVersion());
+        const defaultInstaller = installerFallbackTemplate
+          ? installerFallbackTemplate.replace(/\{version\}/g, parsed.version)
+          : `${productName.replace(/\s+/g, "-")}-Setup-${parsed.version}.exe`;
+        if (cmp > 0) {
+          if (
+            downloadedInstallerVersion === parsed.version &&
+            downloadedInstallerPath &&
+            fs.existsSync(downloadedInstallerPath)
+          ) {
+            return setUpdateStatus({
+              state: "downloaded",
+              updateVersion: parsed.version,
+              releaseName: `v${parsed.version}`,
+              releaseDate: parsed.releaseDate,
+              installerFileName: parsed.fileName || defaultInstaller,
+              message: `Version ${parsed.version} is ready. Restart to update.`,
+              progress: { percent: 100 },
+            });
+          }
+          const availStatus = setUpdateStatus({
+            state: "available",
+            updateVersion: parsed.version,
+            releaseName: `v${parsed.version}`,
+            releaseDate: parsed.releaseDate,
+            installerFileName: parsed.fileName || defaultInstaller,
+            message: `Version ${parsed.version} is ready to download.`,
+            progress: null,
+          });
+          if (autoDownload) {
+            return downloadUpdate();
+          }
+          return availStatus;
+        }
+        return setUpdateStatus({
+          state: "latest",
+          updateVersion: parsed.version,
+          releaseDate: parsed.releaseDate,
+          message: `${productName} ${currentVersion()} is up to date.`,
+          progress: null,
+        });
+      } catch (err) {
+        return setUpdateStatus({
+          state: "error",
+          message: formatFriendlyError(err),
+          progress: null,
+        });
+      }
+    })();
+    try {
+      return await inFlightCheckPromise;
+    } finally {
+      inFlightCheckPromise = null;
     }
   }
 
   async function downloadUpdate() {
     if (!app.isPackaged) return checkForUpdates();
-    const updater = getAutoUpdater();
-    if (updater && hasPackagedAppUpdateYml(app)) {
-      try {
-        setUpdateStatus({ state: "downloading", message: "Downloading update...", progress: { percent: 0 } });
-        await updater.downloadUpdate();
-        return updateStatus;
-      } catch {
-        /* fall through to direct HTTPS installer download */
-      }
-    }
-    const ver = updateStatus.updateVersion;
-    if (!ver || !githubRepo) return checkForUpdates();
-    const defaultInstaller = installerFallbackTemplate
-      ? installerFallbackTemplate.replace(/\{version\}/g, ver)
-      : `${productName.replace(/\s+/g, "-")}-Setup-${ver}.exe`;
-    const fileName = updateStatus.installerFileName || defaultInstaller;
-    const downloadUrl = `https://github.com/${githubRepo}/releases/download/v${ver}/${encodeURIComponent(fileName)}`;
-    const destPath = path.join(app.getPath("temp"), defaultInstaller);
-    try {
-      setUpdateStatus({ state: "downloading", message: `Downloading v${ver} (0%)...`, progress: { percent: 0 } });
-      await downloadFileWithProgress(
-        downloadUrl,
-        destPath,
-        ({ percent, transferred, total }) => {
-          setUpdateStatus({
-            state: "downloading",
-            message: `Downloading v${ver} (${percent}%)...`,
-            progress: { percent, transferred, total },
-          });
-        },
-        userAgent,
-      );
-      downloadedInstallerPath = destPath;
+    if (runtimeChannel() === "portable") {
       return setUpdateStatus({
-        state: "downloaded",
-        message: `Version ${ver} is ready. Restart to update.`,
-        progress: { percent: 100 },
-      });
-    } catch (err) {
-      return setUpdateStatus({
-        state: "error",
-        message: err instanceof Error ? err.message : String(err),
+        state: "available",
+        message: "Portable build — download the latest portable .exe from GitHub Releases.",
         progress: null,
       });
+    }
+    if (inFlightDownloadPromise) {
+      return inFlightDownloadPromise;
+    }
+    if (
+      updateStatus.state === "downloaded" &&
+      updateStatus.updateVersion &&
+      downloadedInstallerVersion === updateStatus.updateVersion
+    ) {
+      return updateStatus;
+    }
+    inFlightDownloadPromise = (async () => {
+      const updater = getAutoUpdater();
+      applyFeedAndAuth(updater);
+      if (updater && (hasPackagedAppUpdateYml(app) || effectiveFeedConfig)) {
+        try {
+          setUpdateStatus({
+            state: "downloading",
+            message: "Downloading update...",
+            progress: { percent: 0, transferred: 0, total: 0, bytesPerSecond: 0 },
+          });
+          await updater.downloadUpdate();
+          return updateStatus;
+        } catch (err) {
+          if (!effectiveRepo) {
+            return setUpdateStatus({
+              state: "error",
+              message: formatFriendlyError(err),
+              progress: null,
+            });
+          }
+          /* fall through to direct HTTPS installer download */
+        }
+      }
+      const ver = updateStatus.updateVersion;
+      if (!ver || !effectiveRepo) return checkForUpdates();
+      const defaultInstaller = installerFallbackTemplate
+        ? installerFallbackTemplate.replace(/\{version\}/g, ver)
+        : `${productName.replace(/\s+/g, "-")}-Setup-${ver}.exe`;
+      const fileName = updateStatus.installerFileName || defaultInstaller;
+      const downloadUrl = resolveDirectDownloadUrl(ver, fileName);
+      const destPath = path.join(app.getPath("temp"), defaultInstaller);
+      try {
+        setUpdateStatus({ state: "downloading", message: `Downloading v${ver} (0%)...`, progress: { percent: 0 } });
+        await downloadFileWithProgress(
+          downloadUrl,
+          destPath,
+          ({ percent, transferred, total }) => {
+            setUpdateStatus({
+              state: "downloading",
+              message: `Downloading v${ver} (${percent}%)...`,
+              progress: { percent, transferred, total },
+            });
+          },
+          userAgent,
+        );
+        downloadedInstallerPath = destPath;
+        downloadedInstallerVersion = ver;
+        return setUpdateStatus({
+          state: "downloaded",
+          message: `Version ${ver} is ready. Restart to update.`,
+          progress: { percent: 100 },
+        });
+      } catch (err) {
+        return setUpdateStatus({
+          state: "error",
+          message: formatFriendlyError(err),
+          progress: null,
+        });
+      }
+    })();
+    try {
+      return await inFlightDownloadPromise;
+    } finally {
+      inFlightDownloadPromise = null;
     }
   }
 
   function installUpdate() {
     if (!app.isPackaged) return checkForUpdates();
+    if (runtimeChannel() === "portable") {
+      return setUpdateStatus({
+        state: "available",
+        message: "Portable build — replace the .exe manually from GitHub Releases.",
+        progress: null,
+      });
+    }
     const updater = getAutoUpdater();
     setUpdateStatus({
       state: "installing",
@@ -475,18 +729,30 @@ function createDesktopUpdaterIpcController(opts) {
     });
     onBeforeQuitHook?.();
     if (updater && !downloadedInstallerPath) {
-      setImmediate(() => updater.quitAndInstall(false, true));
+      setImmediate(() => updater.quitAndInstall(Boolean(quitAndInstallSilent), true));
       return updateStatus;
     }
     if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
+      const installerArgs = [
+        ...(quitAndInstallSilent ? ["/S"] : []),
+        "--updated",
+        "--force-run",
+      ];
       setImmediate(() => {
         try {
-          const child = spawn(downloadedInstallerPath, ["--updated", "--force-run"], {
+          const child = spawn(downloadedInstallerPath, installerArgs, {
             detached: true,
             stdio: "ignore",
-            windowsHide: false,
+            windowsHide: Boolean(quitAndInstallSilent),
           });
           child.unref();
+        } catch {
+          /* ignore */
+        }
+        try {
+          if (typeof app.releaseSingleInstanceLock === "function") {
+            app.releaseSingleInstanceLock();
+          }
         } catch {
           /* ignore */
         }
@@ -506,6 +772,39 @@ function createDesktopUpdaterIpcController(opts) {
     ipcMain.handle(`${channelPrefix}:download-update`, async () => downloadUpdate());
     ipcMain.handle(`${channelPrefix}:install-update`, async () => installUpdate());
 
+    if (legacyAppChannels) {
+      ipcMain.handle("app:checkForUpdates", async () => {
+        if (!app.isPackaged) {
+          return { ok: false, message: "Updates are only available in the packaged app." };
+        }
+        if (!hasPackagedAppUpdateYml(app) && !effectiveRepo) {
+          return { ok: true, updateInfo: null, message: "Auto-update config is not bundled in unpacked builds." };
+        }
+        const status = await checkForUpdates();
+        if (status.state === "error") {
+          return { ok: false, message: status.message };
+        }
+        if (status.state === "latest") {
+          return { ok: true, updateInfo: null, message: "No updates available." };
+        }
+        const updateInfo = status.updateVersion ? { version: status.updateVersion } : null;
+        return {
+          ok: true,
+          updateInfo,
+          downloaded: status.state === "downloaded",
+          message: status.message,
+        };
+      });
+
+      ipcMain.handle("app:installUpdate", async () => {
+        if (!app.isPackaged) {
+          return { ok: false, message: "Updates are only available in the packaged app." };
+        }
+        installUpdate();
+        return { ok: true, message: "Installing update..." };
+      });
+    }
+
     if (app.isPackaged && autoCheckDelayMs > 0) {
       setTimeout(() => {
         void checkForUpdates();
@@ -515,6 +814,20 @@ function createDesktopUpdaterIpcController(opts) {
 
   function attachWindow(win) {
     mainWindow = win;
+    setUpdateStatus(updateStatus);
+    if (!app.isPackaged) return;
+    if (recheckIntervalMs > 0 && !recheckTimer) {
+      recheckTimer = setInterval(() => {
+        void checkForUpdates().catch(() => undefined);
+      }, recheckIntervalMs);
+      if (typeof recheckTimer.unref === "function") recheckTimer.unref();
+    }
+    if (focusRecheckMs > 0 && win && typeof win.on === "function") {
+      win.on("focus", () => {
+        if (Date.now() - lastCheckAt < focusRecheckMs) return;
+        void checkForUpdates().catch(() => undefined);
+      });
+    }
   }
 
   return {

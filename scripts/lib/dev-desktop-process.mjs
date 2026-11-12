@@ -8,6 +8,11 @@ import { createRequire } from "node:module";
 import { deskElectronEnv } from "./desk-electron-env.mjs";
 import { DESK_HOST_PORT_DEV, DESK_VITE_PORT } from "./dev-port-guard.mjs";
 import { winSpawnOpts } from "./win-spawn.mjs";
+import {
+  listProcessesNative,
+  readProcessCommandLineNative,
+  readProcessExePathNative,
+} from "../../../scripts/lib/win-native-proc-net.mjs";
 
 const require = createRequire(import.meta.url);
 const { DEV_DIR } = require("../../electron/lib/user-data-root.cjs");
@@ -55,6 +60,8 @@ export function isPidAlive(pid) {
 
 function readProcessCommandLine(pid) {
   if (process.platform !== "win32") return "";
+  const nat = readProcessCommandLineNative(pid);
+  if (nat !== null) return nat.trim();
   const result = spawnSync(
     "powershell",
     [
@@ -109,6 +116,25 @@ function killWatchBuild() {
 
 function killOrphanDevElectron() {
   if (process.platform !== "win32") return;
+  const natProcs = listProcessesNative({ imageNames: ["electron.exe"], includeCmdline: true });
+  if (natProcs) {
+    const devDirRe = new RegExp(DEV_DIR, "i");
+    const pids = new Set();
+    for (const p of natProcs) {
+      const c = String(p.cmd || "");
+      if (devDirRe.test(c) || /P0001-Desk-Console/i.test(c) || /electron\.exe"?\s+\.\s*$/i.test(c)) {
+        pids.add(p.pid);
+        if (p.ppid > 0 && /--type=/i.test(c)) {
+          const parentExe = readProcessExePathNative(p.ppid) || "";
+          if (/(?:electron|nodew?)\.exe$/i.test(parentExe)) pids.add(p.ppid);
+        }
+      }
+    }
+    for (const id of pids) {
+      spawnSync("taskkill", ["/PID", String(id), "/T", "/F"], winSpawnOpts({ stdio: "ignore" }));
+    }
+    return;
+  }
   spawnSync(
     "powershell",
     [

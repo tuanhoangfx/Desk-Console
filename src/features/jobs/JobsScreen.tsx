@@ -29,6 +29,11 @@ import { FolderSyncDirectoryToolbar } from "../../components/FolderSyncDirectory
 import { FolderSyncTabHeader } from "../../components/FolderSyncTabHeader";
 import { FolderSyncTabHeaderActions } from "../../components/FolderSyncTabHeaderActions";
 import {
+  hydrateP0001JobsMirror,
+  readCachedP0001Jobs,
+  reconcileP0001JobsDelta,
+} from "../../lib/p0001-desk-mirror-store";
+import {
   cleanJobExcludedOnDrive,
   createJob,
   deleteJob,
@@ -86,8 +91,8 @@ const BASE_JOBS_FILTERS = applyJobsDirectoryFilterHints([
 /** Jobs — P0003 Profiles: KPI + one full-height table | Setting / History / Console. */
 export function JobsScreen() {
   const { accounts: driveAccounts } = useDriveAccounts();
-  const [jobs, setJobs] = useState<SyncJob[]>([]);
-  const [focusedId, setFocusedId] = useState<string>("");
+  const [jobs, setJobs] = useState<SyncJob[]>(() => readCachedP0001Jobs());
+  const [focusedId, setFocusedId] = useState<string>(() => readCachedP0001Jobs()[0]?.id || "");
   const search = useDirectorySearchQuery(DIRECTORY_SEARCH_CLIENT_FILTER_OPTS);
   const [filterValues, setFilterValues] = useState<FilterValues>({});
   const [viewMode, setViewMode] = useState<HubViewMode>("table");
@@ -127,7 +132,7 @@ export function JobsScreen() {
   const reload = useCallback(async () => {
     try {
       const data = await fetchJobs();
-      setJobs(data.jobs);
+      setJobs((prev) => reconcileP0001JobsDelta(prev, data.jobs).rows);
       setError(null);
       setFocusedId((prev) => prev || data.jobs[0]?.id || "");
     } catch (e) {
@@ -141,14 +146,24 @@ export function JobsScreen() {
   );
 
   useEffect(() => {
-    return subscribeSyncEvents(
+    let cancelled = false;
+    void hydrateP0001JobsMirror().then((hydrated) => {
+      if (cancelled || !hydrated.length) return;
+      setJobs((prev) => reconcileP0001JobsDelta(prev, hydrated, { mode: "delta", persist: false }).rows);
+      setFocusedId((prev) => prev || hydrated[0]?.id || "");
+    });
+    const unsub = subscribeSyncEvents(
       (nextJobs) => {
-        setJobs(nextJobs);
+        setJobs((prev) => reconcileP0001JobsDelta(prev, nextJobs).rows);
         setError(null);
         setFocusedId((prev) => prev || nextJobs[0]?.id || "");
       },
       setSseConnected,
     );
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {

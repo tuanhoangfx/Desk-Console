@@ -266,6 +266,37 @@ function verifyPackagedNativeAndDynamicImports(appOutDir, projectDir) {
   }
 }
 
+function ensurePackagedAppUpdateYml(appOutDir, projectDir) {
+  if (!appOutDir || !projectDir) return false;
+  const ymlPath = path.join(appOutDir, "resources", "app-update.yml");
+  if (fs.existsSync(ymlPath)) return true;
+  const pkgPath = path.join(projectDir, "package.json");
+  if (!fs.existsSync(pkgPath)) return false;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    const publishRaw = pkg?.build?.publish;
+    const pub = Array.isArray(publishRaw) ? publishRaw[0] : publishRaw;
+    if (!pub || pub.provider !== "github" || !pub.owner || !pub.repo) return false;
+    const productSlug = String(pkg?.build?.productName || pkg?.productName || pkg?.name || "desktop-app")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const lines = [
+      `owner: ${pub.owner}`,
+      `repo: ${pub.repo}`,
+      "provider: github",
+      ...(pub.releaseType ? [`releaseType: ${pub.releaseType}`] : []),
+      `updaterCacheDirName: ${productSlug}-updater`,
+    ];
+    fs.mkdirSync(path.dirname(ymlPath), { recursive: true });
+    fs.writeFileSync(ymlPath, `${lines.join("\n")}\n`, "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function afterExtract(context) {
   if (context?.appOutDir) {
     removeDefaultAppArtifacts(context.appOutDir);
@@ -275,7 +306,9 @@ async function afterExtract(context) {
 async function afterPack(context) {
   const appOutDir = context?.appOutDir;
   if (!appOutDir) return;
+  const projectDir = context?.packager?.projectDir || "";
   removeDefaultAppArtifacts(appOutDir);
+  ensurePackagedAppUpdateYml(appOutDir, projectDir);
   const asarPath = path.join(appOutDir, "resources", "app.asar");
   const unpackedPkgPath = path.join(appOutDir, "resources", "app", "package.json");
   if (fs.existsSync(asarPath)) {
@@ -283,13 +316,14 @@ async function afterPack(context) {
   } else if (fs.existsSync(unpackedPkgPath)) {
     JSON.parse(fs.readFileSync(unpackedPkgPath, "utf8"));
   }
-  verifyPackagedNativeAndDynamicImports(appOutDir, context?.packager?.projectDir || "");
+  verifyPackagedNativeAndDynamicImports(appOutDir, projectDir);
 }
 
 module.exports = {
   SHARED_RENDERER_NODE_MODULES_EXCLUDES,
   DEFAULT_FORBIDDEN_CJS_DYNAMIC_IMPORTS,
   removeDefaultAppArtifacts,
+  ensurePackagedAppUpdateYml,
   verifyAsarIntegrity,
   scanForbiddenDynamicImportsInCjsDir,
   verifyPackagedNativeAndDynamicImports,

@@ -72,34 +72,76 @@ function extractPngBase64(dataUrl) {
   return { mime: `image/${match[1].toLowerCase()}`, base64: match[2] };
 }
 
-function writeMediaFileForClip(id, imageDataUrl) {
+function computeImageDataUrlMeta(imageDataUrl) {
   const parsed = extractPngBase64(imageDataUrl);
-  if (!parsed || !id) return "";
-  const safeId = String(id).replace(/[^a-zA-Z0-9_-]/g, "");
-  if (!safeId) return "";
-  const fileName = `${safeId}.png`;
+  if (!parsed) return null;
+  const sha256 = crypto.createHash("sha256").update(parsed.mime).update(":").update(parsed.base64).digest("hex");
+  return {
+    mime: parsed.mime,
+    base64: parsed.base64,
+    sha256,
+    fileName: `sha256-${sha256}.png`,
+  };
+}
+
+function writeMediaFileForClip(_id, imageDataUrl) {
+  const meta = computeImageDataUrlMeta(imageDataUrl);
+  if (!meta) return null;
   const dir = clipsMediaDir();
   ensureDir(dir);
-  const fullPath = path.join(dir, fileName);
+  const fullPath = path.join(dir, meta.fileName);
   if (!fs.existsSync(fullPath)) {
-    fs.writeFileSync(fullPath, Buffer.from(parsed.base64, "base64"));
+    fs.writeFileSync(fullPath, Buffer.from(meta.base64, "base64"));
   }
-  mediaDataUrlCache.set(fullPath, `data:${parsed.mime};base64,${parsed.base64}`);
-  return fileName;
+  mediaDataUrlCache.set(fullPath, `data:${meta.mime};base64,${meta.base64}`);
+  return { fileName: meta.fileName, sha256: meta.sha256 };
+}
+
+function migrateLegacyMediaFileToSha256(legacyFileName) {
+  const baseName = path.basename(String(legacyFileName || ""));
+  if (!baseName || baseName.startsWith("sha256-")) return null;
+  const dir = clipsMediaDir();
+  const legacyPath = path.join(dir, baseName);
+  if (!fs.existsSync(legacyPath)) return null;
+  try {
+    const buf = fs.readFileSync(legacyPath);
+    const b64 = buf.toString("base64");
+    const sha256 = crypto.createHash("sha256").update("image/png:").update(b64).digest("hex");
+    const fileName = `sha256-${sha256}.png`;
+    const newPath = path.join(dir, fileName);
+    if (!fs.existsSync(newPath)) {
+      fs.writeFileSync(newPath, buf);
+    }
+    mediaDataUrlCache.set(newPath, `data:image/png;base64,${b64}`);
+    return { fileName, sha256 };
+  } catch {
+    return null;
+  }
 }
 
 export function readClipMediaBuffer(rowOrId) {
-  const id = typeof rowOrId === "string" ? rowOrId : rowOrId?.id;
-  const mediaFile =
-    typeof rowOrId === "object" && rowOrId?.imageMediaFile
-      ? String(rowOrId.imageMediaFile)
-      : `${String(id || "").replace(/[^a-zA-Z0-9_-]/g, "")}.png`;
-  if (!mediaFile) return null;
-  const fullPath = path.join(clipsMediaDir(), path.basename(mediaFile));
-  try {
-    if (fs.existsSync(fullPath)) return fs.readFileSync(fullPath);
-  } catch {
-    /* ignore */
+  let row = typeof rowOrId === "object" && rowOrId ? rowOrId : null;
+  const id = typeof rowOrId === "string" ? rowOrId : row?.id;
+  if (!row && id) {
+    const rawClips = readJson(clipsPath(), []);
+    const rawSamples = readJson(samplesPath(), []);
+    row =
+      (Array.isArray(rawSamples) && rawSamples.find((r) => r?.id === id)) ||
+      (Array.isArray(rawClips) && rawClips.find((r) => r?.id === id)) ||
+      null;
+  }
+  const candidates = [];
+  if (row?.imageMediaFile) candidates.push(path.basename(String(row.imageMediaFile)));
+  const safeId = String(id || "").replace(/[^a-zA-Z0-9_-]/g, "");
+  if (safeId) candidates.push(`${safeId}.png`);
+  for (const mediaFile of candidates) {
+    if (!mediaFile) continue;
+    const fullPath = path.join(clipsMediaDir(), mediaFile);
+    try {
+      if (fs.existsSync(fullPath)) return fs.readFileSync(fullPath);
+    } catch {
+      /* ignore */
+    }
   }
   return null;
 }
@@ -127,16 +169,42 @@ export function hydrateClipImage(row) {
   return row;
 }
 
-function removeMediaFileIfUnused(id) {
-  const safeId = String(id || "").replace(/[^a-zA-Z0-9_-]/g, "");
-  if (!safeId) return;
-  const fullPath = path.join(clipsMediaDir(), `${safeId}.png`);
-  mediaDataUrlCache.delete(fullPath);
-  try {
-    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
-  } catch {
-    /* ignore */
+export function pruneUnreferencedClipMediaFiles() {
+  const dir = clipsMediaDir();
+  if (!fs.existsSync(dir)) return 0;
+  const referenced = new Set();
+  for (const file of [clipsPath(), samplesPath()]) {
+    const list = readJson(file, []);
+    if (!Array.isArray(list)) continue;
+    for (const r of list) {
+      if (!r) continue;
+      if (r.imageMediaFile) referenced.add(path.basename(String(r.imageMediaFile)));
+      const safeId = String(r.id || "").replace(/[^a-zA-Z0-9_-]/g, "");
+      if (safeId && !r.imageMediaFile && (r.contentType === "image" || r.hasImage)) {
+        referenced.add(`${safeId}.png`);
+      }
+    }
   }
+  let removed = 0;
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir);
+  } catch {
+    return 0;
+  }
+  for (const name of entries) {
+    if (!name.endsWith(".png")) continue;
+    if (referenced.has(name)) continue;
+    const fullPath = path.join(dir, name);
+    mediaDataUrlCache.delete(fullPath);
+    try {
+      fs.unlinkSync(fullPath);
+      removed += 1;
+    } catch {
+      /* ignore */
+    }
+  }
+  return removed;
 }
 
 export const SEED_SAMPLES = [
@@ -168,11 +236,35 @@ function normalizeClip(row, kind, { hydrate = true } = {}) {
   const id = String(row?.id || newId());
   let imageDataUrl = String(row?.imageDataUrl || "").trim();
   let imageMediaFile = String(row?.imageMediaFile || "").trim();
+  let imageSha256 = String(row?.imageSha256 || "").trim();
   if (imageDataUrl.startsWith("data:image/")) {
     const written = writeMediaFileForClip(id, imageDataUrl);
-    if (written) imageMediaFile = written;
+    if (written) {
+      imageMediaFile = written.fileName;
+      imageSha256 = written.sha256;
+    }
+  } else if (imageMediaFile && !imageMediaFile.startsWith("sha256-")) {
+    const migrated = migrateLegacyMediaFileToSha256(imageMediaFile);
+    if (migrated) {
+      imageMediaFile = migrated.fileName;
+      imageSha256 = migrated.sha256;
+    }
+  } else if (!imageMediaFile && (row?.contentType === "image" || row?.hasImage)) {
+    const safeId = String(id).replace(/[^a-zA-Z0-9_-]/g, "");
+    if (safeId) {
+      const migrated = migrateLegacyMediaFileToSha256(`${safeId}.png`);
+      if (migrated) {
+        imageMediaFile = migrated.fileName;
+        imageSha256 = migrated.sha256;
+      }
+    }
   }
-  const hasImage = Boolean(imageDataUrl.startsWith("data:image/") || imageMediaFile || row?.contentType === "image" || row?.hasImage);
+  if (!imageSha256 && imageMediaFile.startsWith("sha256-") && imageMediaFile.endsWith(".png")) {
+    imageSha256 = imageMediaFile.slice("sha256-".length, -".png".length);
+  }
+  const hasImage = Boolean(
+    imageDataUrl.startsWith("data:image/") || imageMediaFile || row?.contentType === "image" || row?.hasImage,
+  );
   const imageWidth = Number(row?.imageWidth) || 0;
   const imageHeight = Number(row?.imageHeight) || 0;
   const defaultImgLabel = imageWidth && imageHeight ? `[Image ${imageWidth}×${imageHeight}]` : "[Image]";
@@ -183,13 +275,16 @@ function normalizeClip(row, kind, { hydrate = true } = {}) {
   const contentType = hasImage ? "image" : "text";
   const base = {
     id,
-    name: String(row?.name || (hasImage ? `Image ${imageWidth && imageHeight ? `(${imageWidth}×${imageHeight})` : ""}`.trim() : "")).trim(),
+    name: String(
+      row?.name || (hasImage ? `Image ${imageWidth && imageHeight ? `(${imageWidth}×${imageHeight})` : ""}`.trim() : ""),
+    ).trim(),
     text,
     contentType,
     ...(hasImage
       ? {
           hasImage: true,
           ...(imageMediaFile ? { imageMediaFile } : {}),
+          ...(imageSha256 ? { imageSha256 } : {}),
           ...(imageWidth ? { imageWidth } : {}),
           ...(imageHeight ? { imageHeight } : {}),
         }
@@ -232,10 +327,15 @@ export function listHistory(options = {}) {
   const file = clipsPath();
   const rows = readJson(file, []);
   const list = Array.isArray(rows) ? rows : [];
-  const hadInlineBase64 = list.some((r) => typeof r?.imageDataUrl === "string" && r.imageDataUrl.startsWith("data:image/"));
+  const needsRewrite = list.some(
+    (r) =>
+      (typeof r?.imageDataUrl === "string" && r.imageDataUrl.startsWith("data:image/")) ||
+      (typeof r?.imageMediaFile === "string" && r.imageMediaFile && !r.imageMediaFile.startsWith("sha256-")),
+  );
   const normalized = list.map((row) => normalizeClip(row, "history", { hydrate }));
-  if (hadInlineBase64) {
+  if (needsRewrite) {
     saveHistory(normalized);
+    pruneUnreferencedClipMediaFiles();
   }
   return normalized;
 }
@@ -245,10 +345,15 @@ export function listSamples(options = {}) {
   const file = samplesPath();
   const rows = readJson(file, []);
   const list = Array.isArray(rows) ? rows : [];
-  const hadInlineBase64 = list.some((r) => typeof r?.imageDataUrl === "string" && r.imageDataUrl.startsWith("data:image/"));
+  const needsRewrite = list.some(
+    (r) =>
+      (typeof r?.imageDataUrl === "string" && r.imageDataUrl.startsWith("data:image/")) ||
+      (typeof r?.imageMediaFile === "string" && r.imageMediaFile && !r.imageMediaFile.startsWith("sha256-")),
+  );
   const normalized = list.map((row) => normalizeClip(row, "sample", { hydrate }));
-  if (hadInlineBase64) {
+  if (needsRewrite) {
     saveSamples(normalized);
+    pruneUnreferencedClipMediaFiles();
   }
   return normalized;
 }
@@ -285,6 +390,7 @@ export function listClips(options = {}) {
 
 function compactHistoryRows(rows) {
   let imageCount = 0;
+  let evictedImage = false;
   const kept = [];
   for (const raw of rows) {
     const row = serializeClipForDisk(raw, "history");
@@ -292,18 +398,22 @@ function compactHistoryRows(rows) {
     if (isLiveImage) {
       imageCount += 1;
       if (imageCount > IMAGE_HISTORY_CAP) {
-        removeMediaFileIfUnused(row.id);
+        evictedImage = true;
         continue;
       }
     }
     kept.push(row);
     if (kept.length >= HISTORY_CAP) break;
   }
-  return kept;
+  return { kept, evictedImage };
 }
 
 export function saveHistory(rows) {
-  writeJson(clipsPath(), compactHistoryRows(rows));
+  const { kept, evictedImage } = compactHistoryRows(rows);
+  writeJson(clipsPath(), kept);
+  if (evictedImage) {
+    pruneUnreferencedClipMediaFiles();
+  }
 }
 
 export function saveSamples(rows) {
@@ -314,8 +424,14 @@ export function saveClips(rows) {
   saveHistory(rows.filter((row) => (row.kind || "history") !== "sample"));
 }
 
-export function findClip(id) {
-  return [...listSamples(), ...listHistory()].find((row) => row.id === id) || null;
+export function findClip(id, options = {}) {
+  const hydrate = options.hydrate !== false;
+  const hit =
+    listSamples({ hydrate: false }).find((row) => row.id === id) ||
+    listHistory({ hydrate: false }).find((row) => row.id === id) ||
+    null;
+  if (!hit) return null;
+  return hydrate ? hydrateClipImage(hit) : hit;
 }
 
 export function addClip(partial) {
@@ -326,8 +442,13 @@ export function addClip(partial) {
   const defaultImgLabel = imageWidth && imageHeight ? `[Image ${imageWidth}×${imageHeight}]` : "[Image]";
   const text = String(partial?.text || (hasImage ? defaultImgLabel : "")).slice(0, 100_000);
   if (!text.trim() && !hasImage) return null;
-  const rows = listHistory().filter((row) => !row.deletedAt);
-  const top = rows[0];
+
+  // Fast path: never hydrate existing image base64 payloads when inserting a clip!
+  const allRows = purgeExpiredTrash(listHistory({ hydrate: false }));
+  const topIdx = allRows.findIndex((row) => !row.deletedAt);
+  const top = topIdx >= 0 ? allRows[topIdx] : null;
+  const incomingMeta = hasImage ? computeImageDataUrlMeta(imageDataUrl) : null;
+
   const topSameImageDimsSoon =
     hasImage &&
     top?.contentType === "image" &&
@@ -335,15 +456,22 @@ export function addClip(partial) {
     top.imageWidth === imageWidth &&
     top.imageHeight === imageHeight &&
     Math.abs(Date.now() - Date.parse(top.updatedAt || top.createdAt || "")) < 4000;
-  if (hasImage && (top?.imageDataUrl === imageDataUrl || topSameImageDimsSoon)) {
-    rows[0] = { ...rows[0], updatedAt: nowIso(), source: String(partial.source || rows[0].source) };
-    saveHistory(rows);
-    return rows[0];
+
+  const topSameImageHash =
+    hasImage &&
+    Boolean(incomingMeta?.sha256) &&
+    top?.contentType === "image" &&
+    (top.imageSha256 === incomingMeta.sha256 || top.imageMediaFile === incomingMeta.fileName);
+
+  if (hasImage && (topSameImageHash || topSameImageDimsSoon)) {
+    allRows[topIdx] = { ...top, updatedAt: nowIso(), source: String(partial.source || top.source) };
+    saveHistory(allRows);
+    return hydrateClipImage(allRows[topIdx]);
   }
-  if (!hasImage && rows[0] && !rows[0].imageDataUrl && rows[0].text === text) {
-    rows[0] = { ...rows[0], updatedAt: nowIso(), source: String(partial.source || rows[0].source) };
-    saveHistory(rows);
-    return rows[0];
+  if (!hasImage && top && top.contentType !== "image" && !top.hasImage && top.text === text) {
+    allRows[topIdx] = { ...top, updatedAt: nowIso(), source: String(partial.source || top.source) };
+    saveHistory(allRows);
+    return allRows[topIdx];
   }
   const row = normalizeClip(
     {
@@ -361,27 +489,31 @@ export function addClip(partial) {
     },
     "history",
   );
-  rows.unshift(row);
-  saveHistory(rows.slice(0, HISTORY_CAP));
+  allRows.unshift(row);
+  saveHistory(allRows.slice(0, HISTORY_CAP));
   return row;
 }
 
 export function addSample(partial) {
   const imageDataUrl = String(partial?.imageDataUrl || "").trim();
-  const hasImage = imageDataUrl.startsWith("data:image/");
+  const imageMediaFile = String(partial?.imageMediaFile || "").trim();
+  const imageSha256 = String(partial?.imageSha256 || "").trim();
+  const hasImage = Boolean(imageDataUrl.startsWith("data:image/") || imageMediaFile);
   const imageWidth = Number(partial?.imageWidth) || 0;
   const imageHeight = Number(partial?.imageHeight) || 0;
   const defaultImgLabel = imageWidth && imageHeight ? `[Image ${imageWidth}×${imageHeight}]` : "[Image]";
   const text = String(partial?.text || (hasImage ? defaultImgLabel : "")).slice(0, 100_000);
   if (!text.trim() && !hasImage) return null;
-  const rows = listSamples();
+  const rows = listSamples({ hydrate: false });
   const row = normalizeClip(
     {
       id: newId(),
       name: String(partial?.name || text.slice(0, 40)),
       text,
       contentType: hasImage ? "image" : "text",
-      imageDataUrl: hasImage ? imageDataUrl : undefined,
+      imageDataUrl: imageDataUrl.startsWith("data:image/") ? imageDataUrl : undefined,
+      imageMediaFile: imageMediaFile || undefined,
+      imageSha256: imageSha256 || undefined,
       imageWidth: hasImage ? imageWidth : undefined,
       imageHeight: hasImage ? imageHeight : undefined,
       pinned: true,
@@ -397,13 +529,15 @@ export function addSample(partial) {
 }
 
 export function promoteClipToSample(id) {
-  const row = findClip(id);
+  const row = findClip(id, { hydrate: false });
   if (!row) return null;
-  if (row.kind === "sample") return row;
+  if (row.kind === "sample") return hydrateClipImage(row);
+  // Share the exact same content-addressed sha256-<hash>.png file without re-writing bytes!
   return addSample({
     name: row.name || row.text.slice(0, 40),
     text: row.text,
-    imageDataUrl: row.imageDataUrl,
+    imageMediaFile: row.imageMediaFile,
+    imageSha256: row.imageSha256,
     imageWidth: row.imageWidth,
     imageHeight: row.imageHeight,
   });
@@ -411,37 +545,39 @@ export function promoteClipToSample(id) {
 
 export function patchClip(id, patch) {
   const onlyPin = Boolean(patch && Object.keys(patch).length === 1 && "pinned" in patch);
-  const history = listHistory();
+  const history = listHistory({ hydrate: false });
   const hIdx = history.findIndex((r) => r.id === id);
   if (hIdx >= 0) {
     const prevUpdatedAt = history[hIdx].updatedAt || history[hIdx].createdAt || nowIso();
     history[hIdx] = normalizeClip(
       { ...history[hIdx], ...patch, id, updatedAt: onlyPin ? prevUpdatedAt : nowIso() },
       "history",
+      { hydrate: false },
     );
     saveHistory(history);
-    return history[hIdx];
+    return hydrateClipImage(history[hIdx]);
   }
-  const samples = listSamples();
+  const samples = listSamples({ hydrate: false });
   const sIdx = samples.findIndex((r) => r.id === id);
   if (sIdx < 0) return null;
   const prevSampleUpdatedAt = samples[sIdx].updatedAt || samples[sIdx].createdAt || nowIso();
   samples[sIdx] = normalizeClip(
     { ...samples[sIdx], ...patch, id, updatedAt: onlyPin ? prevSampleUpdatedAt : nowIso() },
     "sample",
+    { hydrate: false },
   );
   saveSamples(samples);
-  return samples[sIdx];
+  return hydrateClipImage(samples[sIdx]);
 }
 
 export function softDeleteClip(id) {
-  const row = findClip(id);
+  const row = findClip(id, { hydrate: false });
   if (!row || row.deletedAt) return null;
   return patchClip(id, { deletedAt: nowIso() });
 }
 
 export function restoreClip(id) {
-  const row = findClip(id);
+  const row = findClip(id, { hydrate: false });
   if (!row || !row.deletedAt) return null;
   return patchClip(id, { deletedAt: null });
 }
@@ -452,13 +588,13 @@ export function removeClip(id) {
   const nextHistory = history.filter((r) => r.id !== id);
   if (nextHistory.length !== history.length) {
     saveHistory(nextHistory);
-    removeMediaFileIfUnused(id);
+    pruneUnreferencedClipMediaFiles();
     return true;
   }
   const samples = listSamples({ hydrate: false });
   const nextSamples = samples.filter((r) => r.id !== id);
   if (nextSamples.length === samples.length) return false;
   saveSamples(nextSamples);
-  removeMediaFileIfUnused(id);
+  pruneUnreferencedClipMediaFiles();
   return true;
 }

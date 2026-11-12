@@ -6,11 +6,34 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ingestClipboardImage, ingestClipboardText, resetClipboardWatchForTests } from "./clip-watch.mjs";
-import { addClip, addSample, listClips, listHistory, promoteClipToSample, removeClip, restoreClip, softDeleteClip, dataRoot } from "./store.mjs";
+import {
+  addClip,
+  addSample,
+  clipsMediaDir,
+  dataRoot,
+  listClips,
+  listHistory,
+  promoteClipToSample,
+  pruneUnreferencedClipMediaFiles,
+  readClipMediaBuffer,
+  removeClip,
+  restoreClip,
+  softDeleteClip,
+} from "./store.mjs";
 import { readHotkeys, resetHotkeys, validateAccelerator, writeHotkeys } from "./hotkeys.mjs";
-import { parseSchtasksListVerbose, readTaskNames, writeTaskNames } from "./windows.mjs";
-import { runnerTargets } from "./runners.mjs";
-import { createServer } from "./server.mjs";
+import {
+  dibBufferToClipboardImage,
+  getClipboardSequenceNumber,
+  listDevTasks,
+  parseSchtasksListVerbose,
+  parseTaskSchedulerComTsv,
+  pngBufferToDibBuffer,
+  readClipboardImageAsync,
+  readTaskNames,
+  writeTaskNames,
+} from "./windows.mjs";
+import { findListeningPidsByPortNative, runnerTargets, stopRunner } from "./runners.mjs";
+import { createServer, runBrowseFolderWinAsync, runPurgeCursorChatsAsync } from "./server.mjs";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -652,10 +675,11 @@ test("GET /api/clips?summary=1 strips base64 imageDataUrl while GET /api/clips/:
     source: "manual",
   });
   assert.ok(created?.id);
+  assert.match(String(created.imageMediaFile || ""), /^sha256-[0-9a-f]{64}\.png$/);
   const rawDiskClips = fs.readFileSync(path.join(dir, "clips.json"), "utf8");
   assert.doesNotMatch(rawDiskClips, /data:image\/png;base64,/);
-  assert.match(rawDiskClips, new RegExp(`${created.id}\\.png`));
-  const diskPngPath = path.join(dir, "clips-media", `${created.id}.png`);
+  assert.match(rawDiskClips, new RegExp(created.imageMediaFile.replace(".", "\\.")));
+  const diskPngPath = path.join(dir, "clips-media", created.imageMediaFile);
   assert.equal(fs.existsSync(diskPngPath), true);
   assert.equal(`data:image/png;base64,${fs.readFileSync(diskPngPath).toString("base64")}`, fakePng);
 
@@ -932,5 +956,581 @@ test("PUT /api/tasks/:name updates built-in daemon schedule, description, and en
     assert.equal(reEnableRes.task.schedule, "Every 30 min");
   } finally {
     server.close();
+  }
+});
+
+test("native CF_DIB <-> PNG codec round-trips 24-bpp padded, 32-bpp GDI zero-alpha, and top-down V5 bitfields", () => {
+  // 1) 24-bpp bottom-up BI_RGB with width=3 (stride = 12 bytes with 3-byte padding)
+  const stride24 = 12;
+  const dib24 = Buffer.alloc(40 + stride24 * 2);
+  dib24.writeUInt32LE(40, 0);
+  dib24.writeInt32LE(3, 4);
+  dib24.writeInt32LE(2, 8); // bottom-up height=2
+  dib24.writeUInt16LE(1, 12);
+  dib24.writeUInt16LE(24, 14);
+  // Top visual row (y=0) sits at bottom DIB row (srcY=1): pixel (0,0) = RGB(220, 40, 10) -> BGR(10, 40, 220)
+  const topRow24 = 40 + stride24;
+  dib24[topRow24] = 10;
+  dib24[topRow24 + 1] = 40;
+  dib24[topRow24 + 2] = 220;
+
+  const img24 = dibBufferToClipboardImage(dib24);
+  assert.ok(img24);
+  assert.equal(img24.imageWidth, 3);
+  assert.equal(img24.imageHeight, 2);
+  assert.match(img24.imageDataUrl, /^data:image\/png;base64,/);
+
+  const roundDib24 = pngBufferToDibBuffer(Buffer.from(img24.imageDataUrl.split(",")[1], "base64"));
+  assert.ok(roundDib24);
+  assert.equal(roundDib24.readInt32LE(4), 3);
+  assert.equal(roundDib24.readInt32LE(8), 2);
+  const rtTopRow = 40 + 1 * 3 * 4;
+  assert.deepEqual(
+    [roundDib24[rtTopRow], roundDib24[rtTopRow + 1], roundDib24[rtTopRow + 2], roundDib24[rtTopRow + 3]],
+    [10, 40, 220, 255],
+  );
+
+  // 2) 32-bpp BI_RGB with all-zero GDI screenshot alpha -> promoted to opaque 255
+  const dib32ZeroAlpha = Buffer.alloc(40 + 16);
+  dib32ZeroAlpha.writeUInt32LE(40, 0);
+  dib32ZeroAlpha.writeInt32LE(2, 4);
+  dib32ZeroAlpha.writeInt32LE(2, 8);
+  dib32ZeroAlpha.writeUInt16LE(1, 12);
+  dib32ZeroAlpha.writeUInt16LE(32, 14);
+  // Bottom-left pixel (srcY=0, x=0 -> visual y=1, x=0): BGRA(99, 150, 201, 0)
+  dib32ZeroAlpha[40] = 99;
+  dib32ZeroAlpha[41] = 150;
+  dib32ZeroAlpha[42] = 201;
+  dib32ZeroAlpha[43] = 0;
+
+  const img32 = dibBufferToClipboardImage(dib32ZeroAlpha);
+  assert.ok(img32);
+  const roundDib32 = pngBufferToDibBuffer(Buffer.from(img32.imageDataUrl.split(",")[1], "base64"));
+  assert.ok(roundDib32);
+  assert.deepEqual([roundDib32[40], roundDib32[41], roundDib32[42], roundDib32[43]], [99, 150, 201, 255]);
+
+  // 3) Top-down BITMAPV5HEADER (124 bytes) BI_BITFIELDS preserving semi-transparent alpha=128
+  const dibV5 = Buffer.alloc(124 + 16);
+  dibV5.writeUInt32LE(124, 0);
+  dibV5.writeInt32LE(2, 4);
+  dibV5.writeInt32LE(-2, 8); // top-down
+  dibV5.writeUInt16LE(1, 12);
+  dibV5.writeUInt16LE(32, 14);
+  dibV5.writeUInt32LE(3, 16); // BI_BITFIELDS
+  dibV5.writeUInt32LE(0x00ff0000, 40); // R
+  dibV5.writeUInt32LE(0x0000ff00, 44); // G
+  dibV5.writeUInt32LE(0x000000ff, 48); // B
+  dibV5.writeUInt32LE(0xff000000, 52); // A
+  // Top-left pixel (y=0, x=0): 0x80112233 -> A=0x80(128), R=0x11(17), G=0x22(34), B=0x33(51)
+  dibV5.writeUInt32LE(0x80112233, 124);
+
+  const imgV5 = dibBufferToClipboardImage(dibV5);
+  assert.ok(imgV5);
+  const roundDibV5 = pngBufferToDibBuffer(Buffer.from(imgV5.imageDataUrl.split(",")[1], "base64"));
+  assert.ok(roundDibV5);
+  // Bottom-up output puts visual y=0 at srcY=1 (offset 40 + 8)
+  assert.deepEqual([roundDibV5[48], roundDibV5[49], roundDibV5[50], roundDibV5[51]], [51, 34, 17, 128]);
+});
+
+test("native getClipboardSequenceNumber and readClipboardImageAsync run without spawning PowerShell", async () => {
+  const seq = getClipboardSequenceNumber();
+  assert.equal(typeof seq, "number");
+  assert.ok(seq >= 0);
+
+  const t0 = performance.now();
+  const img = await readClipboardImageAsync(500);
+  const elapsedMs = performance.now() - t0;
+  // Native koffi read completes in < 80ms (usually < 1ms when text-only), versus 250-900ms for PowerShell .NET
+  assert.ok(elapsedMs < 150, `Expected fast native clipboard image check, took ${elapsedMs.toFixed(1)}ms`);
+  if (img !== null) {
+    assert.ok(img.imageWidth > 0 && img.imageHeight > 0);
+    assert.match(img.imageDataUrl, /^data:image\/png;base64,/);
+  }
+});
+
+test("content-addressed SHA-256 clips-media deduplicates History/Sample images, migrates legacy UUID files, and GCs orphans", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-sha256-media-"));
+  process.env.DESK_CONSOLE_DATA = dir;
+  const fakePng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+  const clip = addClip({ imageDataUrl: fakePng, imageWidth: 64, imageHeight: 64, source: "clipboard" });
+  assert.ok(clip);
+  assert.match(String(clip.imageMediaFile || ""), /^sha256-[0-9a-f]{64}\.png$/);
+  assert.equal(clip.imageSha256?.length, 64);
+
+  // Disk clips.json must NOT embed base64 imageDataUrl
+  const rawClipsJson = fs.readFileSync(path.join(dir, "clips.json"), "utf8");
+  assert.doesNotMatch(rawClipsJson, /data:image\/png;base64/);
+
+  // Promote to Sample: shares the exact same sha256-<hash>.png file without duplicating bytes
+  const sample = promoteClipToSample(clip.id);
+  assert.ok(sample);
+  assert.equal(sample.imageMediaFile, clip.imageMediaFile);
+  assert.equal(fs.readdirSync(clipsMediaDir()).filter((f) => f.endsWith(".png")).length, 1);
+
+  // Removing History copy MUST preserve the shared sha256-<hash>.png file for the Sample!
+  assert.equal(removeClip(clip.id), true);
+  assert.equal(fs.readdirSync(clipsMediaDir()).filter((f) => f.endsWith(".png")).length, 1);
+  assert.ok(readClipMediaBuffer(sample.id));
+
+  // Verify HTTP GET /api/clips/:id/image serves the shared content-addressed PNG buffer
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = server.address();
+    const res = await fetch(`http://127.0.0.1:${port}/api/clips/${sample.id}/image`);
+    assert.equal(res.status, 200);
+    const bytes = Buffer.from(await res.arrayBuffer());
+    assert.equal(bytes[0], 0x89);
+    assert.equal(bytes[1], 0x50);
+  } finally {
+    server.close();
+  }
+
+  // Removing Sample too unlinks the now-unreferenced PNG file
+  assert.equal(removeClip(sample.id), true);
+  assert.equal(fs.readdirSync(clipsMediaDir()).filter((f) => f.endsWith(".png")).length, 0);
+
+  // Legacy <uuid>.png + orphan file auto-migration & GC
+  const legacyId = "11111111-2222-3333-4444-555555555555";
+  const rawPngBytes = Buffer.from(fakePng.split(",")[1], "base64");
+  fs.writeFileSync(path.join(clipsMediaDir(), `${legacyId}.png`), rawPngBytes);
+  fs.writeFileSync(path.join(clipsMediaDir(), "orphan-dead-uuid.png"), rawPngBytes);
+  fs.writeFileSync(
+    path.join(dir, "clips.json"),
+    JSON.stringify([
+      {
+        id: legacyId,
+        name: "Legacy Img",
+        text: "[Image 10×10]",
+        contentType: "image",
+        hasImage: true,
+        imageMediaFile: `${legacyId}.png`,
+        imageWidth: 10,
+        imageHeight: 10,
+        kind: "history",
+        pinned: false,
+        source: "clipboard",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        deletedAt: null,
+      },
+    ]),
+    "utf8",
+  );
+  const migratedRows = listHistory();
+  assert.equal(migratedRows.length, 1);
+  assert.match(String(migratedRows[0].imageMediaFile || ""), /^sha256-[0-9a-f]{64}\.png$/);
+  assert.equal(migratedRows[0].imageDataUrl, fakePng);
+  const remainingFiles = fs.readdirSync(clipsMediaDir()).filter((f) => f.endsWith(".png"));
+  assert.equal(remainingFiles.length, 1);
+  assert.match(remainingFiles[0], /^sha256-[0-9a-f]{64}\.png$/);
+  assert.equal(pruneUnreferencedClipMediaFiles(), 0);
+});
+
+test("picker-store summary mode omits multi-MB Base64, emits immutable imageUrl, and reads full-res PNG buffer on paste", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-picker-lazy-"));
+  process.env.DESK_CONSOLE_DATA = dir;
+  const fakePng =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const expectedBuf = Buffer.from(fakePng.split(",")[1], "base64");
+  const clip = addClip({
+    name: "Lazy Shot",
+    imageDataUrl: fakePng,
+    imageWidth: 1920,
+    imageHeight: 1080,
+    source: "clipboard",
+  });
+  assert.ok(clip?.id);
+
+  const { readPickerSnapshot, readPickerClipMediaBuffer } = require("../electron/picker-store.cjs");
+  const summarySnap = readPickerSnapshot({ summary: true, apiPort: 6010 });
+  assert.equal(summarySnap.rows.length, 1);
+  const row = summarySnap.rows[0];
+  assert.equal(row.id, clip.id);
+  assert.equal(row.hasImage, true);
+  assert.equal(row.imageDataUrl, undefined);
+  assert.match(
+    String(row.imageUrl || ""),
+    new RegExp(`^http://127\\.0\\.0\\.1:6010/api/clips/${clip.id}/image\\?v=sha256-[0-9a-f]{64}\\.png$`),
+  );
+
+  const pastedBuf = readPickerClipMediaBuffer(row);
+  assert.ok(Buffer.isBuffer(pastedBuf));
+  assert.deepEqual(pastedBuf, expectedBuf);
+  assert.deepEqual(readPickerClipMediaBuffer(clip.id), expectedBuf);
+});
+
+test("parseTaskSchedulerComTsv parses COM TSV + XML schedule and listDevTasks coalesces concurrent calls via singleflight", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-tasks-com-"));
+  process.env.DESK_CONSOLE_DATA = dir;
+  const xmlDaily =
+    '<Task><Triggers><CalendarTrigger><StartBoundary>2026-11-02T06:45:00</StartBoundary><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger></Triggers><Actions><Exec><Command>E:\\Dev\\.tools\\nodew.exe</Command><Arguments>Tool/scripts/audit-agent-sessions-rca.mjs --days 1</Arguments></Exec></Actions></Task>';
+  const xmlRepeat =
+    '<Task><Triggers><TimeTrigger><StartBoundary>2026-11-01T00:00:00</StartBoundary><Repetition><Interval>PT15M</Interval></Repetition></TimeTrigger></Triggers><Actions><Exec><Command>node.exe</Command><Arguments>worker.mjs</Arguments></Exec></Actions></Task>';
+  const tsv = [
+    [
+      "Dev-Agent-Daily-Kaizen",
+      "Ready",
+      "2026-11-10T23:45:01.000Z",
+      "11/11/2026 06:45:01",
+      "0",
+      "12/11/2026 06:45:00",
+      xmlDaily,
+    ].join("\t"),
+    [
+      "Dev-Custom-QuarterHour",
+      "Disabled",
+      "",
+      "N/A",
+      "267011",
+      "N/A",
+      xmlRepeat,
+    ].join("\t"),
+    ["Microsoft-Windows-NonDev", "Ready", "", "N/A", "0", "N/A", "<Task/>"].join("\t"),
+  ].join("\r\n");
+
+  const parsed = parseTaskSchedulerComTsv(tsv);
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[0].name, "Dev-Agent-Daily-Kaizen");
+  assert.equal(parsed[0].schedule, "Daily 06:45");
+  assert.equal(parsed[0].command, "E:\\Dev\\.tools\\nodew.exe Tool/scripts/audit-agent-sessions-rca.mjs --days 1");
+  assert.equal(parsed[1].name, "Dev-Custom-QuarterHour");
+  assert.equal(parsed[1].status, "Disabled");
+  assert.equal(parsed[1].lastResult, "0");
+  assert.equal(parsed[1].schedule, "Every 15 min");
+
+  if (process.platform === "win32") {
+    const [r1, r2, r3] = await Promise.all([listDevTasks(true), listDevTasks(true), listDevTasks(true)]);
+    assert.equal(r1, r2);
+    assert.equal(r2, r3);
+    assert.ok(Array.isArray(r1));
+  }
+});
+
+test("runPurgeCursorChatsAsync keeps :6010 event loop non-blocking and coalesces concurrent purge requests via singleflight", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-purge-sf-"));
+  const counterFile = path.join(tmpDir, "runs.txt");
+  const fakePurgeScript = path.join(tmpDir, "fake-purge.mjs");
+  fs.writeFileSync(
+    fakePurgeScript,
+    `import fs from "node:fs";
+const p = process.argv[2];
+const n = fs.existsSync(p) ? Number(fs.readFileSync(p, "utf8")) : 0;
+fs.writeFileSync(p, String(n + 1), "utf8");
+await new Promise((r) => setTimeout(r, 150));
+console.log("purged_ok_" + (n + 1));
+`,
+    "utf8",
+  );
+  try {
+    let maxLoopLagMs = 0;
+    let lastTick = performance.now();
+    const timer = setInterval(() => {
+      const now = performance.now();
+      const lag = now - lastTick - 10;
+      if (lag > maxLoopLagMs) maxLoopLagMs = lag;
+      lastTick = now;
+    }, 10);
+
+    const opts = {
+      cwd: tmpDir,
+      timeoutMs: 5000,
+      command: process.execPath,
+      args: [fakePurgeScript, counterFile],
+      singleflightKey: "test:cursor-purge-sf",
+    };
+    const [a, b, c] = await Promise.all([
+      runPurgeCursorChatsAsync(fakePurgeScript, opts),
+      runPurgeCursorChatsAsync(fakePurgeScript, opts),
+      runPurgeCursorChatsAsync(fakePurgeScript, opts),
+    ]);
+    clearInterval(timer);
+
+    assert.equal(a.status, 0);
+    assert.equal(a.stdout.trim(), "purged_ok_1");
+    assert.equal(a.stdout, b.stdout);
+    assert.equal(b.stdout, c.stdout);
+    assert.equal(Number(fs.readFileSync(counterFile, "utf8")), 1);
+    assert.ok(maxLoopLagMs < 80, `Expected non-blocking :6010 event loop lag < 80ms, got ${maxLoopLagMs.toFixed(1)}ms`);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("runBrowseFolderWinAsync keeps :6010 event loop non-blocking, coalesces stacked dialogs via singleflight, and handles cancel", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-browse-sf-"));
+  const counterFile = path.join(tmpDir, "dialogs.txt");
+  const fakeDialogScript = path.join(tmpDir, "fake-dialog.mjs");
+  const chosenDir = path.join(tmpDir, "SyncTarget");
+  fs.mkdirSync(chosenDir, { recursive: true });
+  fs.writeFileSync(
+    fakeDialogScript,
+    `import fs from "node:fs";
+const [counterPath, outDir] = process.argv.slice(2);
+const n = fs.existsSync(counterPath) ? Number(fs.readFileSync(counterPath, "utf8")) : 0;
+fs.writeFileSync(counterPath, String(n + 1), "utf8");
+await new Promise((r) => setTimeout(r, 150));
+if (outDir) process.stdout.write(outDir);
+`,
+    "utf8",
+  );
+  try {
+    let maxLoopLagMs = 0;
+    let lastTick = performance.now();
+    const timer = setInterval(() => {
+      const now = performance.now();
+      const lag = now - lastTick - 10;
+      if (lag > maxLoopLagMs) maxLoopLagMs = lag;
+      lastTick = now;
+    }, 10);
+
+    const opts = {
+      timeoutMs: 5000,
+      windowsHide: true,
+      command: process.execPath,
+      args: [fakeDialogScript, counterFile, chosenDir],
+      singleflightKey: "test:browse-folder-sf",
+    };
+    const [r1, r2, r3] = await Promise.all([
+      runBrowseFolderWinAsync(tmpDir, opts),
+      runBrowseFolderWinAsync(tmpDir, opts),
+      runBrowseFolderWinAsync(tmpDir, opts),
+    ]);
+    clearInterval(timer);
+
+    assert.deepEqual(r1, { ok: true, path: chosenDir });
+    assert.deepEqual(r2, r1);
+    assert.deepEqual(r3, r1);
+    assert.equal(Number(fs.readFileSync(counterFile, "utf8")), 1);
+    assert.ok(maxLoopLagMs < 80, `Expected non-blocking :6010 event loop lag < 80ms during dialog, got ${maxLoopLagMs.toFixed(1)}ms`);
+
+    const cancelRes = await runBrowseFolderWinAsync(tmpDir, {
+      timeoutMs: 5000,
+      windowsHide: true,
+      command: process.execPath,
+      args: [fakeDialogScript, counterFile, ""],
+      singleflightKey: "test:browse-folder-cancel",
+    });
+    assert.deepEqual(cancelRes, { ok: false, cancelled: true });
+    assert.equal(Number(fs.readFileSync(counterFile, "utf8")), 2);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("findListeningPidsByPortNative resolves IPv4 + IPv6 listeners via iphlpapi (< 25ms) and stopRunner terminates child listener without PowerShell", async () => {
+  if (process.platform !== "win32") return;
+  const net = await import("node:net");
+  const { spawn } = await import("node:child_process");
+
+  const s4 = net.createServer();
+  await new Promise((r) => s4.listen(0, "127.0.0.1", r));
+  const p4 = s4.address().port;
+  const s6 = net.createServer();
+  await new Promise((r) => s6.listen(0, "::1", r));
+  const p6 = s6.address().port;
+
+  try {
+    // Warm load + benchmark warm query
+    assert.ok(findListeningPidsByPortNative(p4).includes(process.pid));
+    const t0 = performance.now();
+    const pids6 = findListeningPidsByPortNative(p6);
+    const elapsedMs = performance.now() - t0;
+    assert.ok(pids6.includes(process.pid));
+    assert.ok(elapsedMs < 25, `Expected warm GetExtendedTcpTable < 25ms, took ${elapsedMs.toFixed(2)}ms`);
+  } finally {
+    s4.close();
+    s6.close();
+  }
+
+  // Spawn real child TCP server and stop it via stopRunner
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-stop-runner-"));
+  const serverScript = path.join(tmpDir, "dummy-listener.mjs");
+  fs.writeFileSync(
+    serverScript,
+    `import net from "node:net";
+const srv = net.createServer();
+srv.listen(0, "127.0.0.1", () => {
+  process.stdout.write(String(srv.address().port) + "\\n");
+});
+setInterval(() => {}, 10000);
+`,
+    "utf8",
+  );
+  const child = spawn(process.execPath, [serverScript], { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
+  try {
+    const childPort = await new Promise((resolve, reject) => {
+      let buf = "";
+      const timer = setTimeout(() => reject(new Error("child listener boot timeout")), 4000);
+      child.stdout.on("data", (d) => {
+        buf += String(d);
+        if (buf.includes("\n")) {
+          clearTimeout(timer);
+          resolve(Number(buf.trim()));
+        }
+      });
+    });
+    assert.ok(childPort > 0);
+    const tStop0 = performance.now();
+    const res = await stopRunner("TEST", { portOverride: childPort });
+    const stopElapsedMs = performance.now() - tStop0;
+    assert.equal(res.ok, true);
+    assert.equal(res.state, "stopped");
+    assert.ok(res.killedPids.includes(child.pid));
+    assert.ok(stopElapsedMs < 80, `Expected native stopRunner < 80ms, took ${stopElapsedMs.toFixed(1)}ms`);
+  } finally {
+    try {
+      child.kill();
+    } catch {
+      /* already terminated */
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("runRunnerWatchdogTick respects 30m idle Vite lease and DRIVE_POLL_INTERVAL_MS is 120s", async () => {
+  const { DRIVE_POLL_INTERVAL_MS } = await import("./job-watch.mjs");
+  assert.equal(DRIVE_POLL_INTERVAL_MS, 120_000);
+  const { processAlive } = await import("../../scripts/lib/prune-stale-terminals-core.mjs");
+  assert.equal(processAlive(process.pid), true);
+  assert.equal(processAlive(99999999), false);
+  assert.equal(processAlive(0), false);
+});
+
+test("packaged host copied outside E:\\Dev without .env.local resolves Drive OAuth client from staged oauth-client.runtime.json", async () => {
+  const { spawn } = await import("node:child_process");
+  const { stagePackagedOAuthClient } = await import("../scripts/lib/stage-oauth-client.mjs");
+  const hostDir = path.dirname(fileURLToPath(import.meta.url));
+  const productRoot = path.resolve(hostDir, "..");
+  const staged = stagePackagedOAuthClient(productRoot);
+  assert.equal(staged.staged, true);
+  assert.equal(fs.existsSync(staged.path), true);
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-packaged-no-env-"));
+  const isolatedHostDir = path.join(tmpDir, "resources", "app", "host");
+  fs.cpSync(hostDir, isolatedHostDir, {
+    recursive: true,
+    filter: (src) => !src.endsWith(".test.mjs"),
+  });
+  const rcloneConf = path.join(tmpDir, "rclone", "rclone.conf");
+  const port = 16094;
+  const rcloneExe = path.join(productRoot, "resources", "rclone", "rclone.exe");
+
+  const child = spawn(process.execPath, [path.join(isolatedHostDir, "server.mjs")], {
+    cwd: path.join(tmpDir, "resources", "app"),
+    env: {
+      SystemRoot: process.env.SystemRoot || "C:\\Windows",
+      PATH: process.env.SystemRoot ? `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}` : "",
+      TEMP: tmpDir,
+      TMP: tmpDir,
+      USERPROFILE: tmpDir,
+      APPDATA: tmpDir,
+      LOCALAPPDATA: tmpDir,
+      DESK_DEV_ROOT: "C:\\NonExistentWorkspaceForEndUser",
+      DESK_API_PORT: String(port),
+      FOLDER_SYNC_API_PORT: String(port),
+      DESK_CONSOLE_DATA: path.join(tmpDir, "desk-data"),
+      FOLDER_SYNC_DATA_ROOT: path.join(tmpDir, "sync-data"),
+      RCLONE_CONFIG: rcloneConf,
+      RCLONE_PATH: rcloneExe,
+      DESK_SKIP_BOOT_COOLDOWN: "1",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+
+  let stderr = "";
+  child.stderr.on("data", (d) => {
+    stderr += String(d);
+  });
+
+  try {
+    let healthy = false;
+    for (let i = 0; i < 40; i += 1) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/api/health`);
+        if (res.status === 200) {
+          healthy = true;
+          break;
+        }
+      } catch {
+        /* wait */
+      }
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    assert.equal(healthy, true, `isolated packaged host failed to boot: ${stderr}`);
+
+    const authRes = await fetch(`http://127.0.0.1:${port}/api/remotes/authorize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "gdrive" }),
+    });
+    const authJson = await authRes.json();
+    assert.equal(authRes.status, 200, `isolated packaged authorize failed: ${JSON.stringify(authJson)}`);
+    assert.equal(authJson.ok, true);
+    assert.match(String(authJson.authUrl || ""), /^https:\/\/accounts\.google\.com\/o\/oauth2\/auth\?client_id=/);
+
+    await fetch(`http://127.0.0.1:${port}/api/remotes/authorize/cancel`, { method: "POST" });
+  } finally {
+    try {
+      child.kill();
+    } catch {
+      /* ignore */
+    }
+    await new Promise((r) => setTimeout(r, 200));
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("startDriveOAuth auto-reclaims stale foreign listener on 127.0.0.1:53682 and openDriveOAuthInStealthProfile blocks 8xxx", async () => {
+  const { spawn } = await import("node:child_process");
+  const {
+    cancelDriveOAuth,
+    getDriveOAuthCallbackStatus,
+    openDriveOAuthInStealthProfile,
+    startDriveOAuth,
+  } = await import("./drive-oauth.mjs");
+
+  const blocked8xxx = await openDriveOAuthInStealthProfile(
+    "8001",
+    "https://accounts.google.com/o/oauth2/auth?client_id=test",
+  );
+  assert.equal(blocked8xxx.ok, false);
+  assert.match(String(blocked8xxx.error || ""), /8xxx/);
+
+  await cancelDriveOAuth();
+  const blocker = spawn(
+    process.execPath,
+    [
+      "-e",
+      "const net=require('node:net'); const s=net.createServer().listen(53682,'127.0.0.1',()=>{process.stdout.write('READY\\n');}); setInterval(()=>{},10000);",
+    ],
+    { stdio: ["ignore", "pipe", "ignore"], windowsHide: true },
+  );
+  try {
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("blocker bind timeout")), 5000);
+      blocker.stdout.on("data", (c) => {
+        if (String(c).includes("READY")) {
+          clearTimeout(t);
+          resolve();
+        }
+      });
+    });
+    const auth = await startDriveOAuth("gdrive");
+    assert.equal(auth.ok, true, `Expected startDriveOAuth to reclaim 53682, got: ${JSON.stringify(auth)}`);
+    assert.equal(auth.callbackListening, true);
+    assert.equal(auth.reclaimedCallbackPid, blocker.pid);
+    const cbStatus = getDriveOAuthCallbackStatus();
+    assert.equal(cbStatus.listening, true);
+    assert.equal(cbStatus.callbackPort, 53682);
+  } finally {
+    await cancelDriveOAuth();
+    try {
+      blocker.kill();
+    } catch {
+      /* already killed by reclaimStaleCallbackPort */
+    }
   }
 });

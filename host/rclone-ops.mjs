@@ -182,7 +182,9 @@ export function runRclone(args, opts = {}) {
     const ledgerRow = inferredRemote ? readDriveAccountLedger()[inferredRemote] : undefined;
     const proxyEnv = buildRcloneProxyEnv(readNetworkSettings(), ledgerRow, opts.jobNetwork);
     const child = spawn(bin, args, {
+      detached: process.platform === "win32",
       windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, ...proxyEnv, ...(opts.env || {}) },
     });
     if (opts.jobId) {
@@ -484,6 +486,27 @@ export function defaultDriveOAuthClient() {
   const envSecret = readLocalEnvValue("DESK_GOOGLE_OAUTH_CLIENT_SECRET");
   if (envId && envSecret) {
     return { clientId: envId, clientSecret: envSecret, scope: "drive" };
+  }
+  const jsonCandidates = [
+    path.join(__dirname, "oauth-client.runtime.json"),
+    path.join(process.env.APPDATA || path.join(os.homedir(), ".config"), "desk-console", "oauth-client.json"),
+  ];
+  for (const fp of jsonCandidates) {
+    try {
+      if (!fs.existsSync(fp)) continue;
+      const parsed = JSON.parse(fs.readFileSync(fp, "utf8"));
+      const clientId = String(parsed?.clientId || "").trim();
+      const clientSecret = String(parsed?.clientSecret || "").trim();
+      if (clientId && clientSecret) {
+        return {
+          clientId,
+          clientSecret,
+          scope: String(parsed?.scope || "drive").trim() || "drive",
+        };
+      }
+    } catch {
+      /* ignore invalid runtime oauth json */
+    }
   }
   return {
     clientId: "",

@@ -27,6 +27,7 @@ import {
   type BarItem,
   type FilterDef,
   type FilterValues,
+  type HubRichToastInput,
   type HubSegmentToggleOption,
   type HubTimeSeriesLinePoint,
   type KpiTileData,
@@ -39,6 +40,7 @@ import {
   type ClipRow,
   type DeskHostMetrics,
   type PcDiagnosticsPayload,
+  type PcOptimizeAction,
   type RunnerRow,
   type TaskRow,
   type TelemetryHistoryPoint,
@@ -143,8 +145,19 @@ function buildTimeBuckets(
   return buckets;
 }
 
+function computeKpiDeltaPct(current: number, baseline: number): number {
+  if (!Number.isFinite(current) || !Number.isFinite(baseline) || baseline <= 0) return 0;
+  return ((current - baseline) / baseline) * 100;
+}
+
 export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
-  const { pushToast } = useHubToast();
+  const toast = useHubToast();
+  const pushToast = useCallback(
+    (input: HubRichToastInput) => {
+      toast?.pushRichToast(input);
+    },
+    [toast],
+  );
   const chromePrefs = useHubChromePrefs();
   const headerChrome = deskTabHeaderChromeProps(false, chromePrefs);
   const centerStats = useHostHeaderStats();
@@ -221,16 +234,20 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
   }, [loadAll, tabActive]);
 
   const handleQuickOptimize = useCallback(
-    async (action: "trim-ram" | "clean-smoke" | "prune-junk" | "deep-maintenance", label: string) => {
+    async (action: PcOptimizeAction, label: string) => {
       setOptimizingAction(action);
       try {
         const res = await deskApi.pcOptimize(action);
-        const freedMb = res.results?.ram?.freedBytes
-          ? `${(res.results.ram.freedBytes / (1024 * 1024)).toFixed(0)} MB RAM freed`
-          : res.results?.junk?.freedBytes
-            ? `${(res.results.junk.freedBytes / (1024 * 1024)).toFixed(1)} MB junk pruned`
-            : "completed";
-        pushToast({ type: "success", title: label, message: freedMb });
+        const freedSummary = res.results?.ram?.freedRamBytes
+          ? `${(res.results.ram.freedRamBytes / (1024 * 1024)).toFixed(0)} MB RAM freed`
+          : res.results?.antigravitySweep &&
+              (res.results.antigravitySweep.removedSessions > 0 ||
+                res.results.antigravitySweep.prunedArtifacts > 0)
+            ? `${res.results.antigravitySweep.removedSessions} sessions, ${res.results.antigravitySweep.prunedArtifacts} artifacts swept`
+            : res.results?.junk?.pruned
+              ? "Workspace junk pruned"
+              : "completed";
+        pushToast({ type: "success", title: label, message: freedSummary });
         await loadAll();
       } catch (err) {
         pushToast({
@@ -371,7 +388,11 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
         prefKey: "sync-jobs",
         label: `Sync Jobs (${rangeUpper})`,
         value: `${syncedJobsCount}/${jobs.length}`,
-        delta: buildHubDashboardKpiDelta(syncedJobsCount, Math.max(1, jobs.length - errorJobsCount), rangeUpper),
+        delta: buildHubDashboardKpiDelta(
+          computeKpiDeltaPct(syncedJobsCount, Math.max(1, jobs.length - errorJobsCount)),
+          false,
+          rangeUpper,
+        ),
         hint: `${runningJobsCount} active · ${errorJobsCount} errors`,
         emojiGlyph: "📁",
         tone: errorJobsCount > 0 ? "amber" : "emerald",
@@ -381,7 +402,11 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
         prefKey: "drive-accounts",
         label: `Google Drives (${rangeUpper})`,
         value: `${signedDrivesCount}/${drives.length}`,
-        delta: buildHubDashboardKpiDelta(signedDrivesCount, Math.max(1, signedDrivesCount), rangeUpper),
+        delta: buildHubDashboardKpiDelta(
+          computeKpiDeltaPct(signedDrivesCount, Math.max(1, signedDrivesCount)),
+          false,
+          rangeUpper,
+        ),
         hint: `${formatGiB(totalCloudFreeBytes)} cloud free`,
         emojiGlyph: "☁️",
         tone: "sky",
@@ -391,7 +416,11 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
         prefKey: "clips-vault",
         label: `Clipboard Vault (${rangeUpper})`,
         value: clips.length.toLocaleString(),
-        delta: buildHubDashboardKpiDelta(clips.length, Math.max(1, clips.length - pinnedClipsCount), rangeUpper),
+        delta: buildHubDashboardKpiDelta(
+          computeKpiDeltaPct(clips.length, Math.max(1, clips.length - pinnedClipsCount)),
+          false,
+          rangeUpper,
+        ),
         hint: `${pinnedClipsCount} pinned · ${imageClipsCount} images`,
         emojiGlyph: "📋",
         tone: "violet",
@@ -401,7 +430,11 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
         prefKey: "runners-up",
         label: `Runners Fleet (${rangeUpper})`,
         value: `${upRunnersCount}/${runners.length}`,
-        delta: buildHubDashboardKpiDelta(upRunnersCount, Math.max(1, pinnedRunners.length), rangeUpper),
+        delta: buildHubDashboardKpiDelta(
+          computeKpiDeltaPct(upRunnersCount, Math.max(1, pinnedRunners.length)),
+          false,
+          rangeUpper,
+        ),
         hint: `${pinnedRunners.length} watchdog pinned`,
         emojiGlyph: "▶️",
         tone: "emerald",
@@ -411,7 +444,11 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
         prefKey: "cron-healthy",
         label: `Active Crons (${rangeUpper})`,
         value: `${readyTasksCount}/${tasks.length}`,
-        delta: buildHubDashboardKpiDelta(readyTasksCount, Math.max(1, daemonTasksCount), rangeUpper),
+        delta: buildHubDashboardKpiDelta(
+          computeKpiDeltaPct(readyTasksCount, Math.max(1, daemonTasksCount)),
+          false,
+          rangeUpper,
+        ),
         hint:
           failedTasks.length > 0
             ? `⚠️ ${failedTasks.length} failed · ${daemonTasksCount} daemons`

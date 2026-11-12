@@ -12,6 +12,10 @@ type Options<T> = {
   /** @deprecated Prefer screenId — tabActive forces keep-alive tree re-render on every switch. */
   tabActive?: boolean;
   rowStableKey?: (row: T) => string;
+  /** Optional `0ms` synchronous warm mirror seed. */
+  initialRows?: T[] | (() => T[]);
+  /** Optional async IndexedDB warm-tier hydrator invoked once on mount when initialRows is empty. */
+  hydrate?: () => Promise<T[]>;
 };
 
 function defaultRowStableKey(row: unknown): string {
@@ -29,14 +33,20 @@ function defaultRowStableKey(row: unknown): string {
 
 export function useDeskLive<T>(
   loader: () => Promise<T[]>,
-  { intervalMs = 6000, scope, screenId, tabActive = true, rowStableKey }: Options<T>,
+  { intervalMs = 6000, scope, screenId, tabActive = true, rowStableKey, initialRows, hydrate }: Options<T>,
 ) {
-  const [rows, setRows] = useState<T[]>([]);
+  const [rows, setRows] = useState<T[]>(() => {
+    if (typeof initialRows === "function") return (initialRows as () => T[])();
+    return initialRows ?? [];
+  });
   const [error, setError] = useState<string | null>(null);
-  const applied = useRef(0);
-  const seq = useRef(0);
+  const keyFnInit = rowStableKey ?? defaultRowStableKey;
+  const applied = useRef(rows.length > 0 ? 1 : 0);
+  const seq = useRef(rows.length > 0 ? 1 : 0);
   const lastLoggedError = useRef<string | null>(null);
-  const lastStableSig = useRef("");
+  const lastStableSig = useRef(rows.length > 0 ? rows.map((row) => keyFnInit(row)).join("\n") : "");
+  const hydrateRef = useRef(hydrate);
+  hydrateRef.current = hydrate;
   const tabActiveRef = useRef(tabActive);
   const pendingRows = useRef<T[] | null>(null);
   tabActiveRef.current = tabActive;
@@ -99,7 +109,18 @@ export function useDeskLive<T>(
     const runIfActive = () => {
       if (!cancelled && isActive()) void refresh();
     };
-    // Mount: load once (even if inactive later — keep-alive needs initial rows).
+    // Mount: hydrate IndexedDB warm tier if cold, then load live host snapshot.
+    if (applied.current === 0 && hydrateRef.current) {
+      void hydrateRef
+        .current()
+        .then((hydrated) => {
+          if (cancelled || applied.current > 0 || !Array.isArray(hydrated) || !hydrated.length) return;
+          const keyFn = rowStableKey ?? defaultRowStableKey;
+          lastStableSig.current = hydrated.map((row) => keyFn(row)).join("\n");
+          setRows(hydrated);
+        })
+        .catch(() => {});
+    }
     void refresh();
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") runIfActive();

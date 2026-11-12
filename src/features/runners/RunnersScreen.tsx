@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayCircle } from "lucide-react";
 import { emitHubAppLog } from "@tool-workspace/hub-ui";
 import { deskApi, type RunnerRow } from "../../lib/api";
+import {
+  hydrateP0001RunnersMirror,
+  readCachedP0001Runners,
+  reconcileP0001RunnersDelta,
+} from "../../lib/p0001-desk-mirror-store";
 import { useDeskLive } from "../../lib/use-desk-live";
 import { useDeskTabActive } from "../../lib/desk-active-screen";
 import { appendDeskOpsLog, DeskOpsRuntimeRail } from "../desk/DeskOpsRuntimeRail";
@@ -69,19 +74,28 @@ function withActionOverlay(row: DeskRow, phase: ActionPhase | undefined): DeskRo
 
 export function RunnersScreen() {
   const tabActive = useDeskTabActive("runners");
-  const rawRef = useRef<RunnerRow[]>([]);
+  const rawRef = useRef<RunnerRow[]>(readCachedP0001Runners());
   const [phases, setPhases] = useState<Map<string, ActionPhase>>(() => new Map());
   const [elapsedTick, setElapsedTick] = useState(0);
   const [detailId, setDetailId] = useState<string | null>(null);
   const load = useCallback(async () => {
     const data = await deskApi.runners();
-    rawRef.current = data.rows;
+    const reconciled = reconcileP0001RunnersDelta(rawRef.current, data.rows);
+    rawRef.current = reconciled.rows;
     return rawRef.current.map(toRow);
+  }, []);
+  const hydrateRunners = useCallback(async () => {
+    const hydrated = await hydrateP0001RunnersMirror();
+    if (!hydrated.length) return [];
+    rawRef.current = hydrated;
+    return hydrated.map(toRow);
   }, []);
   const { rows, refresh, refreshBurst } = useDeskLive(load, {
     scope: "runners",
     intervalMs: 8000,
     screenId: "runners",
+    initialRows: () => rawRef.current.map(toRow),
+    hydrate: hydrateRunners,
     rowStableKey: (row) =>
       `${row.id}:${row.opsUp}:${row.status}:${row.opsStartExitCode ?? ""}:${row.opsStartExitedAt ?? ""}`,
   });

@@ -2,7 +2,8 @@
  * Public landing + illustrated guide + video tutorial. Rendered by the P0008 Landing Platform
  * (`Tool/P0008-Landing-Platform/sites/sync`) and mounted under /intro/ on the app's own domain.
  */
-export const P0009_SITE_URL = "https://sync.infi.io.vn/intro/";
+export const P0009_SITE_URL = "https://sync.infi28.com/intro/";
+export const DESK_USER_DOWNLOAD_URL = `${P0009_SITE_URL}download/`;
 
 export type P0009GuidePath = "" | "guide/" | "download/" | "#video";
 

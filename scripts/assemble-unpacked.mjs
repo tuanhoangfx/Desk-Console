@@ -10,8 +10,11 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { killProcessesInFolderNative } from "../../scripts/lib/win-native-proc-net.mjs";
+import { stagePackagedOAuthClient } from "./lib/stage-oauth-client.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+stagePackagedOAuthClient(root);
 const out = path.resolve(root, process.argv.includes("--out") ? process.argv[process.argv.indexOf("--out") + 1] : "dist-desk-win/win-unpacked");
 
 const electronExe = path.join(out, "electron.exe");
@@ -24,6 +27,13 @@ if (!fs.existsSync(electronExe) && !fs.existsSync(productExe)) {
 /** Release file locks before rm/cp (running Desk Console + Defender → EPERM / missing ico). */
 function killPackLocks() {
   if (process.platform !== "win32") return;
+  const nat = killProcessesInFolderNative(out);
+  if (nat) {
+    if (nat.killedPids.length > 0) {
+      console.log(`[assemble] killed ${nat.killedPids.join(", ")}`);
+    }
+    return;
+  }
   const needle = path.normalize(out).toLowerCase().replace(/'/g, "''");
   const ps = [
     `$needle = '${needle}'`,
@@ -261,11 +271,16 @@ if (!koffiStageWarm) {
   }
 }
 
-// Prefer unpacked app/ over a stale asar left by a failed electron-builder rename.
+// Prefer unpacked app/ over a stale asar or app.asar.unpacked left by an older electron-builder build.
 const staleAsar = path.join(out, "resources", "app.asar");
 if (fs.existsSync(staleAsar)) {
   fs.rmSync(staleAsar, { force: true });
   console.log("[assemble] removed stale resources/app.asar (app/ is SSOT for this path)");
+}
+const staleAsarUnpacked = path.join(out, "resources", "app.asar.unpacked");
+if (fs.existsSync(staleAsarUnpacked)) {
+  fs.rmSync(staleAsarUnpacked, { recursive: true, force: true });
+  console.log("[assemble] removed stale resources/app.asar.unpacked (app/ is SSOT for this path)");
 }
 
 // Bundled rclone engine — copy resources/rclone into out/resources/rclone

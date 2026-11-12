@@ -14,12 +14,36 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { DatabaseSync } from "node:sqlite";
 import { promisify } from "node:util";
 import { DEV_ROOT, listDevTasks, runTask } from "./windows.mjs";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
+let cachedLocalSqliteOpen = null;
+
+function openLocalSqlite(filePath, { readOnly = false } = {}) {
+  if (!cachedLocalSqliteOpen) {
+    let BetterSqlite = null;
+    if (DEV_ROOT) {
+      try {
+        const p0003Pkg = path.join(DEV_ROOT, "Tool", "P0003-Stealth-Browser-Console", "package.json");
+        if (fs.existsSync(p0003Pkg)) {
+          BetterSqlite = createRequire(p0003Pkg)("better-sqlite3");
+        }
+      } catch {
+        /* fall back to node:sqlite */
+      }
+    }
+    if (BetterSqlite) {
+      cachedLocalSqliteOpen = (fp, ro) => new BetterSqlite(fp, ro ? { readonly: true } : {});
+    } else {
+      const { DatabaseSync } = require("node:sqlite");
+      cachedLocalSqliteOpen = (fp, ro) =>
+        new DatabaseSync(fp, ro ? { open: true, readOnly: true } : { open: true });
+    }
+  }
+  return cachedLocalSqliteOpen(filePath, readOnly);
+}
 
 const TRIM_TARGET_PROCESSES = new Set([
   "chrome.exe",
@@ -352,6 +376,7 @@ function isUserProtectedHeadedProfileCode(code) {
   if (!Number.isFinite(num)) return false;
   if (num >= 1 && num <= 21) return true;
   if (num === 59 || num === 69 || num === 70 || num === 93) return true;
+  if (num >= 8000 && num <= 8999) return true;
   if (num >= 9990 && num <= 9999) return true;
   return false;
 }
@@ -359,9 +384,11 @@ function isUserProtectedHeadedProfileCode(code) {
 function isProtectedOrSmokeProfileCode(code) {
   const num = extractFourDigitProfileNum(code);
   if (!Number.isFinite(num)) return false;
-  // Only dedicated Agent Smoke Pool (9990-9999) is handled by the smoke tab cleaner;
-  // ANY other profile running in `headless: true` mode (has no visible window on screen)
-  // was launched by background automation and must be bounded by the headless farm sweeper.
+  // Customer profiles (8000-8999) and user profiles (0001-0021, 0059, 0069) are strictly protected.
+  // Dedicated Agent Smoke Pool (9990-9999) is handled by the smoke tab cleaner.
+  if (num >= 1 && num <= 21) return true;
+  if (num === 59 || num === 69) return true;
+  if (num >= 8000 && num <= 8999) return true;
   if (num >= 9990 && num <= 9999) return true;
   return false;
 }
@@ -415,10 +442,8 @@ export async function inspectSmokePoolBrowsers() {
       }
       const serverAnchorMs = Number(r.lastActivityAt || r.launchedAt || 0);
       const serverIdleMs = serverAnchorMs > 0 ? Math.max(0, now - serverAnchorMs) : 0;
-      if (r.headless !== true) {
-        const headedIdleCapMs = Number.isFinite(num) && num >= 100 && num < 9000 ? 3 * 60_000 : 20 * 60_000;
-        if (isUserProtectedHeadedProfileCode(code) || serverIdleMs < headedIdleCapMs) continue;
-      }
+      // Standing Order: NEVER auto-close any User Headed session (`headless !== true`).
+      if (r.headless !== true) continue;
       if (isProtectedOrSmokeProfileCode(code)) continue;
       activeHeadlessIds.add(id);
       if (!headlessFarmSeenAt.has(id)) {
@@ -814,19 +839,26 @@ export async function cleanSmokePoolBrowsers({ maxHeadlessIdleMs = 0, maxHeadles
     const api = getWin32Api();
     if (api) {
       const scan = scanNativeProcesses();
+      const allPids = new Set(scan.processes.map((p) => p.pid));
       const chromeProcs = scan.processes.filter((p) => {
         const nm = String(p.name || "").toLowerCase();
-        return nm === "chrome.exe" || nm === "chrome-headless.exe";
+        return nm === "chrome-headless.exe" || nm === "chrome-headless-shell.exe";
       });
+      const conhostProcs = scan.processes.filter((p) => String(p.name || "").toLowerCase() === "conhost.exe");
       const chromePids = new Set(chromeProcs.map((p) => p.pid));
       const trackedSet = new Set(Array.isArray(smoke.trackedDirs) ? smoke.trackedDirs : []);
       const trackedIdList = Array.isArray(smoke.trackedIds) ? smoke.trackedIds : [];
       const trackedPortSet = new Set(Array.isArray(smoke.trackedPorts) ? smoke.trackedPorts : []);
       const untrackedHeadlessRoots = [];
       for (const p of chromeProcs) {
-        if (chromePids.has(p.ppid)) continue; // only root Chrome browser processes
+        if (chromePids.has(p.ppid)) continue; // only root headless browser processes
         const cmd = readNativeProcessCmd(api, p.pid);
+        if (!allPids.has(p.ppid) && /--type=/i.test(cmd || "")) {
+          terminatePidNative(api, p.pid);
+          continue;
+        }
         if (!cmd || /--type=/i.test(cmd) || !/--headless\b/i.test(cmd)) continue;
+        if (/--stealth-profile-code=(?:8\d{3}|00(?:0[1-9]|1\d|2[01]|59|69))\b/i.test(cmd)) continue;
         const mDir = cmd.match(/--user-data-dir=(?:"([^"]+)"|([^\s]+))/i);
         const dirLower = String(mDir?.[1] || mDir?.[2] || "").trim().toLowerCase();
         const mPort = cmd.match(/--remote-debugging-port=(\d+)/i);
@@ -844,11 +876,15 @@ export async function cleanSmokePoolBrowsers({ maxHeadlessIdleMs = 0, maxHeadles
       }
       if (untrackedHeadlessRoots.length > 0) {
         const rootSet = new Set(untrackedHeadlessRoots);
+        for (const ch of conhostProcs) {
+          if (rootSet.has(ch.ppid)) terminatePidNative(api, ch.pid);
+        }
         for (const p of chromeProcs) {
-          if (rootSet.has(p.pid) || rootSet.has(p.ppid)) {
-            if (terminatePidNative(api, p.pid) && rootSet.has(p.pid)) {
-              closedHeadlessProfiles += 1;
-            }
+          if (rootSet.has(p.ppid)) terminatePidNative(api, p.pid);
+        }
+        for (const rootPid of untrackedHeadlessRoots) {
+          if (terminatePidNative(api, rootPid)) {
+            closedHeadlessProfiles += 1;
           }
         }
       }
@@ -1043,18 +1079,38 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
   for (const p of scan.processes) {
     const lower = p.name.toLowerCase();
     if (lower === "evkey64.exe") {
-      if (p.handles > 15000) {
+      if (p.handles > 4000) {
         const rawCmd = readNativeProcessCmd(api, p.pid);
         const cmdExeMatch = rawCmd.match(/^"([^"]+)"|^(\S+)/);
         const detectedEvkPath = cmdExeMatch ? (cmdExeMatch[1] || cmdExeMatch[2] || "").trim() : "";
-        if (terminatePidNative(api, p.pid)) {
+        let evkStopped = terminatePidNative(api, p.pid);
+        if (!evkStopped) {
           try {
-            const schChild = spawn("schtasks.exe", ["/Run", "/TN", "\\EVKey - Vietnamese Keyboard"], {
+            const endChild = spawn("schtasks.exe", ["/End", "/TN", "\\EVKey - Vietnamese Keyboard"], {
               detached: true,
               stdio: "ignore",
               windowsHide: true,
             });
-            schChild.unref();
+            endChild.unref();
+            evkStopped = true;
+          } catch {
+            /* ignore */
+          }
+        }
+        if (evkStopped) {
+          try {
+            setTimeout(() => {
+              try {
+                const schChild = spawn("schtasks.exe", ["/Run", "/TN", "\\EVKey - Vietnamese Keyboard"], {
+                  detached: true,
+                  stdio: "ignore",
+                  windowsHide: true,
+                });
+                schChild.unref();
+              } catch {
+                /* ignore */
+              }
+            }, 350);
             const evkCandidates = [
               detectedEvkPath,
               "D:\\Tool\\System\\EVKey\\EVKey 5.0.1\\EVKey64.exe",
@@ -1404,13 +1460,77 @@ export function computeAdaptiveHeadlessCap(existingScan = null) {
  * Farm Supervisor definitions (`DEFAULT_FARM_JOBS`, telemetry & job spawning) live in
  * `Tool/P0004-Tool-Hub/scripts/lib/farm-supervisor.cjs` so `P0001` stays a pure System/Host Console.
  */
+let farmSupervisorLib;
+try {
+  const farmSupervisorPath = path.join(DEV_ROOT, "Tool", "P0004-Tool-Hub", "scripts", "lib", "farm-supervisor.cjs");
+  farmSupervisorLib = fs.existsSync(farmSupervisorPath) ? require(farmSupervisorPath) : null;
+} catch {
+  farmSupervisorLib = null;
+}
 const {
-  readActiveAgentLocks,
-  readFarmJobTelemetry,
-  readFarmSupervisorConfig: readP0004FarmSupervisorConfig,
-  writeFarmSupervisorConfig: writeP0004FarmSupervisorConfig,
-  spawnFarmJobDetached,
-} = require(path.join(DEV_ROOT, "Tool", "P0004-Tool-Hub", "scripts", "lib", "farm-supervisor.cjs"));
+  readActiveAgentLocks = () => [],
+  readFarmJobTelemetry = () => null,
+  readFarmSupervisorConfig: readP0004FarmSupervisorConfig = () => ({ enabled: false, jobs: {} }),
+  writeFarmSupervisorConfig: writeP0004FarmSupervisorConfig = (cfg) => cfg || { enabled: false, jobs: {} },
+} = farmSupervisorLib || {};
+
+const FARM_RESPAWN_COOLDOWN_MS = 3 * 60_000;
+const farmLastSpawnAttemptByJob = new Map();
+
+function resolveFarmCuiNodeExe() {
+  const candidates = [
+    path.join(DEV_ROOT, ".tools", "node-v22", "node.exe"),
+    "C:\\Program Files\\nodejs\\node.exe",
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return process.execPath;
+}
+
+/**
+ * Spawn a background farm daemon using standard CUI `node.exe` + `detached: true` + `windowsHide: true`
+ * (`DETACHED_PROCESS`, 0 `conhost.exe`, 0 `IDC_APPSTARTING` blue spinning cursor — never `nodew.exe`!).
+ */
+function spawnFarmJobClean(job) {
+  if (!job?.scriptRelPath) return null;
+  const scriptAbs = path.join(DEV_ROOT, job.scriptRelPath);
+  if (!fs.existsSync(scriptAbs)) return null;
+  const nodeBin = resolveFarmCuiNodeExe();
+  const isSelfElectron =
+    nodeBin === process.execPath && Boolean(process.versions?.electron || process.env.ELECTRON_RUN_AS_NODE);
+  const jobArgs = Array.isArray(job.args) ? job.args : [];
+  const logDir = path.join(DEV_ROOT, "Tool", "P0002-Social-Hub", "data", "logs");
+  const logFile = path.join(logDir, `farm-${job.id}.log`);
+  const pidFile = path.join(logDir, `farm-${job.id}.pid`);
+  try {
+    fs.mkdirSync(logDir, { recursive: true });
+    const outFd = fs.openSync(logFile, "a");
+    const child = spawn(nodeBin, [scriptAbs, ...jobArgs], {
+      cwd: DEV_ROOT,
+      detached: true,
+      stdio: ["ignore", outFd, outFd],
+      windowsHide: true,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" },
+    });
+    child.unref();
+    try {
+      fs.closeSync(outFd);
+    } catch {
+      /* ignore */
+    }
+    if (child.pid) {
+      try {
+        fs.writeFileSync(pidFile, `${child.pid}\n`, "utf8");
+      } catch {
+        /* ignore */
+      }
+    }
+    return child.pid || null;
+  } catch {
+    return null;
+  }
+}
 
 export function readFarmSupervisorConfig() {
   return readP0004FarmSupervisorConfig();
@@ -1445,14 +1565,38 @@ export function getFarmSupervisorStatus(existingScan = null, adaptive = null) {
       .split("|")
       .map((s) => s.trim())
       .filter(Boolean);
-    const matches = nodeProcs.filter((np) => needles.some((nd) => np.cmd.includes(nd)));
+    const matches = nodeProcs.filter(
+      (np) =>
+        !np.cmd.includes("--input-type=module -") &&
+        !np.cmd.includes(" -e ") &&
+        needles.some((nd) => np.cmd.includes(nd)),
+    );
+    const seenShardKeys = new Set();
+    const primaryMatches = [];
+    const duplicatePids = [];
+    for (const m of matches) {
+      const shardMatch = m.cmd.match(/--shard=(\d+\/\d+)/i);
+      const browsersMatch = m.cmd.match(/--browsers=([^\s"]+)/i);
+      const instanceKey = shardMatch
+        ? `shard:${shardMatch[1]}`
+        : browsersMatch
+          ? `browsers:${browsersMatch[1]}`
+          : "default";
+      if (!seenShardKeys.has(instanceKey)) {
+        seenShardKeys.add(instanceKey);
+        primaryMatches.push(m);
+      } else {
+        duplicatePids.push(m.pid);
+      }
+    }
     const telemetry = readFarmJobTelemetry(job.id, activeLocks, DEV_ROOT);
     return {
       ...job,
-      running: matches.length > 0,
-      pid: matches[0]?.pid || null,
-      duplicatePids: matches.slice(1).map((m) => m.pid),
-      ramMB: Math.round(matches.reduce((sum, m) => sum + (m.ramMB || 0), 0) * 10) / 10,
+      running: primaryMatches.length > 0,
+      pid: primaryMatches[0]?.pid || null,
+      shardPids: primaryMatches.map((m) => m.pid),
+      duplicatePids,
+      ramMB: Math.round(primaryMatches.reduce((sum, m) => sum + (m.ramMB || 0), 0) * 10) / 10,
       telemetry,
     };
   });
@@ -1512,10 +1656,16 @@ export async function runFarmSupervisorTick(existingScan = null) {
   }
 
   const uptimeSec = os.uptime();
+  const nowMs = Date.now();
   const missingAutoJobs = status.jobs.filter((j) => {
     if (!j.autoResume || j.running) return false;
     // Never auto-launch heavy Chromium-spawning farm daemons during the first 5 minutes after Windows boot
     if (uptimeSec < 300 && j.id !== "muse-headless-adapter") return false;
+    // Enforce 3-minute per-job respawn backoff so exiting/blocked scripts never rapid-loop every 20s tick
+    const memLast = farmLastSpawnAttemptByJob.get(j.id) || 0;
+    const cfgLast = j.lastStartedAt ? Date.parse(j.lastStartedAt) || 0 : 0;
+    const lastAttempt = Math.max(memLast, cfgLast);
+    if (lastAttempt > 0 && nowMs - lastAttempt < FARM_RESPAWN_COOLDOWN_MS) return false;
     return true;
   });
   if (missingAutoJobs.length === 0) {
@@ -1535,14 +1685,15 @@ export async function runFarmSupervisorTick(existingScan = null) {
 
   const cfg = readFarmSupervisorConfig();
   let cfgChanged = false;
-  // Stagger at most 1 heavy daemon launch per 20s tick to prevent simultaneous Chromium process storms
+  // Stagger at most 1 heavy daemon launch per tick to prevent simultaneous Chromium process storms
   for (const job of missingAutoJobs.slice(0, 1)) {
-    const pid = spawnFarmJobDetached(job);
+    farmLastSpawnAttemptByJob.set(job.id, nowMs);
+    const pid = spawnFarmJobClean(job);
     if (pid) {
       resumedJobs.push({ jobId: job.id, pid });
       const idx = cfg.jobs.findIndex((j) => j.id === job.id);
       if (idx >= 0) {
-        cfg.jobs[idx].lastStartedAt = new Date().toISOString();
+        cfg.jobs[idx].lastStartedAt = new Date(nowMs).toISOString();
         cfgChanged = true;
       }
     }
@@ -1586,7 +1737,8 @@ export async function controlFarmSupervisor(payload = {}) {
         const curStatus = getFarmSupervisorStatus();
         const liveJob = curStatus.jobs.find((j) => j.id === jobId);
         if (!liveJob?.running) {
-          const pid = spawnFarmJobDetached(cfg.jobs[idx]);
+          farmLastSpawnAttemptByJob.set(jobId, Date.now());
+          const pid = spawnFarmJobClean(cfg.jobs[idx]);
           if (pid) cfg.jobs[idx].lastStartedAt = new Date().toISOString();
         }
       }
@@ -1862,7 +2014,6 @@ export async function runNightlyDeepMaintenance(options = {}) {
       /* ignore */
     }
     try {
-      const { DatabaseSync } = require("node:sqlite");
       const dbCandidates = [
         path.join(appData, "stealth-browser-console", "data", "stealth-console.db"),
         path.join(appData, "desk-console", "desk-console.db"),
@@ -1870,7 +2021,7 @@ export async function runNightlyDeepMaintenance(options = {}) {
       for (const dbPath of dbCandidates) {
         if (fs.existsSync(dbPath)) {
           try {
-            const db = new DatabaseSync(dbPath);
+            const db = openLocalSqlite(dbPath);
             db.exec("PRAGMA busy_timeout = 3000;");
             if (dbPath.includes("stealth-console.db")) {
               try {
@@ -2039,7 +2190,7 @@ export function readAntigravityBrainStats(force = false, existingScan = null) {
       }
       let sdb = null;
       try {
-        sdb = new DatabaseSync(sumDbPath, { open: true, readOnly: true });
+        sdb = openLocalSqlite(sumDbPath, { readOnly: true });
         const rows = sdb
           .prepare("SELECT conversation_id, title, step_count FROM conversation_summaries")
           .all();
@@ -2220,7 +2371,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
     if (fs.existsSync(sumDbPath)) {
       let sdb = null;
       try {
-        sdb = new DatabaseSync(sumDbPath, { open: true, readOnly: true });
+        sdb = openLocalSqlite(sumDbPath, { readOnly: true });
         const rows = sdb
           .prepare(
             "SELECT conversation_id, last_modified_time, last_user_input_time, parent_conversation_id FROM conversation_summaries",
@@ -2352,7 +2503,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
     if (fs.existsSync(sumDbPath)) {
       let sdb = null;
       try {
-        sdb = new DatabaseSync(sumDbPath, { open: true });
+        sdb = openLocalSqlite(sumDbPath);
         sdb.exec("PRAGMA busy_timeout = 3000;");
         const delSum = sdb.prepare("DELETE FROM conversation_summaries WHERE conversation_id = ?");
         const delFts = sdb.prepare("DELETE FROM conversations_fts WHERE conversation_id = ?");
@@ -2410,7 +2561,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           if (cst.size < 20 * 1048576 || now - cst.mtimeMs < 6 * 3600_000) continue;
           let cdb = null;
           try {
-            cdb = new DatabaseSync(full, { open: true });
+            cdb = openLocalSqlite(full);
             cdb.exec("PRAGMA busy_timeout = 1500;");
             const oldGen = cdb
               .prepare("SELECT COUNT(*) as c FROM gen_metadata WHERE idx < (SELECT COALESCE(MAX(idx),0) - 100 FROM steps)")

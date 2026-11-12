@@ -6,12 +6,15 @@ import {
   resolveDriveOAuthClientForRemote,
   writeDriveToken,
 } from "./rclone-ops.mjs";
+import { findListeningPidsByPortNative } from "./runners.mjs";
 
 /** rclone's Drive redirect. The Google client is registered to this exact URI. */
 export const DRIVE_OAUTH_REDIRECT_URI = "http://127.0.0.1:53682/";
-const CALLBACK_PORT = 53682;
+export const DRIVE_OAUTH_CALLBACK_PORT = 53682;
+const CALLBACK_PORT = DRIVE_OAUTH_CALLBACK_PORT;
 
 let callbackServer = null;
+let lastReclaimedCallbackPid = null;
 /** @type {null | { state: string, name: string, clientId: string, clientSecret: string, refreshToken: string, record: any, log: string }} */
 let pending = null;
 
@@ -144,6 +147,98 @@ function listenCallback() {
   });
 }
 
+/**
+ * Reclaim port 53682 if an orphaned `rclone authorize` or stale foreign listener is holding it.
+ * Uses native `iphlpapi!GetExtendedTcpTable` (<0.5ms, 0 PowerShell spawns).
+ */
+export async function reclaimStaleCallbackPort(port = CALLBACK_PORT) {
+  const pids = findListeningPidsByPortNative(port).filter((pid) => pid > 4 && pid !== process.pid);
+  if (!pids.length) return { reclaimed: false, killedPids: [] };
+  const killedPids = [];
+  for (const pid of pids) {
+    try {
+      process.kill(pid);
+      killedPids.push(pid);
+      lastReclaimedCallbackPid = pid;
+    } catch {
+      /* already exited or access denied */
+    }
+  }
+  if (killedPids.length > 0) {
+    for (let i = 0; i < 10; i += 1) {
+      await new Promise((r) => setTimeout(r, 40));
+      const remaining = findListeningPidsByPortNative(port).filter((pid) => pid > 4 && pid !== process.pid);
+      if (remaining.length === 0) break;
+    }
+  }
+  return { reclaimed: killedPids.length > 0, killedPids };
+}
+
+export function getDriveOAuthCallbackStatus() {
+  const foreignPids = findListeningPidsByPortNative(CALLBACK_PORT).filter(
+    (pid) => pid > 4 && pid !== process.pid,
+  );
+  const listening = Boolean(callbackServer?.listening);
+  return {
+    ok: true,
+    callbackPort: CALLBACK_PORT,
+    redirectUri: DRIVE_OAUTH_REDIRECT_URI,
+    listening,
+    portBusy: !listening && foreignPids.length > 0,
+    foreignPids,
+    reclaimedCallbackPid: lastReclaimedCallbackPid,
+    activeRemote: pending?.name || null,
+    clientIdPrefix: pending?.clientId ? `${String(pending.clientId).slice(0, 28)}…` : null,
+  };
+}
+
+export async function openDriveOAuthInStealthProfile(profileInput, targetUrl) {
+  const rawCode = String(profileInput || "").trim();
+  const cleanCode = /^\d{1,4}$/.test(rawCode) ? rawCode.padStart(4, "0") : rawCode;
+  if (!cleanCode) {
+    return { ok: false, error: "Enter a Stealth profile code (e.g. 0001)." };
+  }
+  if (/^8\d{3}$/.test(cleanCode)) {
+    return { ok: false, error: "Customer 8xxx Stealth profiles are restricted and cannot be opened here." };
+  }
+  const url = String(targetUrl || pending?.record?.authUrl || "").trim();
+  if (!url.startsWith("https://accounts.google.com/")) {
+    return { ok: false, error: "Valid Google OAuth sign-in URL is required." };
+  }
+  try {
+    const res = await fetch("http://127.0.0.1:6003/api/automation/open-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profile_name: cleanCode,
+        target_url: url,
+        screenshot: false,
+        close_when_done: false,
+        agent_task: false,
+        headless: false,
+      }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.ok === false) {
+      return {
+        ok: false,
+        error: String(data?.error || `Stealth Browser (:6003) returned HTTP ${res.status}`),
+      };
+    }
+    return {
+      ok: true,
+      profileCode: cleanCode,
+      url,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Cannot reach Stealth Browser (:6003): ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 async function handleCallback(req, res) {
   const url = new URL(req.url || "/", DRIVE_OAUTH_REDIRECT_URI);
   if (url.pathname === "/favicon.ico") {
@@ -253,19 +348,54 @@ export async function startDriveOAuth(name = "gdrive") {
     refreshToken: client.refreshToken,
     record,
   };
+  let reclaimedCallbackPid = null;
   try {
     await listenCallback();
   } catch (e) {
-    pending = null;
-    const busy = e && e.code === "EADDRINUSE";
-    return {
-      ok: false,
-      error: busy
-        ? "Port 53682 is already in use. Close the other sign-in window and try again."
-        : "Folder Sync could not open the Google sign-in port.",
-      name: client.name,
-    };
+    if (e && e.code === "EADDRINUSE") {
+      const reclaimed = await reclaimStaleCallbackPort(CALLBACK_PORT);
+      if (reclaimed.reclaimed) {
+        reclaimedCallbackPid = reclaimed.killedPids[0] || null;
+        try {
+          await listenCallback();
+        } catch (retryErr) {
+          pending = null;
+          return {
+            ok: false,
+            error:
+              retryErr && retryErr.code === "EADDRINUSE"
+                ? "Port 53682 is already in use. Close the other sign-in window and try again."
+                : "Folder Sync could not open the Google sign-in port.",
+            name: client.name,
+          };
+        }
+      } else {
+        pending = null;
+        return {
+          ok: false,
+          error: "Port 53682 is already in use. Close the other sign-in window and try again.",
+          name: client.name,
+        };
+      }
+    } else {
+      pending = null;
+      return {
+        ok: false,
+        error: "Folder Sync could not open the Google sign-in port.",
+        name: client.name,
+      };
+    }
   }
-  pushLog(record, "Sign-in link is ready. Waiting on 127.0.0.1:53682.");
+  record.callbackPort = CALLBACK_PORT;
+  record.callbackListening = true;
+  record.redirectUri = DRIVE_OAUTH_REDIRECT_URI;
+  record.clientIdPrefix = `${String(client.clientId).slice(0, 28)}…`;
+  record.reclaimedCallbackPid = reclaimedCallbackPid;
+  pushLog(
+    record,
+    reclaimedCallbackPid
+      ? `Reclaimed stale callback PID ${reclaimedCallbackPid}. Waiting on 127.0.0.1:53682.`
+      : "Sign-in link is ready. Waiting on 127.0.0.1:53682.",
+  );
   return record;
 }

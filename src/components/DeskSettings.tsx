@@ -15,7 +15,7 @@ import { DeskHotkeysSettings } from "./DeskHotkeysSettings";
 type Props = { sidebarRow?: boolean };
 
 function DeskSystemToolsSettings() {
-  const { pushToast } = useHubToast();
+  const toast = useHubToast();
   const [proxyUrl, setProxyUrl] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -31,9 +31,9 @@ function DeskSystemToolsSettings() {
     setBusy(key);
     try {
       const msg = await fn();
-      pushToast({ type: "success", title, message: msg });
+      toast?.pushRichToast({ type: "success", title, message: msg });
     } catch (err) {
-      pushToast({
+      toast?.pushRichToast({
         type: "error",
         title,
         message: err instanceof Error ? err.message : "Action failed",

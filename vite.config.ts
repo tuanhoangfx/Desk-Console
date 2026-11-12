@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
@@ -6,12 +7,18 @@ import { hubAppVersionPlugin } from "../scripts/embed-app-version.mjs";
 import { createHubManualChunks, HUB_CHUNK_SIZE_WARNING_LIMIT_KB } from "../scripts/vite-hub-chunks.mjs";
 
 const toolRoot = path.dirname(fileURLToPath(import.meta.url));
+const toolRequire = createRequire(path.join(toolRoot, "package.json"));
 const hubUiSrc = path.resolve(toolRoot, "../../packages/hub-ui/src");
 const hubIdentitySrc = path.resolve(toolRoot, "../../packages/hub-identity/src");
+const hubSyncCoreSrc = path.resolve(toolRoot, "../../packages/hub-sync-core/src");
+
+function resolveToolPkg(specifier: string): string {
+  return toolRequire.resolve(specifier);
+}
 
 const deskApiPort =
   process.env.DESK_API_PORT ||
-  (process.env.DESK_DEV_ISOLATED === "0" ? "6010" : "6011");
+  (process.env.DESK_DEV_ISOLATED === "1" ? "6011" : "6010");
 
 /** serve: `base: '/'` so hard-refresh on `/clips` resolves assets. build: `./` for Electron file://. */
 export default defineConfig(({ command }) => ({
@@ -26,7 +33,7 @@ export default defineConfig(({ command }) => ({
       "/api": `http://127.0.0.1:${deskApiPort}`,
     },
     fs: {
-      allow: [toolRoot, hubUiSrc, hubIdentitySrc, path.resolve(toolRoot, "../..")],
+      allow: [toolRoot, hubUiSrc, hubIdentitySrc, hubSyncCoreSrc, path.resolve(toolRoot, "../..")],
     },
     watch: {
       ignored: (p: string) => {
@@ -62,15 +69,23 @@ export default defineConfig(({ command }) => ({
   },
   optimizeDeps: {
     include: ["react", "react-dom", "lucide-react"],
-    exclude: ["@tool-workspace/hub-ui", "@tool-workspace/hub-identity"],
+    exclude: ["@tool-workspace/hub-ui", "@tool-workspace/hub-identity", "@tool-workspace/hub-sync-core"],
   },
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: [
+      { find: "react/jsx-runtime", replacement: resolveToolPkg("react/jsx-runtime") },
+      { find: "react/jsx-dev-runtime", replacement: resolveToolPkg("react/jsx-dev-runtime") },
+      { find: "react-dom/client", replacement: resolveToolPkg("react-dom/client") },
+      { find: "react-dom", replacement: resolveToolPkg("react-dom") },
+      { find: "react", replacement: resolveToolPkg("react") },
+      { find: "lucide-react", replacement: resolveToolPkg("lucide-react") },
       { find: /^@tool-workspace\/hub-ui\/(.+)$/, replacement: `${hubUiSrc}/$1` },
       { find: "@tool-workspace/hub-ui", replacement: path.join(hubUiSrc, "index.ts") },
       { find: "@tool-workspace/hub-identity", replacement: path.join(hubIdentitySrc, "index.ts") },
       { find: /^@tool-workspace\/hub-identity\/(.+)$/, replacement: `${hubIdentitySrc}/$1` },
+      { find: /^@tool-workspace\/hub-sync-core\/(.+)$/, replacement: `${hubSyncCoreSrc}/$1` },
+      { find: "@tool-workspace/hub-sync-core", replacement: path.join(hubSyncCoreSrc, "index.ts") },
     ],
   },
   build: {

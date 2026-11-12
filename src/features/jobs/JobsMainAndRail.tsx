@@ -48,15 +48,15 @@ function JobsLogRail({ jobs, focusedId }: { jobs: SyncJob[]; focusedId: string }
         const at = entry.at || job.lastRunAt || job.updatedAt || "";
         const ts = Date.parse(at);
         if (clearedAt && Number.isFinite(ts) && ts <= clearedAt) continue;
-        const ok = entry.ok !== false;
+        const msgText = String(entry.message || "").trim();
+        const ok = !/\b(failed|error)\b/i.test(msgText);
+        const actorLabel = entry.actor?.label ? ` (${entry.actor.label})` : "";
         out.push({
           id: `job-act-${job.id}-${i}-${at}`,
           at: at ? new Date(at).toLocaleTimeString([], { hour12: false }) : "—",
           level: ok ? "info" : "error",
           channel: "sync",
-          message: `${code} · ${entry.action || "sync"}${entry.actor ? ` (${entry.actor})` : ""}${
-            entry.summary ? ` — ${entry.summary}` : ok ? " — completed" : " — failed"
-          }`,
+          message: `${code}${actorLabel} — ${msgText || (ok ? "completed" : "failed")}`,
         });
       }
       if (act.length === 0 && (job.lastRunAt || job.lastResult)) {
@@ -76,10 +76,12 @@ function JobsLogRail({ jobs, focusedId }: { jobs: SyncJob[]; focusedId: string }
     }
 
     for (const op of opsRows) {
+      const normalizedLevel: SyncLogRow["level"] =
+        op.level === "error" || op.level === "warn" ? op.level : "info";
       out.push({
         id: op.id,
         at: op.at,
-        level: op.level,
+        level: normalizedLevel,
         channel: "ops",
         message: op.message,
       });

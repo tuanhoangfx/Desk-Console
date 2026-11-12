@@ -1,0 +1,102 @@
+{
+  "enabled": true,
+  "updatedAt": "2026-11-04T16:01:44.547Z",
+  "nightlyMaintenance": {
+    "scheduleLocal": "04:00",
+    "lastRunAt": null,
+    "lastRunDate": null,
+    "cleanedProfiles": 0,
+    "freedMB": 0,
+    "walCheckpointed": 0
+  },
+  "jobs": [
+    {
+      "id": "fb-fleet-autologin",
+      "name": "Facebook Fleet Auto-Login & Recovery",
+      "category": "Social Fleet",
+      "scriptRelPath": "Tool/P0002-Social-Hub/scripts/run-facebook-fleet-autologin.mjs",
+      "matchNeedle": "run-facebook-fleet-autologin.mjs",
+      "args": [
+        "--concurrency=1",
+        "--limit=450"
+      ],
+      "autoResume": false,
+      "lastStartedAt": "2026-11-04T14:19:51.267Z",
+      "lastStoppedAt": null
+    },
+    {
+      "id": "gmail-daemon",
+      "name": "Gmail Session & Recovery Daemon",
+      "category": "Mail Fleet",
+      "scriptRelPath": "Tool/P0002-Social-Hub/scripts/run-gmail-daemon.mjs",
+      "matchNeedle": "run-gmail-daemon.mjs",
+      "args": [],
+      "autoResume": false,
+      "lastStartedAt": "2026-11-04T13:49:12.291Z",
+      "lastStoppedAt": null
+    },
+    {
+      "id": "muse-headless-adapter",
+      "name": "Muse 9Router Zero-Chromium API Adapter (:19028)",
+      "category": "AI Quota Farm",
+      "scriptRelPath": "Tool/P0011-Infix1-Mail/scripts/muse-headless-api-adapter.mjs",
+      "matchNeedle": "muse-headless-api-adapter.mjs",
+      "args": [
+        "--serve",
+        "19028"
+      ],
+      "autoResume": false,
+      "lastStartedAt": "2026-11-04T13:49:14.404Z",
+      "lastStoppedAt": null
+    },
+    {
+      "id": "muse-3chat-extractor",
+      "name": "Muse 3-Chat Warmup & Credential Extractor",
+      "category": "AI Quota Farm",
+      "scriptRelPath": "Tool/P0011-Infix1-Mail/scripts/run-muse-3chat-credential-extractor.mjs",
+      "matchNeedle": "run-muse-3chat-credential-extractor.mjs",
+      "args": [
+        "40",
+        "1"
+      ],
+      "autoResume": false,
+      "lastStartedAt": "2026-11-04T13:49:16.525Z",
+      "lastStoppedAt": null
+    },
+    {
+      "id": "muse-fleet-onboard",
+      "name": "Muse 1B+ Token Cross-Referral Onboarder",
+      "category": "AI Quota Farm",
+      "scriptRelPath": "Tool/P0011-Infix1-Mail/scripts/run-muse-fleet-onboard-referral.mjs",
+      "matchNeedle": "run-muse-fleet-onboard-referral.mjs",
+      "args": [
+        "all"
+      ],
+      "autoResume": false,
+      "lastStartedAt": null,
+      "lastStoppedAt": null
+    },
+    {
+      "id": "fasttrack-totp-healer",
+      "name": "FastTrack TOTP & TikTok Cookie Healer",
+      "category": "Vault Healer",
+      "scriptRelPath": "Tool/P0002-Social-Hub/scripts/run-fasttrack-totp-and-tiktok-healer.mjs",
+      "matchNeedle": "run-fasttrack-totp-and-tiktok-healer.mjs",
+      "args": [],
+      "autoResume": false,
+      "lastStartedAt": null,
+      "lastStoppedAt": null
+    },
+    {
+      "id": "fanpage-fleet-daemon",
+      "name": "Facebook Fanpage Fleet Daemon",
+      "category": "Social Fleet",
+      "scriptRelPath": "Tool/P0002-Social-Hub/scripts/fanpage-fleet-daemon.mjs",
+      "matchNeedle": "fanpage-fleet-daemon.mjs",
+      "args": [],
+      "autoResume": false,
+      "lastStartedAt": "2026-11-04T13:49:18.678Z",
+      "lastStoppedAt": null
+    }
+  ]
+}

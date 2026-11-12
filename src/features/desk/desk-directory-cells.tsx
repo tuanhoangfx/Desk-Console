@@ -8,6 +8,7 @@ import {
   HubDirectoryLogCell,
   HubDirectoryRowPinButton,
   HubDirectoryTimestampTooltipCell,
+  HubDirectoryValuePopover,
   compactIconSize,
   type HubDirectoryColumnDef,
   type HubEntityLogEntry,
@@ -142,17 +143,18 @@ function renderOpsRunCell(row: DeskRow, col: HubDirectoryColumnDef<DeskCol>, ops
     const elapsed = formatOpsElapsed(row.opsActionStartedAt);
     return (
       <DirectoryTableBodyCell key="run" colClass={col.colClass}>
-        <div
-          className={`hub-directory-icon-cell ${HUB_DIRECTORY_ICON_CELL_HIT_EXPAND_CLASS} flex min-w-0 items-center gap-1`}
-          aria-label={`${phaseLabel} ${label} ${elapsed}`}
-          title={`${phaseLabel} · ${elapsed}`}
-        >
-          <span className={`hub-directory-icon-cell__icon ${toneClass}`}>
-            <Loader2 size={compactIconSize(11)} className="animate-spin" aria-hidden />
-          </span>
-          <span className={`hub-directory-icon-cell__label ${toneClass}`}>{phaseLabel}</span>
-          <span className="hub-users-cell-muted tabular-nums">{elapsed}</span>
-        </div>
+        <HubDirectoryValuePopover value={`${phaseLabel} · ${elapsed}`} title="🚦 Action">
+          <div
+            className={`hub-directory-icon-cell ${HUB_DIRECTORY_ICON_CELL_HIT_EXPAND_CLASS} flex min-w-0 items-center gap-1`}
+            aria-label={`${phaseLabel} ${label} ${elapsed}`}
+          >
+            <span className={`hub-directory-icon-cell__icon ${toneClass}`}>
+              <Loader2 size={compactIconSize(11)} className="animate-spin" aria-hidden />
+            </span>
+            <span className={`hub-directory-icon-cell__label ${toneClass}`}>{phaseLabel}</span>
+            <span className="hub-users-cell-muted tabular-nums">{elapsed}</span>
+          </div>
+        </HubDirectoryValuePopover>
       </DirectoryTableBodyCell>
     );
   }
@@ -214,12 +216,14 @@ export function renderDeskDirectoryBodyCell(
     const emoji = clipFormatEmoji(fmt);
     return (
       <DirectoryTableBodyCell key={key} colClass={col.colClass}>
-        <span className="inline-flex min-w-0 items-center gap-1.5 truncate" title={fmt}>
-          <span className={HUB_FILTER_OPTION_EMOJI_CLASS} aria-hidden>
-            {emoji}
+        <HubDirectoryValuePopover value={fmt} title="📄 Format">
+          <span className="inline-flex min-w-0 items-center gap-1.5 truncate">
+            <span className={HUB_FILTER_OPTION_EMOJI_CLASS} aria-hidden>
+              {emoji}
+            </span>
+            <span className="truncate">{fmt}</span>
           </span>
-          <span className="truncate">{fmt}</span>
-        </span>
+        </HubDirectoryValuePopover>
       </DirectoryTableBodyCell>
     );
   }

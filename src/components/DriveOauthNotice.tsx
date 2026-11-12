@@ -53,22 +53,28 @@ export function DriveOauthNotice() {
   );
 }
 
-/** Smart OAuth sign-in link panel with auto-copy feedback, 1-click Copy, Open in Browser, and Regenerate. */
+/** Smart OAuth sign-in link panel with auto-copy feedback, 1-click Copy, Open in Browser, Open in Stealth Profile, and Regenerate. */
 export function DriveOauthLinkPanel({
   url,
   autoCopied = false,
   busy = false,
   onRegenerate,
+  onOpenStealth,
 }: {
   url: string;
   autoCopied?: boolean;
   busy?: boolean;
   onRegenerate?: () => void;
+  onOpenStealth?: (profileCode: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const [copied, setCopied] = useState(autoCopied);
+  const [stealthCode, setStealthCode] = useState("0001");
+  const [stealthBusy, setStealthBusy] = useState(false);
+  const [stealthMsg, setStealthMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     setCopied(autoCopied);
+    setStealthMsg(null);
   }, [url, autoCopied]);
 
   async function copy() {
@@ -84,6 +90,26 @@ export function DriveOauthLinkPanel({
     const viaDesktop = await window.folderSyncDesktop?.openExternal?.(url);
     if (viaDesktop?.ok) return;
     window.open(url, "_blank", "noopener");
+  }
+
+  async function handleOpenStealth() {
+    if (!onOpenStealth) return;
+    const code = stealthCode.trim();
+    if (!code) return;
+    setStealthBusy(true);
+    setStealthMsg(null);
+    try {
+      const res = await onOpenStealth(code);
+      if (res.ok) {
+        setStealthMsg({ ok: true, text: `Opened in Stealth #${code.padStart(4, "0")}` });
+      } else {
+        setStealthMsg({ ok: false, text: res.error || "Could not open Stealth profile" });
+      }
+    } catch (err) {
+      setStealthMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setStealthBusy(false);
+    }
   }
 
   return (
@@ -120,6 +146,26 @@ export function DriveOauthLinkPanel({
           title="Open the Google OAuth sign-in URL in your default browser"
           onClick={() => void openInBrowser()}
         />
+        {onOpenStealth ? (
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-0.5">
+            <span className="text-xs text-white/60">Stealth #</span>
+            <input
+              type="text"
+              value={stealthCode}
+              onChange={(e) => setStealthCode(e.target.value.replace(/[^0-9A-Za-z_-]/g, "").slice(0, 8))}
+              placeholder="0001"
+              aria-label="Stealth Profile ID"
+              className="w-14 rounded border border-white/10 bg-black/50 px-1.5 py-0.5 font-mono text-xs text-white/90 focus:border-sky-400/50 focus:outline-none"
+            />
+            <HubBulkActionButton
+              icon={<ExternalLink size={14} aria-hidden />}
+              label={stealthBusy ? "Opening…" : "Open in Stealth"}
+              title="Open this Google OAuth link directly inside the selected P0003 Stealth Browser profile"
+              disabled={stealthBusy || !stealthCode.trim()}
+              onClick={() => void handleOpenStealth()}
+            />
+          </div>
+        ) : null}
         {onRegenerate ? (
           <HubBulkActionButton
             icon={<RefreshCw size={14} aria-hidden />}
@@ -130,6 +176,11 @@ export function DriveOauthLinkPanel({
           />
         ) : null}
       </div>
+      {stealthMsg ? (
+        <span className={stealthMsg.ok ? "text-xs text-emerald-300" : "text-xs text-rose-300"}>
+          {stealthMsg.text}
+        </span>
+      ) : null}
     </div>
   );
 }

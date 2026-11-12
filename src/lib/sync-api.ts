@@ -1,4 +1,9 @@
 import { resolveJobActivityActor } from "./job-activity-actor";
+import {
+  hydrateP0001JobsMirror,
+  readCachedP0001Jobs,
+  reconcileP0001JobsDelta,
+} from "./p0001-desk-mirror-store";
 
 export type SyncJobLiveProgress = {
   percent: number | null;
@@ -60,20 +65,16 @@ export type SyncJob = {
   }[];
 };
 
+import { fetchDeskHost, resolveDeskApiOrigin } from "./host-fetch-recovery";
+
 export type RemoteInfo = { name: string; type: string; teamDrive?: boolean };
 
 function apiOrigin(): string {
-  if (typeof window === "undefined") return "";
-  const bridged = String(
-    (window as Window & { deskConsole?: { apiOrigin?: string } }).deskConsole?.apiOrigin || "",
-  ).trim();
-  if (bridged) return bridged;
-  if (window.location.protocol === "file:") return "http://127.0.0.1:6010";
-  return "";
+  return resolveDeskApiOrigin();
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${apiOrigin()}${path}`, {
+  const res = await fetchDeskHost(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -90,13 +91,29 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 let sharedEventSource: EventSource | null = null;
 let sharedSseConnected = false;
 let latestJobsSnapshot: SyncJob[] | null = null;
+let jobsMirrorHydrated = false;
 const jobStreamListeners = new Set<(jobs: SyncJob[]) => void>();
 const sseStatusListeners = new Set<(connected: boolean) => void>();
 
+function getSeededJobsSnapshot(): SyncJob[] | null {
+  if (latestJobsSnapshot !== null) return latestJobsSnapshot;
+  const cached = readCachedP0001Jobs();
+  if (cached.length > 0) {
+    latestJobsSnapshot = cached;
+    return latestJobsSnapshot;
+  }
+  return null;
+}
+
 function notifyJobStreamListeners(jobs: SyncJob[]) {
-  latestJobsSnapshot = jobs;
+  const prev = getSeededJobsSnapshot() ?? [];
+  const reconciled = reconcileP0001JobsDelta(prev, jobs);
+  if (latestJobsSnapshot !== null && !reconciled.changed && latestJobsSnapshot === reconciled.rows) {
+    return;
+  }
+  latestJobsSnapshot = reconciled.rows;
   for (const listener of jobStreamListeners) {
-    listener(jobs);
+    listener(reconciled.rows);
   }
 }
 
@@ -150,8 +167,22 @@ export function subscribeSyncEvents(
     sseStatusListeners.add(onConnectionChange);
     onConnectionChange(sharedSseConnected);
   }
-  if (latestJobsSnapshot) {
-    onJobs(latestJobsSnapshot);
+  const seeded = getSeededJobsSnapshot();
+  if (seeded) {
+    onJobs(seeded);
+  }
+  if (!jobsMirrorHydrated) {
+    jobsMirrorHydrated = true;
+    void hydrateP0001JobsMirror().then((hydrated) => {
+      if (!hydrated.length) return;
+      const current = latestJobsSnapshot ?? [];
+      if (!current.length) {
+        latestJobsSnapshot = hydrated;
+        for (const listener of jobStreamListeners) {
+          listener(hydrated);
+        }
+      }
+    });
   }
   ensureSharedEventSource();
   return () => {
@@ -171,6 +202,7 @@ export async function fetchJobs() {
   const data = await api<{ jobs: SyncJob[] }>("/api/jobs");
   if (Array.isArray(data?.jobs)) {
     notifyJobStreamListeners(data.jobs);
+    return { ...data, jobs: latestJobsSnapshot ?? data.jobs };
   }
   return data;
 }
@@ -408,12 +440,47 @@ export function restoreDriveAccount(name: string) {
   });
 }
 
+export type DriveOauthCallbackStatus = {
+  ok: boolean;
+  callbackPort: number;
+  redirectUri: string;
+  listening: boolean;
+  portBusy?: boolean;
+  foreignPids?: number[];
+  reclaimedCallbackPid?: number | null;
+  activeRemote?: string | null;
+  clientIdPrefix?: string | null;
+};
+
 export function authorizeRemote(name = "gdrive") {
-  return api<{ ok: boolean; sessionId: string; name: string; hint: string; oauth?: boolean; authUrl?: string | null }>(
-    "/api/remotes/authorize",
+  return api<{
+    ok: boolean;
+    sessionId: string;
+    name: string;
+    hint: string;
+    oauth?: boolean;
+    authUrl?: string | null;
+    callbackPort?: number;
+    callbackListening?: boolean;
+    redirectUri?: string;
+    clientIdPrefix?: string | null;
+    reclaimedCallbackPid?: number | null;
+  }>("/api/remotes/authorize", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function fetchDriveOauthCallbackStatus() {
+  return api<DriveOauthCallbackStatus>("/api/remotes/authorize/callback-status");
+}
+
+export function openDriveOauthInStealth(profileCode: string, url: string) {
+  return api<{ ok: boolean; profileCode?: string; url?: string; error?: string }>(
+    "/api/remotes/authorize/open-stealth",
     {
       method: "POST",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ profileCode, url }),
     },
   );
 }

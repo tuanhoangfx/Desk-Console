@@ -47,9 +47,11 @@ export function renderDrivesDirectoryBodyCell(
     return (
       <DirectoryTableBodyCell key={col.key} colClass={col.colClass}>
         {label ? (
-          <span className={`hub-users-directory-body-text ${DIRECTORY_CELL_TRUNCATE}`} title={label}>
-            {label}
-          </span>
+          <HubDirectoryValuePopover value={label} title="👤 Account">
+            <span className={`hub-users-directory-body-text ${DIRECTORY_CELL_TRUNCATE}`}>
+              {label}
+            </span>
+          </HubDirectoryValuePopover>
         ) : (
           <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
@@ -119,9 +121,11 @@ export function renderDrivesDirectoryBodyCell(
     return (
       <DirectoryTableBodyCell key={col.key} colClass={col.colClass}>
         {label ? (
-          <span className={`hub-users-directory-body-text ${DIRECTORY_CELL_TRUNCATE}`} title={formats || label}>
-            {label}
-          </span>
+          <HubDirectoryValuePopover value={formats || label} title="📁 Files">
+            <span className={`hub-users-directory-body-text ${DIRECTORY_CELL_TRUNCATE}`}>
+              {label}
+            </span>
+          </HubDirectoryValuePopover>
         ) : (
           <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
