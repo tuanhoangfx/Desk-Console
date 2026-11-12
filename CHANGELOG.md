@@ -5,7 +5,8 @@
 - Version: `3.1.185`
 - Timestamp: 2026-11-12 18:44 (UTC+7)
 - Type: Patch
-- Status: Committed
+- Status: Verified
+- Release: https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.185
 
 ### Changes
 
