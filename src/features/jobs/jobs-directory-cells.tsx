@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   DIRECTORY_CELL_TRUNCATE,
-  DirectoryEmptyDash,
   DirectoryTableBodyCell,
   formatHubTimestampCompact,
   HubDirectoryCopyText,
+  HubDirectoryEmptyCell,
   HubDirectoryRunToggle,
   HubDirectoryTimestampTooltipCell,
   HubDirectoryValuePopover,
@@ -141,15 +141,23 @@ export function renderJobsDirectoryBodyCell(
             <HubDirectoryCopyText value={code} copyToastLabel="Job ID copied" />
           </HubDirectoryValuePopover>
         ) : (
-          <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
       </DirectoryTableBodyCell>
     );
   }
   if (col.key === "name") {
     return (
-      <DirectoryTableBodyCell key={col.key} colClass={col.colClass}>
-        <span className={`hub-users-name-title ${DIRECTORY_CELL_TRUNCATE}`}>{row.name}</span>
+      <DirectoryTableBodyCell
+        key={col.key}
+        colClass={col.colClass}
+        onClick={row.name ? (e) => e.stopPropagation() : undefined}
+      >
+        {row.name ? (
+          <HubDirectoryCopyText value={row.name} copyToastLabel="Job name copied" className="hub-users-name-title" />
+        ) : (
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
+        )}
       </DirectoryTableBodyCell>
     );
   }
@@ -215,7 +223,7 @@ export function renderJobsDirectoryBodyCell(
         {onStart || onPause || onStop ? (
           <JobRunCell job={row} busy={busyId === row.id} onStart={onStart} onPause={onPause} onStop={onStop} />
         ) : (
-          <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
       </DirectoryTableBodyCell>
     );
@@ -252,14 +260,14 @@ export function renderJobsDirectoryBodyCell(
           at={at}
           title={col.key === "updated" ? "Update" : "Created"}
           variant={col.key === "created" ? "date" : "activity"}
-          fallback={<DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />}
+          fallback={<HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />}
         />
       </DirectoryTableBodyCell>
     );
   }
   return (
     <DirectoryTableBodyCell key={col.key} colClass={col.colClass}>
-      —
+      <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
     </DirectoryTableBodyCell>
   );
 }

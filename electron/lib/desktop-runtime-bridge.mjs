@@ -16,8 +16,53 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 export function isPackagedAsarPath(targetPath) {
+  if (process.env.HUB_DESKTOP_PACKAGED === "1") return true;
   const norm = String(targetPath || "").replace(/\\/g, "/").toLowerCase();
-  return norm.includes(".asar/") || norm.endsWith(".asar");
+  return (
+    norm.includes(".asar/") ||
+    norm.endsWith(".asar") ||
+    norm.includes("/hot-patch/") ||
+    norm.endsWith("/hot-patch")
+  );
+}
+
+/**
+ * Forward an HTTP `POST /api/system/hot-reload` request from an ESM host child process
+ * (`host/server.mjs`) to its parent Electron `createDesktopHotReloadControlBridge` using
+ * `<userDataDir>/desktop-control.json`.
+ */
+export async function forwardHotReloadToDesktopControl({ userDataDir, body = {} } = {}) {
+  const dirs = [];
+  if (userDataDir) dirs.push(path.resolve(userDataDir));
+  if (process.env.HUB_DESKTOP_CONTROL_FILE) {
+    dirs.unshift(path.dirname(path.resolve(process.env.HUB_DESKTOP_CONTROL_FILE)));
+  }
+  const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  for (const dir of dirs) {
+    const ctlPath = path.join(dir, "desktop-control.json");
+    if (!fs.existsSync(ctlPath)) continue;
+    try {
+      const ctl = JSON.parse(fs.readFileSync(ctlPath, "utf8"));
+      if (!ctl?.port || !ctl?.token) continue;
+      if (ctl.pid && !isPidAlive(ctl.pid)) continue;
+      const res = await fetch(`http://127.0.0.1:${ctl.port}/hot-reload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Hub-Control-Token": String(ctl.token),
+        },
+        body: JSON.stringify(body || {}),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      /* try next candidate */
+    }
+  }
+  void appData;
+  return { ok: false, reason: "desktop_control_bridge_offline" };
 }
 
 function isPidAlive(pid) {
@@ -70,7 +115,12 @@ export function writeJsonStateAtomic(stateFile, payload) {
  */
 export function createSovereignRuntimeBridge(config) {
   const productRoot = path.resolve(config.productRoot);
-  const monorepoRoot = path.resolve(productRoot, "..", "..");
+  const rawMonorepoRoot = path.resolve(productRoot, "..", "..");
+  const monorepoRoot = fs.existsSync(path.join(rawMonorepoRoot, "Tool", "scripts"))
+    ? rawMonorepoRoot
+    : ([process.env.DEV_ROOT, "E:\\Dev"].find(
+        (p) => p && fs.existsSync(path.join(p, "Tool", "scripts")),
+      ) || rawMonorepoRoot);
   const appHomeDir = path.join(os.homedir(), config.homeDirName || ".hub_desktop_app");
   const stateFileName = config.stateFileName || "state.json";
   const stateEnvVar = config.stateEnvVar || "";
@@ -193,35 +243,79 @@ export function createSovereignRuntimeBridge(config) {
 
   async function resolveDataboxAuthSafe() {
     const wsDatabox = path.join(monorepoRoot, "Tool", "scripts", "lib", "databox-plane-ssot.mjs");
-    if (!isPackagedAsar() && fs.existsSync(wsDatabox)) {
+    if (fs.existsSync(wsDatabox)) {
       try {
         const mod = await import(pathToFileURL(wsDatabox).href);
         if (typeof mod.resolveDataboxAuth === "function") {
-          return mod.resolveDataboxAuth("linux");
+          const auth = mod.resolveDataboxAuth();
+          const origin = String(auth?.origin || auth?.url || auth?.apiUrl || "").replace(/\/+$/, "");
+          const key = String(auth?.key || auth?.serviceKey || "");
+          if (origin && key) {
+            return { ...auth, origin, url: origin, apiUrl: origin, key, serviceRoleKey: key };
+          }
         }
       } catch {
         /* fall through */
       }
     }
-    const envShared = path.join(monorepoRoot, ".env.shared");
-    let url = process.env.DATABOX_API_URL || process.env.SUPABASE_URL || "";
-    let key = process.env.DATABOX_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-    if ((!url || !key) && !isPackagedAsar() && fs.existsSync(envShared)) {
+    let url =
+      process.env.DATABOX_SUPABASE_URL ||
+      process.env.DATABOX_API_URL ||
+      process.env.LINUX_SUPABASE_URL ||
+      process.env.SUPABASE_URL ||
+      process.env.VITE_TWOFA_SUPABASE_URL ||
+      "";
+    let key =
+      process.env.DATABOX_SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.DATABOX_SERVICE_ROLE_KEY ||
+      process.env.LINUX_SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.VITE_TWOFA_SUPABASE_ANON_KEY ||
+      "";
+    const envCandidates = [];
+    for (const rootDir of [monorepoRoot, process.env.DEV_ROOT, os.homedir(), appHomeDir, "E:\\Dev"]) {
+      if (!rootDir) continue;
+      for (const fileName of [".env.shared", ".env.local", ".env"]) {
+        const candidate = path.join(rootDir, fileName);
+        if (!envCandidates.includes(candidate)) envCandidates.push(candidate);
+      }
+    }
+    for (const envFile of envCandidates) {
+      if (url && key) break;
+      if (!fs.existsSync(envFile)) continue;
       try {
-        const lines = fs.readFileSync(envShared, "utf8").split(/\r?\n/);
+        const lines = fs.readFileSync(envFile, "utf8").split(/\r?\n/);
         for (const line of lines) {
           const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
           if (!m) continue;
           const k = m[1];
-          const v = m[2].replace(/^['"]|['"]$/g, "");
-          if (!url && (k === "LINUX_SUPABASE_URL" || k === "DATABOX_API_URL")) url = v;
-          if (!key && (k === "LINUX_SUPABASE_SERVICE_ROLE_KEY" || k === "DATABOX_SERVICE_ROLE_KEY")) key = v;
+          const v = m[2].replace(/^['"]|['"]$/g, "").trim();
+          if (!v) continue;
+          if (
+            !url &&
+            (k === "DATABOX_SUPABASE_URL" ||
+              k === "LINUX_SUPABASE_URL" ||
+              k === "DATABOX_API_URL" ||
+              k === "VITE_TWOFA_SUPABASE_URL")
+          ) {
+            url = v;
+          }
+          if (
+            !key &&
+            (k === "DATABOX_SUPABASE_SERVICE_ROLE_KEY" ||
+              k === "LINUX_SUPABASE_SERVICE_ROLE_KEY" ||
+              k === "DATABOX_SERVICE_ROLE_KEY" ||
+              k === "VITE_TWOFA_SUPABASE_ANON_KEY")
+          ) {
+            key = v;
+          }
         }
       } catch {
         /* ignore */
       }
     }
-    return { apiUrl: url, serviceRoleKey: key };
+    const origin = String(url || "").replace(/\/+$/, "");
+    return { apiUrl: origin, serviceRoleKey: key, origin, url: origin, key };
   }
 
   return {

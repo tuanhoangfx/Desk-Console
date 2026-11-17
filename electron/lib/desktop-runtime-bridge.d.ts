@@ -90,7 +90,13 @@ export interface SovereignRuntimeBridge {
     env?: NodeJS.ProcessEnv;
     logFile?: string;
   }) => { pid: number };
-  resolveDataboxAuthSafe: () => Promise<{ apiUrl: string; serviceRoleKey: string }>;
+  resolveDataboxAuthSafe: () => Promise<{
+    apiUrl: string;
+    serviceRoleKey: string;
+    origin?: string;
+    url?: string;
+    key?: string;
+  }>;
   readValidJsonState: typeof readValidJsonState;
   writeJsonStateAtomic: typeof writeJsonStateAtomic;
   pickAvailablePort: typeof pickAvailablePort;

@@ -214,14 +214,16 @@ export function AppVersionDetailModal({
                     </DeskDetailReadonlyField>
                   </div>
                   <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
-                    <DeskDetailReadonlyField label="Executable / Home" headerEmoji="📁">
+                    <DeskDetailReadonlyField
+                      label="Executable / Home"
+                      headerEmoji="📁"
+                      empty={!(row.exePath || row.isolatedHomeDir)}
+                    >
                       {row.exePath || row.isolatedHomeDir ? (
                         <HubDirectoryReadonlyCopyText
                           value={row.exePath || row.isolatedHomeDir || ""}
                         />
-                      ) : (
-                        "—"
-                      )}
+                      ) : null}
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Update Lock" headerEmoji="🔒">
                       {row.updatePinned

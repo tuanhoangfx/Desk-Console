@@ -44,12 +44,15 @@ export const JOBS_COLUMN_META = applyStandardDirectoryColumnHints({
     headerEmoji: "🆔",
   }),
   name: col("Name", "hub-users-col--name", "name", "col.directory.name", "12rem", {
+    columnKind: "code",
     headerEmoji: "📁",
   }),
   local: col("Local", "hub-users-col--path", "path", "col.directory.path", "14rem", {
+    columnKind: "code",
     headerEmoji: "💻",
   }),
   remote: col("Remote", "hub-users-col--email", "sync", "col.directory.synced", "16rem", {
+    columnKind: "code",
     headerEmoji: "☁️",
   }),
   status: col("Status", "hub-users-col--status", "status", "col.directory.status", "8.75rem", {
@@ -78,6 +81,7 @@ export const JOBS_COLUMN_META = applyStandardDirectoryColumnHints({
     headerEmoji: "🔄",
   }),
   folder: col("Folder", "hub-users-col--folder", "path", "col.directory.path", "8rem", {
+    columnKind: "code",
     headerEmoji: "📁",
   }),
   created: col("Created", "hub-users-col--created", "created", "col.directory.created", HUB_DIRECTORY_PLAN_DATE_COL_WIDTH, {

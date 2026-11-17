@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { FolderOpen } from "lucide-react";
-import { HUB_ADM_TYPE_MONO_CLASS, HubAdmCopyValueBadge } from "@tool-workspace/hub-ui";
+import {
+  HUB_ADM_TYPE_MONO_CLASS,
+  HubAdmCopyValueBadge,
+  HubDirectoryEmptyCell,
+} from "@tool-workspace/hub-ui";
 import { openJobPath } from "../../lib/open-job-path";
 
 type Props = {
@@ -16,7 +20,7 @@ export function JobPathCell({ kind, path, label }: Props) {
   const openPath = path.trim();
   const shown = (label ?? path).trim();
   const [error, setError] = useState<string | null>(null);
-  if (!shown) return <span className="hub-directory-body-value text-white/40">—</span>;
+  if (!shown) return <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />;
 
   return (
     <span className="inline-flex min-w-0 max-w-full items-center gap-1" onClick={(e) => e.stopPropagation()}>

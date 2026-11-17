@@ -3,7 +3,7 @@ import type { DriveStorage } from "./sync-api";
 const UNITS = ["B", "KB", "MB", "GB", "TB"] as const;
 
 export function formatDriveBytes(bytes: number | null | undefined): string {
-  if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return "—";
+  if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return "";
   let value = bytes;
   let unit = 0;
   while (value >= 1024 && unit < UNITS.length - 1) {
@@ -30,16 +30,19 @@ export function formatInventoryCounts(
 ): string {
   if (!inventory) return "";
   if (inventory.fileCount == null && inventory.folderCount == null) return inventory.scanning ? "Scanning…" : "";
-  const folders = inventory.folderCount == null ? "—" : String(inventory.folderCount);
-  const files = inventory.fileCount == null ? "—" : String(inventory.fileCount);
-  return `${folders} folders · ${files} files`;
+  const parts: string[] = [];
+  if (inventory.folderCount != null) parts.push(`${inventory.folderCount} folders`);
+  if (inventory.fileCount != null) parts.push(`${inventory.fileCount} files`);
+  return parts.join(" · ");
 }
 
 /** Used / total, plus percent when the Drive has a limit. */
 export function formatDriveUsage(storage: DriveStorage | null | undefined): string {
   if (!storage || storage.usedBytes == null) return "";
+  const used = formatDriveBytes(storage.usedBytes);
+  if (!used) return "";
   const total = storage.limitBytes == null ? "Unlimited" : formatDriveBytes(storage.limitBytes);
   const pct = driveUsagePercent(storage);
-  const base = `${formatDriveBytes(storage.usedBytes)} / ${total}`;
+  const base = total ? `${used} / ${total}` : used;
   return pct == null ? base : `${base} · ${pct}%`;
 }

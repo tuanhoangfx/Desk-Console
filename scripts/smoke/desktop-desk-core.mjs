@@ -67,6 +67,23 @@ export default async function run({ session, rec, sleep }) {
 
   const visited = await walkSidebarNav(session, rec, { skip: /^(Runners|Clips)$/i });
   rec.check("additional sidebar screens", visited.length >= 1, visited.join(" · ") || "(none beyond core)");
+
+  const apiPort = Number(launchEnv?.DESK_API_PORT) || 6019;
+  const optRes = await fetch(`http://127.0.0.1:${apiPort}/api/pc/optimize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "sweep-antigravity" }),
+    signal: AbortSignal.timeout(15_000),
+  })
+    .then((r) => r.json())
+    .catch((err) => ({ ok: false, error: err?.message || String(err) }));
+  const rpc = optRes?.results?.antigravityRpcSync;
+  rec.check(
+    "Antigravity LS RPC sync",
+    Boolean(optRes?.ok && rpc?.ok),
+    rpc ? `servers=${rpc.serversFound} synced=${rpc.serversSynced} deleted=${rpc.syncedDeleted}` : optRes?.error || "failed",
+  );
+
   const exceptions = rec.rendererErrors().filter((e) => e.kind === "exception");
   rec.check("no renderer exceptions", exceptions.length === 0, exceptions[0]?.text?.slice(0, 160) || "");
 }

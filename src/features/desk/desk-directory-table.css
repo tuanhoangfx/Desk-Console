@@ -18,10 +18,19 @@ table.hub-users-table--desk-directory td.hub-users-col--select {
 table.hub-users-table--desk-directory col.hub-desk-col--name,
 table.hub-users-table--desk-directory th.hub-desk-col--name,
 table.hub-users-table--desk-directory td.hub-desk-col--name {
-  width: 20rem;
-  min-width: 20rem;
-  max-width: 20rem;
+  width: 18rem;
+  min-width: 18rem;
+  max-width: 18rem;
   text-align: left;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--format,
+table.hub-users-table--desk-directory th.hub-desk-col--format,
+table.hub-users-table--desk-directory td.hub-desk-col--format {
+  width: 8.5rem;
+  min-width: 8.5rem;
+  max-width: 8.5rem;
+  text-align: center;
 }
 
 table.hub-users-table--desk-directory col.hub-desk-col--run,

@@ -35,6 +35,8 @@ import {
 } from "./windows.mjs";
 import { findListeningPidsByPortNative, runnerTargets, stopRunner } from "./runners.mjs";
 import {
+  cleanAntigravityAppStorage,
+  formatPcOptimizeOpsHistoryEntry,
   isAntigravityDbOpenInIde,
   pruneAgyHubSummariesProto,
   resolveAntigravityRoots,
@@ -1673,6 +1675,18 @@ test("resolveAntigravityRoots includes SxS home-* roots and syncAntigravityLangu
   const root219 = path.join(sxsBase, "home-2.19.1", ".gemini", "antigravity");
   fs.mkdirSync(path.join(root224, "brain", "keep-live-1"), { recursive: true });
   fs.mkdirSync(path.join(root219, "brain"), { recursive: true });
+  const protoLiveId = "11111111-2222-3333-4444-555555555555";
+  fs.mkdirSync(path.join(root224, "brain", protoLiveId), { recursive: true });
+  const protoDeadId = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
+  const encodeField1Uuid = (uuid) => {
+    const idBuf = Buffer.from(uuid, "utf8");
+    const sub = Buffer.concat([Buffer.from([0x0a, idBuf.length]), idBuf]);
+    return Buffer.concat([Buffer.from([0x0a, sub.length]), sub]);
+  };
+  fs.writeFileSync(
+    path.join(root224, "agyhub_summaries_proto.pb"),
+    Buffer.concat([encodeField1Uuid(protoLiveId), encodeField1Uuid(protoDeadId)]),
+  );
 
   const deletedCalls = [];
   const srv = http.createServer((req, res) => {
@@ -1718,8 +1732,8 @@ test("resolveAntigravityRoots includes SxS home-* roots and syncAntigravityLangu
     });
     assert.equal(rpcRes.ok, true);
     assert.equal(rpcRes.serversSynced, 1);
-    assert.equal(rpcRes.syncedDeleted, 2);
-    assert.deepEqual(deletedCalls.sort(), ["ghost-deleted-1", "ghost-deleted-2"]);
+    assert.equal(rpcRes.syncedDeleted, 3);
+    assert.deepEqual(deletedCalls.sort(), [protoDeadId, "ghost-deleted-1", "ghost-deleted-2"]);
   } finally {
     await new Promise((r) => srv.close(r));
     fs.rmSync(tmpRoot, { recursive: true, force: true });
@@ -1791,6 +1805,39 @@ test("sweepAntigravityStaleTranscripts isolates lsRunning check per agyRoot for 
   }
 });
 
+test("cleanAntigravityAppStorage prunes ghost pinned_conversations_order and orphan layout-v3 entries while keeping active sessions", () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-app-storage-"));
+  const appStoragePath = path.join(tmpDir, "app_storage.json");
+  const liveId = "11111111-2222-3333-4444-555555555555";
+  const deadPin1 = "8decd9cb-dc39-4f2a-b652-f13135af73f8";
+  const deadPin2 = "eb35620d-0b24-4924-918d-7a36b8c4495f";
+  try {
+    fs.writeFileSync(
+      appStoragePath,
+      JSON.stringify({
+        zoomLevel: 0,
+        pinned_conversations_order: JSON.stringify([deadPin1, liveId, deadPin2]),
+        [`antigravity-multi-conversation-layout-v3-${deadPin1}`]: { focusedPaneId: "pane-1" },
+        [`antigravity-multi-conversation-layout-v3-${liveId}`]: { focusedPaneId: "pane-1" },
+        [`antigravity-multi-conversation-layout-v3-${liveId}+_new`]: { focusedPaneId: "pane-1" },
+        "antigravity-multi-conversation-layout-v3-index": JSON.stringify([[deadPin1, "other"], [liveId, "other"]]),
+      }),
+      "utf8",
+    );
+    const res = cleanAntigravityAppStorage(appStoragePath, new Set([liveId]));
+    assert.deepEqual(res, { ok: true, removedPinned: 2, removedLayouts: 2 });
+    const after = JSON.parse(fs.readFileSync(appStoragePath, "utf8"));
+    assert.equal(after.zoomLevel, 0);
+    assert.deepEqual(JSON.parse(after.pinned_conversations_order), [liveId]);
+    assert.equal(after[`antigravity-multi-conversation-layout-v3-${deadPin1}`], undefined);
+    assert.ok(after[`antigravity-multi-conversation-layout-v3-${liveId}`]);
+    assert.ok(after[`antigravity-multi-conversation-layout-v3-${liveId}+_new`]);
+    assert.deepEqual(JSON.parse(after["antigravity-multi-conversation-layout-v3-index"]), [[liveId, "other"]]);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("getManagedAppsSnapshot & runManagedAppAction inspect monorepo IDEs and reject unknown actions", async () => {
   const snap = await getManagedAppsSnapshot({ includeReleases: false });
   assert.equal(snap.ok, true);
@@ -1803,4 +1850,117 @@ test("getManagedAppsSnapshot & runManagedAppAction inspect monorepo IDEs and rej
   const bad = await runManagedAppAction("unsupported-action", {});
   assert.equal(bad.ok, false);
   assert.match(String(bad.error || ""), /Unknown app management action/i);
+});
+
+test("sweepAntigravityStaleTranscripts prunes dead daemon/hub_*.json, old ls_*.log, stale presence locks, applies 24h TTL on stopped SxS roots, and DashboardScreen formats LS ghosts toast", () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-agy-daemon-sxs-"));
+  const sxsRoot = path.join(tmpDir, "antigravity-sxs", "home-2.19.1", ".gemini", "antigravity");
+  const sxsUserDir = path.join(tmpDir, "antigravity-sxs", "userdata-2.19.1");
+  const sxsLogsDir = path.join(sxsUserDir, "logs");
+  const sxsGpuCacheDir = path.join(sxsUserDir, "GPUCache");
+  const sxsCodeCacheDir = path.join(sxsUserDir, "Code Cache");
+  const daemonDir = path.join(sxsRoot, "daemon");
+  const brainDir = path.join(sxsRoot, "brain");
+  const presDir = path.join(sxsRoot, "presence");
+  const staleSxsId = "cccccccc-1111-2222-3333-444444444444";
+  const recentSxsId = "dddddddd-1111-2222-3333-444444444444";
+  try {
+    const fakeNow = Date.now() + 8 * 86400_000;
+    fs.mkdirSync(daemonDir, { recursive: true });
+    fs.mkdirSync(presDir, { recursive: true });
+    fs.mkdirSync(path.join(sxsLogsDir, "20261101T000000"), { recursive: true });
+    fs.mkdirSync(sxsGpuCacheDir, { recursive: true });
+    fs.mkdirSync(sxsCodeCacheDir, { recursive: true });
+    fs.mkdirSync(path.join(brainDir, staleSxsId, ".system_generated", "logs"), { recursive: true });
+    fs.mkdirSync(path.join(brainDir, recentSxsId, ".system_generated", "logs"), { recursive: true });
+    const recentLog = path.join(brainDir, recentSxsId, ".system_generated", "logs", "transcript.jsonl");
+    const staleSxsUserLog = path.join(sxsLogsDir, "main.log");
+    const freshSxsUserLog = path.join(sxsLogsDir, "language_server.log");
+    const staleGpuEntry = path.join(sxsGpuCacheDir, "data_0");
+    const staleCodeEntry = path.join(sxsCodeCacheDir, "js");
+    const appStorageFile = path.join(sxsUserDir, "app_storage.json");
+    fs.writeFileSync(path.join(brainDir, staleSxsId, ".system_generated", "logs", "transcript.jsonl"), "{}\n", "utf8");
+    fs.writeFileSync(recentLog, "{}\n", "utf8");
+    fs.writeFileSync(staleSxsUserLog, "stale", "utf8");
+    fs.writeFileSync(freshSxsUserLog, "fresh", "utf8");
+    fs.writeFileSync(staleGpuEntry, "gpu-old", "utf8");
+    fs.writeFileSync(staleCodeEntry, "code-old", "utf8");
+    fs.writeFileSync(appStorageFile, "{}", "utf8");
+    const recentAt = new Date(fakeNow - 2 * 3600_000);
+    fs.utimesSync(recentLog, recentAt, recentAt);
+    fs.utimesSync(path.join(brainDir, recentSxsId), recentAt, recentAt);
+    fs.utimesSync(freshSxsUserLog, recentAt, recentAt);
+
+    const deadHub = path.join(daemonDir, "hub_99991.json");
+    const liveHub = path.join(daemonDir, "hub_99992.json");
+    const freshDeadHub = path.join(daemonDir, "hub_99993.json");
+    const oldLsLog = path.join(daemonDir, "ls_old.log");
+    const freshLsLog = path.join(daemonDir, "ls_fresh.log");
+    const stalePresLock = path.join(presDir, `${recentSxsId}.lock`);
+    fs.writeFileSync(deadHub, JSON.stringify({ pid: 99999999, httpPort: 59991, csrfToken: "dead" }), "utf8");
+    fs.writeFileSync(liveHub, JSON.stringify({ pid: process.pid, httpPort: 59992, csrfToken: "live" }), "utf8");
+    fs.writeFileSync(freshDeadHub, JSON.stringify({ pid: 99999998, httpPort: 59993, csrfToken: "booting" }), "utf8");
+    fs.writeFileSync(oldLsLog, "old", "utf8");
+    fs.writeFileSync(freshLsLog, "fresh", "utf8");
+    fs.writeFileSync(stalePresLock, "", "utf8");
+    const freshHubAt = new Date(fakeNow - 30_000);
+    fs.utimesSync(freshDeadHub, freshHubAt, freshHubAt);
+    fs.utimesSync(freshLsLog, recentAt, recentAt);
+
+    const res = sweepAntigravityStaleTranscripts({
+      agyRoot: sxsRoot,
+      skipGlobalCaches: true,
+      nowMs: fakeNow,
+      isRootLsRunning: () => false,
+    });
+    assert.equal(res.ok, true);
+    assert.equal(typeof res.reclaimedBytes, "number");
+    assert.ok(res.reclaimedBytes > 0);
+    assert.equal(fs.existsSync(deadHub), false);
+    assert.equal(fs.existsSync(liveHub), true);
+    assert.equal(fs.existsSync(freshDeadHub), true);
+    assert.equal(fs.existsSync(oldLsLog), false);
+    assert.equal(fs.existsSync(freshLsLog), true);
+    assert.equal(fs.existsSync(stalePresLock), false);
+    assert.equal(fs.existsSync(staleSxsUserLog), false);
+    assert.equal(fs.existsSync(path.join(sxsLogsDir, "20261101T000000")), false);
+    assert.equal(fs.existsSync(staleGpuEntry), false);
+    assert.equal(fs.existsSync(staleCodeEntry), false);
+    assert.equal(fs.existsSync(appStorageFile), true);
+    assert.equal(fs.existsSync(freshSxsUserLog), true);
+    assert.equal(fs.existsSync(path.join(brainDir, staleSxsId)), false);
+    assert.equal(fs.existsSync(path.join(brainDir, recentSxsId)), true);
+
+    const dashSrc = fs.readFileSync(new URL("../src/features/dashboard/DashboardScreen.tsx", import.meta.url), "utf8");
+    assert.match(dashSrc, /antigravityRpcSync/);
+    assert.match(dashSrc, /reclaimedBytes/);
+    assert.match(dashSrc, /lastPassFreedMB/);
+    assert.match(dashSrc, /LS ghosts/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("formatPcOptimizeOpsHistoryEntry records reclaimedBytes, disk MB/KB, and LS ghosts cleanly", () => {
+  const kbEntry = formatPcOptimizeOpsHistoryEntry("sweep-antigravity", {
+    ok: true,
+    results: {
+      antigravitySweep: { ok: true, removedSessions: 1, prunedArtifacts: 3, reclaimedBytes: 256 * 1024 },
+      antigravityRpcSync: { ok: true, serversFound: 1, serversSynced: 1, syncedDeleted: 4 },
+    },
+  });
+  assert.equal(kbEntry.reclaimedBytes, 256 * 1024);
+  assert.match(kbEntry.message, /256 KB disk/);
+  assert.match(kbEntry.message, /deleted 4 LS ghost\(s\)/);
+
+  const mbEntry = formatPcOptimizeOpsHistoryEntry("deep-maintenance", {
+    ok: true,
+    results: {
+      ram: { freedRamBytes: 120 * 1048576 },
+      deepMaintenance: { ok: true, lastPassFreedMB: 42.5 },
+      antigravitySweep: { ok: true, removedSessions: 0, prunedArtifacts: 1, reclaimedBytes: 2.5 * 1048576 },
+    },
+  });
+  assert.equal(mbEntry.reclaimedBytes, 45 * 1048576);
+  assert.match(mbEntry.message, /freed 120 MB RAM, 45\.0 MB disk/);
 });

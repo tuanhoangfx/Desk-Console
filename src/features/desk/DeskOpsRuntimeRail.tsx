@@ -217,7 +217,7 @@ function DeskOpsHistoryPanel({
             <span className="hub-runtime-history-profile-chip">{entry.action}</span>
             <span className="hub-runtime-history-list__task truncate">{entry.message}</span>
             <span className="hub-runtime-history-list__meta-inline">
-              <HubActivityTimestampLabel at={entry.at} title={formatHubTimestampFull(entry.at) || undefined} fallback="—" />
+              <HubActivityTimestampLabel at={entry.at} title={formatHubTimestampFull(entry.at) || undefined} />
             </span>
           </span>
         ),

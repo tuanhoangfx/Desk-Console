@@ -82,6 +82,7 @@ import { listSiblings, openSibling } from "./desk-siblings.mjs";
 import {
   controlFarmSupervisor,
   diagnosePcHost,
+  formatPcOptimizeOpsHistoryEntry,
   getFarmSupervisorStatus,
   isProcessRunningNative,
   optimizePcHost,
@@ -1342,6 +1343,40 @@ async function handle(req, res) {
     });
   }
 
+  if (method === "POST" && pathname === "/api/system/hot-reload") {
+    const body = await readBody(req).catch(() => ({}));
+    const roamingDir = process.env.APPDATA
+      ? path.join(
+          process.env.APPDATA,
+          String(process.env.DESK_DEV_ISOLATED || "") === "1" ? "desk-console-dev" : "desk-console",
+        )
+      : "";
+    const bridgePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "electron", "lib", "desktop-runtime-bridge.mjs");
+    if (fs.existsSync(bridgePath)) {
+      const { forwardHotReloadToDesktopControl } = await import(pathToFileURL(bridgePath).href);
+      const bridged = await forwardHotReloadToDesktopControl({
+        userDataDir: roamingDir || dataRoot(),
+        body,
+      });
+      if (bridged && bridged.ok) {
+        return json(res, 200, bridged);
+      }
+      return json(res, 200, {
+        ok: true,
+        code: "P0001",
+        mode: "standalone-host",
+        bridged,
+        message: "Host control bridge offline (standalone host running without Electron shell).",
+      });
+    }
+    return json(res, 200, {
+      ok: true,
+      code: "P0001",
+      mode: "standalone-host",
+      message: "Desktop runtime bridge unavailable in isolated host.",
+    });
+  }
+
   if (method === "GET" && pathname === "/api/meta") {
     const hasDevWorkspace =
       String(process.env.DESK_END_USER_MODE || "") !== "1" &&
@@ -1397,15 +1432,7 @@ async function handle(req, res) {
     const body = await readBody(req).catch(() => ({}));
     const action = String(body?.action || "all").toLowerCase();
     const out = await optimizePcHost({ action });
-    const ramMb = Math.round((out.results?.ram?.freedRamBytes || 0) / 1048576);
-    const closedTabs = out.results?.smoke?.closedTabs || 0;
-    appendOpsHistory({
-      kind: "task",
-      targetId: "PC-Optimizer",
-      action,
-      ok: Boolean(out.ok),
-      message: `PC Optimize (${action}): freed ${ramMb} MB RAM, closed ${closedTabs} smoke tab(s)`,
-    });
+    appendOpsHistory(formatPcOptimizeOpsHistoryEntry(action, out));
     return json(res, 200, out);
   }
 

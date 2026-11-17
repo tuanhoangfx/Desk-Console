@@ -140,13 +140,13 @@ export function ClipDetailModal({ row, onClose }: Props) {
                       <DeskStatusKpiLabel status={sample ? "Sample" : "History"} />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Pinned" value={row.pinned ? "Yes" : "No"} headerEmoji="📌" />
-                    <DeskDetailReadonlyField label="Source" value={row.source || "—"} headerEmoji="🔗" />
+                    <DeskDetailReadonlyField label="Source" value={row.source || ""} headerEmoji="🔗" />
                   </div>
                 </HubAdmSectionBlock>
                 <HubAdmSectionBlock {...deskDetailSectionProps({ id: "desk-clip-identity", label: "Identity", emoji: "📛", sectionKey: "identity" })}>
                   <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
                     <DeskDetailReadonlyField label="Name" headerEmoji="🏷️">
-                      <HubDirectoryReadonlyCopyText value={row.name || "—"} />
+                      <HubDirectoryReadonlyCopyText value={row.name || ""} />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Text" headerEmoji="📝">
                       <HubDirectoryReadonlyCopyText value={row.text} multilineHover />

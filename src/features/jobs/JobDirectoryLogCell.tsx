@@ -1,5 +1,5 @@
 import {
-  DirectoryEmptyDash,
+  HubDirectoryEmptyCell,
   HubDirectoryLogCell,
   type HubEntityLogEntry,
   type HubEntityLogFieldMeta,
@@ -42,7 +42,7 @@ export function JobDirectoryLogCell({ job }: { job: SyncJob }) {
     <HubDirectoryLogCell
       entries={entries(job)}
       fieldMeta={fieldMeta}
-      empty={<DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />}
+      empty={<HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />}
     />
   );
 }

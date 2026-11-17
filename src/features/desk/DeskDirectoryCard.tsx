@@ -3,6 +3,7 @@ import {
   HubDirectoryCardHeader,
   HubDirectoryCardMetaRow,
   HubDirectoryCardShell,
+  HubDirectoryEmptyCell,
   HubDirectoryTimestampTooltipCell,
   compactIconSize,
 } from "@tool-workspace/hub-ui";
@@ -63,7 +64,7 @@ export function DeskDirectoryCard({ row, selected, onToggleSelect, opsHandlers }
         {row.extra ? <HubDirectoryCardMetaRow emoji="📝">{row.extra}</HubDirectoryCardMetaRow> : null}
         <HubDirectoryCardMetaRow emoji="🕒">
           {row.updatedKind === "text" ? (
-            <span className="truncate">{row.updated || "—"}</span>
+            row.updated ? <span className="truncate">{row.updated}</span> : <HubDirectoryEmptyCell />
           ) : (
             <HubDirectoryTimestampTooltipCell at={row.updated} title="Updated" />
           )}

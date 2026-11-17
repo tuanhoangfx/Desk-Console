@@ -1,4 +1,10 @@
-try { require("./lib/hot-patch-loader.cjs").installHotPatchResolveHook(); } catch { /* ignore */ }
+const {
+  installHotPatchResolveHook,
+  resolveHotPatchedDistDir,
+  resolveHotPatchedDistIndexHtml,
+  resolveHotPatchedEntry,
+} = require("./lib/hot-patch-loader.cjs");
+try { installHotPatchResolveHook(); } catch { /* ignore */ }
 const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, shell, clipboard, Notification, screen, dialog } = require("electron");
 const { spawn, spawnSync } = require("node:child_process");
 const crypto = require("node:crypto");
@@ -7,6 +13,12 @@ const http = require("node:http");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { applyDeskDevPaths } = require("./lib/user-data-boot.cjs");
+const {
+  bindStagedAsarSwapOnWillQuit,
+  buildPackagedHostNodeEnv,
+  createDesktopHotReloadControlBridge,
+  resolveDesktopProductVersion,
+} = require("./lib/desktop-host-kit.cjs");
 const {
   readPickerSnapshot,
   readPickerClipMediaBuffer,
@@ -52,7 +64,10 @@ if (isDevIsolated) {
 applyElectronDevAppId(app, "vn.infi.desk-console", !app.isPackaged || isDevIsolated);
 
 const API_PORT = Number(process.env.DESK_API_PORT || 6010);
-const APP_VERSION = require("../package.json").version;
+function currentAppVersion() {
+  return resolveDesktopProductVersion(app, { electronDir: __dirname }) || require("../package.json").version;
+}
+const APP_VERSION = currentAppVersion();
 const DEFAULT_HOTKEYS = {
   picker: "CommandOrControl+Shift+Q",
 };
@@ -64,6 +79,7 @@ let pickerWindow = null;
 let pickerReady = false;
 let tray = null;
 let hostChild = null;
+let hotReloadBridge = null;
 let lastPicker = { rows: [], labels: { picker: "Ctrl+Shift+Q" } };
 let pickerFocusTimer = null;
 let lastPickerSig = "";
@@ -162,9 +178,12 @@ function probeHealth() {
 
 function hostEntry() {
   const packed = path.join(__dirname, "..", "host", "server.mjs");
-  if (!__dirname.includes("app.asar")) return packed;
-  const unpacked = packed.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
-  return fs.existsSync(unpacked) ? unpacked : packed;
+  let defaultEntry = packed;
+  if (__dirname.includes("app.asar")) {
+    const unpacked = packed.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
+    defaultEntry = fs.existsSync(unpacked) ? unpacked : packed;
+  }
+  return resolveHotPatchedEntry("host/server.mjs", defaultEntry);
 }
 
 /** Real filesystem root for spawn cwd — never `app.asar` (Windows CreateProcess → ENOENT). */
@@ -182,11 +201,12 @@ function hostCwd() {
 
 function distRoot() {
   const packed = path.join(__dirname, "..", "dist");
-  if (!__dirname.includes("app.asar")) return packed;
-  const unpacked = packed.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
-  if (fs.existsSync(path.join(unpacked, "index.html"))) return unpacked;
-  if (fs.existsSync(path.join(packed, "index.html"))) return packed;
-  return packed;
+  let defaultDist = packed;
+  if (__dirname.includes("app.asar")) {
+    const unpacked = packed.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
+    if (fs.existsSync(path.join(unpacked, "index.html"))) defaultDist = unpacked;
+  }
+  return resolveHotPatchedDistDir(defaultDist);
 }
 
 function bundledRclonePath() {
@@ -210,12 +230,18 @@ async function ensureHost() {
     if (await probeHealth()) return true;
     const rclone = bundledRclonePath();
     const dist = distRoot();
+    const hostEnv = buildPackagedHostNodeEnv(process.env, {
+      isPackaged: app.isPackaged,
+      resourcesDir: app.isPackaged ? process.resourcesPath : "",
+      productRoot: path.join(__dirname, ".."),
+      controlFile: hotReloadBridge?.controlFile || "",
+    });
     const child = spawn(process.execPath, [hostEntry()], {
       cwd: hostCwd(),
       detached: false,
       stdio: ["ignore", "ignore", "pipe"],
       env: {
-        ...process.env,
+        ...hostEnv,
         ELECTRON_RUN_AS_NODE: "1",
         DESK_API_PORT: String(API_PORT),
         FOLDER_SYNC_API_PORT: String(API_PORT),
@@ -266,12 +292,33 @@ async function ensureHost() {
   return ensureHostInflight;
 }
 
+async function reloadHostChild() {
+  if (hostRespawnTimer) {
+    clearTimeout(hostRespawnTimer);
+    hostRespawnTimer = null;
+  }
+  const prev = hostChild;
+  hostChild = null;
+  if (prev && !prev.killed) {
+    try {
+      prev.kill();
+    } catch {
+      /* ignore */
+    }
+    for (let i = 0; i < 25; i += 1) {
+      if (!(await probeHealth())) break;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  }
+  return ensureHost();
+}
+
 function distIndexPath() {
-  return path.join(__dirname, "..", "dist", "index.html");
+  return resolveHotPatchedDistIndexHtml(path.join(__dirname, "..", "dist", "index.html"));
 }
 
 function windowTitle() {
-  return formatElectronWindowTitle("Desk Console", APP_VERSION, !app.isPackaged || isDevIsolated);
+  return formatElectronWindowTitle("Desk Console", currentAppVersion(), !app.isPackaged || isDevIsolated);
 }
 
 function uiHref(opts) {
@@ -1191,6 +1238,25 @@ app.on("second-instance", (_event, argv) => {
 });
 
 app.whenReady().then(async () => {
+  bindStagedAsarSwapOnWillQuit(app);
+  hotReloadBridge = createDesktopHotReloadControlBridge({
+    app,
+    code: "P0001",
+    hostPort: API_PORT,
+    electronDir: __dirname,
+    getWindows: () => [mainWindow, pickerWindow],
+    resolveDistIndex: () => distIndexPath(),
+    onReloadHost: reloadHostChild,
+    onAfterReload: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setTitle(windowTitle());
+      }
+      refreshPickerSnapshot(true);
+      pushPickerData();
+    },
+    showWindow: () => showWindow(),
+  });
+  await hotReloadBridge.start();
   cleanupRetiredFolderSyncInstall();
   if (!isDevIsolated) {
     const installedExe = path.join(

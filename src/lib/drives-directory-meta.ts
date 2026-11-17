@@ -26,9 +26,11 @@ export const DRIVES_COLUMN_META = applyStandardDirectoryColumnHints({
     headerEmoji: "🆔",
   }),
   account: col("Account", "hub-users-col--user", "user", "col.directory.username", "12rem", {
+    columnKind: "code",
     headerEmoji: "👤",
   }),
   gmail: col("Gmail", "hub-users-col--email", "email", "col.directory.email", "16rem", {
+    columnKind: "code",
     headerEmoji: DIRECTORY_GMAIL_EMOJI,
   }),
   jobs: col("Jobs", "hub-users-col--members", "members", "col.directory.members", "6.25rem", {
@@ -44,6 +46,7 @@ export const DRIVES_COLUMN_META = applyStandardDirectoryColumnHints({
     headerEmoji: "💾",
   }),
   files: col("Files", "hub-users-col--files", "load", "col.directory.number", "11.5rem", {
+    columnKind: "code",
     headerEmoji: "📄",
   }),
   log: col("Log", "hub-users-col--notes", "log", "log.panel", HUB_DIRECTORY_LOG_COL_WIDTH, {

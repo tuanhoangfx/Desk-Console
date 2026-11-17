@@ -2,6 +2,407 @@
 
 ## 2026-11-18 - Patch bump for completed agent task
 
+- Version: `3.1.244`
+- Timestamp: 2026-11-18 05:55 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Track reclaimedBytes in sweepAntigravityStaleTranscripts & resolve debt audit SSOT root
+
+- Version: `3.1.243`
+- Timestamp: 2026-11-18 05:28 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Measure and return reclaimedBytes across sweepAntigravityStaleTranscripts and display disk/RAM freed on Dashboard Purge AGY & Deep Maintenance toasts; update directory-table-debt-audit.mjs to scan active Tool/P00xx-* roots and accept tablePrefs.read (P0001 debt = 0).
+
+### Verification
+
+- directory-table-debt-audit P0001=0; typecheck + 61/61 tests + lint + hub-ui-preflight OK
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.242`
+- Timestamp: 2026-11-18 05:27 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Expand SxS stopped cache cleanup (>7d), update debt audit SSOT regex, and run desktop CDP smoke
+
+- Version: `3.1.241`
+- Timestamp: 2026-11-18 05:20 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Rename cleanAntigravitySxsLogsDir to cleanAntigravitySxsUserCaches covering logs/Code Cache/GPUCache/Cache/Dawn/CachedData (>7d) on stopped SxS instances, recognize HubDirectoryEmptyCell in directory-table-debt-audit.mjs, and verify full desk-core CDP smoke.
+
+### Verification
+
+- typecheck + 61/61 tests + lint pass; directory-table-debt-audit clean
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.240`
+- Timestamp: 2026-11-18 05:19 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Unify HubDirectoryEmptyCell SSOT, prune SxS >7d logs, and wire ConnectRPC post-sync smoke
+
+- Version: `3.1.239`
+- Timestamp: 2026-11-18 05:12 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replace remaining DirectoryEmptyDash in jobs/drives with HubDirectoryEmptyCell, add cleanAntigravitySxsLogsDir (>7d) for stopped SxS userdata logs, and add Antigravity ConnectRPC sweep smoke check to run-electron-package.mjs and desktop-desk-core.mjs.
+
+### Verification
+
+- typecheck + 61/61 tests + lint + hub-ui-preflight OK; post-install Antigravity RPC smoke verified
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.238`
+- Timestamp: 2026-11-18 05:10 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Unify Antigravity daemon/presence cleanup SSOT & align Desk HubDirectoryEmptyCell
+
+- Version: `3.1.237`
+- Timestamp: 2026-11-18 05:02 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Extract cleanAntigravityDaemonDir helper (hub_*.json dead PIDs + stale ls_*.log) and stale 0-byte presence lock pruning into sweepAntigravityStaleTranscripts, sync workspace-ports snapshots to P0004, and replace leftover DirectoryEmptyDash in desk-directory-cells.tsx.
+
+### Verification
+
+- typecheck + 61/61 tests + lint + build + hub-ui-preflight OK (P0001); Desk Console.exe synced
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.236`
+- Timestamp: 2026-11-18 05:01 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.235`
+- Timestamp: 2026-11-18 04:58 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Use original-fs for Antigravity Desktop version & fix JSX syntax
+
+- Version: `3.1.234`
+- Timestamp: 2026-11-18 04:39 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Read app.asar cleanly from Electron hosts via original-fs + fallback package/product JSON, clarify Claude OAuth status label, and fix DeskDirectoryCard JSX syntax.
+
+### Verification
+
+- pnpm test (61/61) + vite build + live /api/apps/versions
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.233`
+- Timestamp: 2026-11-18 04:39 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.232`
+- Timestamp: 2026-11-18 04:37 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Prune dead daemon/hub_*.json, tighten stopped SxS retention, and show LS ghosts in Purge AGY toast
+
+- Version: `3.1.231`
+- Timestamp: 2026-11-18 04:35 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Clean orphan daemon/hub_*.json across primary and SxS roots, lower stopped SxS session TTL to 24h and compaction threshold to 5MB/1h (fixing 0-byte WAL check), and surface antigravityRpcSync.syncedDeleted on Dashboard Purge AGY toast.
+
+### Verification
+
+- typecheck + 61/61 desk-host tests pass; lint + build pass; live sweep pruned 40 dead daemon files; Desk Console.exe synced
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.230`
+- Timestamp: 2026-11-18 04:33 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.229`
+- Timestamp: 2026-11-18 04:32 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.228`
+- Timestamp: 2026-11-18 04:30 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.227`
+- Timestamp: 2026-11-18 04:24 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Sync dead agyhub_summaries_proto IDs via Language Server DeleteCascadeTrajectory
+
+- Version: `3.1.226`
+- Timestamp: 2026-11-18 04:23 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Read top-level dead UUIDs from agyhub_summaries_proto.pb inside syncAntigravityLanguageServerDeletions so running Antigravity Language Server deletes ghost entries from RAM cleanly.
+
+### Verification
+
+- desk-host.test.mjs 60/60 pass; live LS RPC sync deleted 271 ghosts; Desk Console.exe synced
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.225`
+- Timestamp: 2026-11-18 04:20 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Fix installed label fallback on P0001 Apps
+
+- Version: `3.1.224`
+- Timestamp: 2026-11-18 04:19 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Avoid showing 'Not installed' or 'CLI vinstalled' when Antigravity Desktop or Claude Code CLI binary is present without readable semver.
+
+### Verification
+
+- pnpm test (60/60) + Stealth CDP /apps modal
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.223`
+- Timestamp: 2026-11-18 04:15 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Prune Antigravity pinned & layout ghost entries in app_storage.json
+
+- Version: `3.1.222`
+- Timestamp: 2026-11-18 04:15 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Add cleanAntigravityAppStorage to sweepAntigravityStaleTranscripts so deleted >48h/7d chats cannot linger in Electron pinned_conversations_order or layout cache.
+
+### Verification
+
+- desk-host.test.mjs 60/60 pass; live app_storage & proto pruned; Desk Console.exe synced
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.221`
+- Timestamp: 2026-11-18 04:11 (UTC+7)
+- Type: Patch
+- Status: Verified
+- Release: https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.221
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Apps version management screen in P0001 Desk Console
+
+- Version: `3.1.220`
+- Timestamp: 2026-11-18 04:11 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Add Apps/Versions screen, host endpoints, DEV_ROOT resolution, and app detail modal bridging IDE version/SxS/update-guard/installer-vault/VSIX controls into P0001.
+
+### Verification
+
+- pnpm test (59/59) + vite build + live /api/apps/versions HTTP 200
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
 - Version: `3.1.219`
 - Timestamp: 2026-11-18 04:08 (UTC+7)
 - Type: Patch

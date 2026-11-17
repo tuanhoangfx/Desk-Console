@@ -93,7 +93,7 @@ function taskToDeskRow(
     extra: `task · ${engineTag} · ${telemetryPrefix ? `${telemetryPrefix} · ` : ""}${detailText}`,
     log: row.lastSummary || (telemetryPrefix ? `${telemetryPrefix} · ${detailText}` : detailText),
     activityLog: row.activityLog,
-    updated: iso || "—",
+    updated: iso || "",
     updatedKind: iso ? "activity" : "text",
     createdAt: row.createdAt || "2026-10-15T00:00:00.000Z",
     opsKind: "task",

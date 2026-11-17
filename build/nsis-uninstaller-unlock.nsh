@@ -71,6 +71,15 @@
   ${EndIf}
 
   ClearErrors
+  ; Remove any stale Zero-Kill hot-patch overlay & staged ASAR so the newly installed app.asar boots cleanly
+  ${If} ${FileExists} "$INSTDIR\resources\hot-patch\*.*"
+    nsExec::Exec '"$SYSDIR\cmd.exe" /C if exist "$INSTDIR\resources\hot-patch\node_modules" rmdir "$INSTDIR\resources\hot-patch\node_modules"'
+    Pop $0
+    RMDir /r "$INSTDIR\resources\hot-patch"
+  ${EndIf}
+  Delete "$INSTDIR\resources\app.asar.staged"
+  Delete "$INSTDIR\resources\app.asar.staged.sha256.json"
+  ClearErrors
   SetOutPath "$INSTDIR"
   Pop $1
   Pop $0

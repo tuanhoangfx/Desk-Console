@@ -323,11 +323,11 @@ export function CronDetailModal({ row, busy = false, onRun, onToggleEnable, onUp
                       onChange={setDescriptionDraft}
                     />
                     <DeskDetailReadonlyField label="Last Exit Code" value={row.lastResult || "0"} headerEmoji="☑️" />
-                    <DeskDetailReadonlyField label="Last Run" value={row.lastRun || "—"} headerEmoji="🕒" />
+                    <DeskDetailReadonlyField label="Last Run" value={row.lastRun || ""} headerEmoji="🕒" />
                     <DeskDetailReadonlyField label="Engine" value={engineLabel} headerEmoji="⚡" />
                     <DeskDetailReadonlyField
                       label="Last Duration"
-                      value={row.lastDurationMs != null ? `${row.lastDurationMs} ms` : "—"}
+                      value={row.lastDurationMs != null ? `${row.lastDurationMs} ms` : ""}
                       headerEmoji="🕒"
                     />
                     <DeskDetailReadonlyField
@@ -355,7 +355,7 @@ export function CronDetailModal({ row, busy = false, onRun, onToggleEnable, onUp
                       <HubDirectoryReadonlyCopyText value={row.id} />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Task Name" value={row.name} headerEmoji="👤" />
-                    <DeskDetailReadonlyField label="Next Run Detail" value={row.nextRun || "—"} headerEmoji="🎯" />
+                    <DeskDetailReadonlyField label="Next Run Detail" value={row.nextRun || ""} headerEmoji="🎯" />
                   </div>
                   {!isDaemon ? (
                     <div className="mt-3">

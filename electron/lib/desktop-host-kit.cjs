@@ -15,7 +15,9 @@
  */
 
 const { spawn } = require("node:child_process");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
+const http = require("node:http");
 const https = require("node:https");
 const path = require("node:path");
 
@@ -55,6 +57,27 @@ function hasPackagedAppUpdateYml(app) {
   }
 }
 
+function readVersionFromPackageJson(pkgPath) {
+  try {
+    if (!pkgPath || !fs.existsSync(pkgPath)) return "";
+    return String(JSON.parse(fs.readFileSync(pkgPath, "utf8"))?.version || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function isHotPatchFreshForResources(resourcesDir) {
+  if (!resourcesDir) return false;
+  const hotDir = path.join(resourcesDir, "hot-patch");
+  if (!fs.existsSync(hotDir)) return false;
+  const hotVer = readVersionFromPackageJson(path.join(hotDir, "package.json"));
+  const baseVer = readVersionFromPackageJson(path.join(resourcesDir, "app.asar", "package.json"));
+  if (baseVer && hotVer && compareSemver(baseVer, hotVer) > 0) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Resolve true product version from `package.json` (never returning unpackaged Electron runtime semver).
  */
@@ -75,11 +98,15 @@ function resolveDesktopProductVersion(app, opts = {}) {
       : path.join(repoRoot, "package.json");
     const localParentPkg = path.resolve(electronDir, "..", "package.json");
     const localGrandParentPkg = path.resolve(electronDir, "..", "..", "package.json");
+    const hotPatchPkg =
+      packaged && process.resourcesPath && isHotPatchFreshForResources(process.resourcesPath)
+        ? path.join(process.resourcesPath, "hot-patch", "package.json")
+        : null;
     const asarPkg = packaged ? path.join(process.resourcesPath || "", "app.asar", "package.json") : null;
     const altPkg = packaged ? path.join(process.resourcesPath || "", "app", "package.json") : null;
     const candidates = isDevWorkspace
-      ? [devWorkspacePkg, localParentPkg, localGrandParentPkg, asarPkg, altPkg]
-      : [asarPkg, altPkg, localParentPkg, localGrandParentPkg];
+      ? [hotPatchPkg, devWorkspacePkg, localParentPkg, localGrandParentPkg, asarPkg, altPkg]
+      : [hotPatchPkg, asarPkg, altPkg, localParentPkg, localGrandParentPkg];
     for (const candidate of candidates) {
       if (!candidate || !fs.existsSync(candidate)) continue;
       const ver = String(JSON.parse(fs.readFileSync(candidate, "utf8")).version || "").trim();
@@ -106,6 +133,13 @@ function resolveLocalDistIndexHtml(app, electronDir) {
     return bundledDistHtml;
   }
   try {
+    const hotPatchDistHtml =
+      process.resourcesPath && isHotPatchFreshForResources(process.resourcesPath)
+        ? path.join(process.resourcesPath, "hot-patch", "dist", "index.html")
+        : "";
+    if (hotPatchDistHtml && fs.existsSync(hotPatchDistHtml)) {
+      return hotPatchDistHtml;
+    }
     const workspaceDistHtml = path.resolve(process.resourcesPath || "", "..", "..", "dist", "index.html");
     const asarPath = path.join(process.resourcesPath || "", "app.asar");
     if (fs.existsSync(workspaceDistHtml)) {
@@ -858,12 +892,405 @@ function createPreloadUpdateBridge(ipcRenderer, channelPrefix) {
   };
 }
 
+function buildPackagedHostNodeEnv(baseEnv = process.env, opts = {}) {
+  const env = { ...baseEnv };
+  const isPackaged = Boolean(opts.isPackaged);
+  const resourcesDir = opts.resourcesDir || (isPackaged ? process.resourcesPath || "" : "");
+  const productRoot = opts.productRoot || "";
+  if (isPackaged) {
+    env.HUB_DESKTOP_PACKAGED = "1";
+  }
+  if (opts.controlFile) {
+    env.HUB_DESKTOP_CONTROL_FILE = String(opts.controlFile);
+  }
+  const extraNodePaths = [];
+  if (resourcesDir) {
+    const unpackedNm = path.join(resourcesDir, "app.asar.unpacked", "node_modules");
+    const directNm = path.join(resourcesDir, "node_modules");
+    if (fs.existsSync(unpackedNm)) extraNodePaths.push(unpackedNm);
+    if (fs.existsSync(directNm)) extraNodePaths.push(directNm);
+  }
+  if (productRoot) {
+    const prodNm = path.join(productRoot, "node_modules");
+    if (fs.existsSync(prodNm)) extraNodePaths.push(prodNm);
+  }
+  if (extraNodePaths.length > 0) {
+    const existing = String(env.NODE_PATH || "")
+      .split(path.delimiter)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const merged = [];
+    for (const p of [...extraNodePaths, ...existing]) {
+      if (p && !merged.includes(p)) merged.push(p);
+    }
+    env.NODE_PATH = merged.join(path.delimiter);
+  }
+  return env;
+}
+
+/**
+ * Spawns a hidden detached Node helper on `will-quit` when `<resourcesDir>/app.asar.staged` exists.
+ * Waits for Electron exit/unlock, verifies ASAR header magic & `.sha256.json`, backs up `app.asar.prev`,
+ * swaps `app.asar.staged` -> `app.asar`, and cleans up staged metadata.
+ */
+function scheduleStagedAsarSwapOnQuit(opts = {}) {
+  const resourcesDir = opts.resourcesDir || (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
+  if (!resourcesDir) return false;
+  const minSizeBytes = Number.isFinite(Number(opts.minSizeBytes)) ? Number(opts.minSizeBytes) : 1024;
+  const stagedAsar = path.join(resourcesDir, "app.asar.staged");
+  const targetAsar = path.join(resourcesDir, "app.asar");
+  const stagedMeta = `${stagedAsar}.sha256.json`;
+  const backupAsar = path.join(resourcesDir, "app.asar.prev");
+  try {
+    if (!fs.existsSync(stagedAsar) || !fs.existsSync(targetAsar)) return false;
+    const nodewCandidate = opts.nodeExe || "E:\\Dev\\.tools\\nodew.exe";
+    const exe = fs.existsSync(nodewCandidate) ? nodewCandidate : process.execPath;
+    const inline = `
+      setTimeout(() => {
+        const fs = require("fs");
+        const crypto = require("crypto");
+        const s = ${JSON.stringify(stagedAsar)};
+        const t = ${JSON.stringify(targetAsar)};
+        const m = ${JSON.stringify(stagedMeta)};
+        const b = ${JSON.stringify(backupAsar)};
+        if (!fs.existsSync(s)) process.exit(0);
+        try {
+          const st = fs.statSync(s);
+          if (st.size < ${minSizeBytes}) {
+            fs.unlinkSync(s);
+            if (fs.existsSync(m)) fs.unlinkSync(m);
+            process.exit(0);
+          }
+          const fd = fs.openSync(s, "r");
+          const hdr = Buffer.alloc(16);
+          fs.readSync(fd, hdr, 0, 16, 0);
+          if (hdr.readUInt32LE(0) !== 4) {
+            fs.closeSync(fd);
+            fs.unlinkSync(s);
+            if (fs.existsSync(m)) fs.unlinkSync(m);
+            process.exit(0);
+          }
+          if (fs.existsSync(m)) {
+            const meta = JSON.parse(fs.readFileSync(m, "utf8"));
+            const hash = crypto.createHash("sha256");
+            const buf = Buffer.allocUnsafe(8 * 1024 * 1024);
+            let pos = 0;
+            while (pos < st.size) {
+              const n = fs.readSync(fd, buf, 0, Math.min(buf.length, st.size - pos), pos);
+              if (n <= 0) break;
+              hash.update(buf.subarray(0, n));
+              pos += n;
+            }
+            const digest = hash.digest("hex");
+            if ((meta.size && Number(meta.size) !== st.size) || (meta.sha256 && digest !== String(meta.sha256).toLowerCase())) {
+              fs.closeSync(fd);
+              fs.unlinkSync(s);
+              fs.unlinkSync(m);
+              process.exit(0);
+            }
+          }
+          fs.closeSync(fd);
+        } catch {
+          process.exit(0);
+        }
+        for (let i = 0; i < 20; i++) {
+          try {
+            if (!fs.existsSync(s)) process.exit(0);
+            try { if (fs.existsSync(t)) { fs.chmodSync(t, 0o666); fs.copyFileSync(t, b); } } catch {}
+            fs.copyFileSync(s, t);
+            try { fs.chmodSync(t, 0o444); } catch {}
+            fs.unlinkSync(s);
+            try { if (fs.existsSync(m)) fs.unlinkSync(m); } catch {}
+            process.exit(0);
+          } catch {
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
+          }
+        }
+      }, 700);
+    `;
+    const child = spawn(exe, ["-e", inline], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+    });
+    child.unref();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function bindStagedAsarSwapOnWillQuit(app, opts = {}) {
+  if (!app || typeof app.on !== "function") return false;
+  if (app.__hubStagedAsarSwapBound) return true;
+  app.__hubStagedAsarSwapBound = true;
+  app.on("will-quit", () => {
+    if (!app.isPackaged && !opts.resourcesDir) return;
+    scheduleStagedAsarSwapOnQuit(opts);
+  });
+  return true;
+}
+
+/**
+ * Lightweight loopback control bridge in Electron main so ESM host sidecars (`P0001`/`P0010`)
+ * or `desktop-exe-ssot.mjs --action hot-patch` can trigger Zero-Shell-Kill hot-reloads
+ * (CJS main module eviction + hostChild respawn + BrowserWindow UI refresh).
+ */
+function createDesktopHotReloadControlBridge(opts = {}) {
+  const {
+    app,
+    code = "",
+    userDataDir = "",
+    hostPort = 0,
+    electronDir = __dirname,
+    getWindows = () => [],
+    resolveDistIndex = null,
+    onReloadHost = null,
+    onAfterReload = null,
+    showWindow = null,
+  } = opts;
+
+  const resolvedUserData =
+    userDataDir || (app && typeof app.getPath === "function" ? app.getPath("userData") : "");
+  const controlFile = resolvedUserData ? path.join(resolvedUserData, "desktop-control.json") : "";
+  const token = crypto.randomBytes(24).toString("hex");
+  let server = null;
+  let boundPort = 0;
+
+  function writeControlRecord() {
+    if (!controlFile || !boundPort) return;
+    try {
+      fs.mkdirSync(path.dirname(controlFile), { recursive: true });
+      const tmp = `${controlFile}.${process.pid}.${Date.now()}.tmp`;
+      const payload = {
+        code: String(code || "").toUpperCase(),
+        pid: process.pid,
+        port: boundPort,
+        token,
+        hostPort: Number(hostPort) || 0,
+        isPackaged: Boolean(app?.isPackaged),
+        updatedAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(tmp, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+      try {
+        fs.renameSync(tmp, controlFile);
+      } catch {
+        fs.copyFileSync(tmp, controlFile);
+        try {
+          fs.unlinkSync(tmp);
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function removeControlRecord() {
+    if (!controlFile) return;
+    try {
+      if (!fs.existsSync(controlFile)) return;
+      const cur = JSON.parse(fs.readFileSync(controlFile, "utf8"));
+      if (cur && Number(cur.pid) === process.pid) {
+        fs.unlinkSync(controlFile);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function handleHotReload(body = {}) {
+    let moduleReload = { ok: true, evictedCount: 0, evicted: [], hotPatchRoot: null };
+    try {
+      const loaderPath = fs.existsSync(path.join(electronDir, "lib", "hot-patch-loader.cjs"))
+        ? path.join(electronDir, "lib", "hot-patch-loader.cjs")
+        : path.join(__dirname, "hot-patch-loader.cjs");
+      if (fs.existsSync(loaderPath)) {
+        const { reloadHotPatchedModules } = require(loaderPath);
+        if (typeof reloadHotPatchedModules === "function") {
+          moduleReload = reloadHotPatchedModules({ force: Boolean(body.force) });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    let hostReloaded = false;
+    let hostReloadError = null;
+    if (body.reloadHost !== false && typeof onReloadHost === "function") {
+      try {
+        await onReloadHost(body);
+        hostReloaded = true;
+      } catch (err) {
+        hostReloadError = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    let uiReloaded = 0;
+    const version = resolveDesktopProductVersion(app, { electronDir });
+    if (body.reloadUi !== false) {
+      const wins = (typeof getWindows === "function" ? getWindows() : []) || [];
+      const targetIndex =
+        typeof resolveDistIndex === "function"
+          ? resolveDistIndex()
+          : resolveLocalDistIndexHtml(app, electronDir);
+      for (const win of wins) {
+        if (!win || typeof win.isDestroyed !== "function" || win.isDestroyed()) continue;
+        try {
+          const curUrl = typeof win.webContents?.getURL === "function" ? String(win.webContents.getURL() || "") : "";
+          if (curUrl.startsWith("file://") && targetIndex && fs.existsSync(targetIndex)) {
+            let search = "";
+            try {
+              search = new URL(curUrl).search || "";
+            } catch {
+              search = "";
+            }
+            const qs = search ? search.replace(/^\?/, "") : "";
+            await win.loadFile(targetIndex, qs ? { search: qs } : undefined);
+          } else {
+            win.webContents.reloadIgnoringCache();
+          }
+          uiReloaded += 1;
+          if (version) {
+            win.webContents
+              .executeJavaScript(
+                `window.__HUB_ELECTRON_VERSION__ = ${JSON.stringify(version)}; window.dispatchEvent(new Event("hub:electron-dev-ready"));`,
+                true,
+              )
+              .catch(() => {});
+          }
+        } catch {
+          /* ignore individual window reload error */
+        }
+      }
+    }
+
+    if (typeof onAfterReload === "function") {
+      try {
+        await onAfterReload(body);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    return {
+      ok: !hostReloadError,
+      code: String(code || "").toUpperCase(),
+      pid: process.pid,
+      version,
+      hotPatchRoot: moduleReload.hotPatchRoot || null,
+      evictedCount: moduleReload.evictedCount || 0,
+      evicted: moduleReload.evicted || [],
+      hostReloaded,
+      hostReloadError,
+      uiReloaded,
+      reloadedAt: new Date().toISOString(),
+    };
+  }
+
+  function start() {
+    if (server) return Promise.resolve({ port: boundPort, controlFile });
+    return new Promise((resolve) => {
+      server = http.createServer((req, res) => {
+        const hdrToken = String(req.headers["x-hub-control-token"] || "");
+        if (hdrToken !== token) {
+          res.writeHead(403, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: "forbidden" }));
+          return;
+        }
+        const chunks = [];
+        req.on("data", (c) => chunks.push(c));
+        req.on("end", async () => {
+          let body = {};
+          try {
+            const raw = Buffer.concat(chunks).toString("utf8").trim();
+            if (raw) body = JSON.parse(raw);
+          } catch {
+            body = {};
+          }
+          const reqPath = (req.url || "/").split("?")[0];
+          if (req.method === "POST" && reqPath === "/hot-reload") {
+            try {
+              const result = await handleHotReload(body);
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify(result));
+            } catch (err) {
+              res.writeHead(500, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }));
+            }
+            return;
+          }
+          if (req.method === "POST" && reqPath === "/show-window") {
+            try {
+              showWindow?.();
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ ok: true }));
+            } catch (err) {
+              res.writeHead(500, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }));
+            }
+            return;
+          }
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: "not_found" }));
+        });
+      });
+      server.on("error", () => {
+        resolve({ port: 0, controlFile });
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const addr = server.address();
+        boundPort = typeof addr === "object" && addr ? addr.port : 0;
+        writeControlRecord();
+        if (app && typeof app.on === "function") {
+          app.on("will-quit", close);
+        }
+        resolve({ port: boundPort, controlFile });
+      });
+      server.unref?.();
+    });
+  }
+
+  function close() {
+    removeControlRecord();
+    if (server) {
+      try {
+        server.close();
+      } catch {
+        /* ignore */
+      }
+      server = null;
+    }
+  }
+
+  return {
+    start,
+    close,
+    handleHotReload,
+    get controlFile() {
+      return controlFile;
+    },
+    get port() {
+      return boundPort;
+    },
+    get token() {
+      return token;
+    },
+  };
+}
+
 module.exports = {
   compareSemver,
   parseLatestYml,
   hasPackagedAppUpdateYml,
   resolveDesktopProductVersion,
   resolveLocalDistIndexHtml,
+  buildPackagedHostNodeEnv,
+  scheduleStagedAsarSwapOnQuit,
+  bindStagedAsarSwapOnWillQuit,
+  createDesktopHotReloadControlBridge,
   createDesktopUpdaterIpcController,
   createPreloadUpdateBridge,
 };

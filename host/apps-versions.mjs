@@ -107,7 +107,11 @@ export async function getManagedAppsSnapshot({ includeReleases = false, forceRel
       stateSnapshots: agDesk.stateSnapshots || [],
       vsixExtensions: vsixExtensions.filter((x) => x.scope === "shared" || x.scope === "antigravity"),
       detail: [
-        agDesk.version ? `v${agDesk.version}` : "Not installed",
+        agDesk.version
+          ? `v${agDesk.version}`
+          : agDesk.installed
+            ? (agDesk.previousUsedVersion ? `Installed (v${agDesk.previousUsedVersion})` : "Installed")
+            : "Not installed",
         agIde.version ? `IDE v${agIde.version}` : "",
         agDesk.updatePinned ? (agDesk.pendingAclLocked ? "Pinned + ACL" : "Updates Pinned") : "Updates Unpinned",
       ]
@@ -190,8 +194,18 @@ export async function getManagedAppsSnapshot({ includeReleases = false, forceRel
       installerItems: [],
       stateSnapshots: [],
       vsixExtensions: [],
-      detail: claudeInst.installed ? `CLI v${claudeInst.version || "installed"}` : "CLI not detected",
-      log: claudeInst.installed ? "NPM/Global CLI active" : "Run npm install -g @anthropic-ai/claude-code",
+      detail: claudeInst.installed
+        ? claudeInst.version
+          ? `CLI v${claudeInst.version}`
+          : claudeInst.hasCredentials
+            ? "OAuth credentials active (CLI pkg not in global npm)"
+            : "CLI installed"
+        : "CLI not detected",
+      log: claudeInst.binaryInstalled
+        ? "NPM/Global CLI active"
+        : claudeInst.hasCredentials
+          ? "~/.claude/.credentials.json linked"
+          : "Run npm install -g @anthropic-ai/claude-code",
       updated: checkedAt,
     },
   ];

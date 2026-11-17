@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-17T21:10:48.249Z",
+  "generatedAt": "2026-11-17T23:15:09.744Z",
   "entries": [
     {
-      "version": "3.1.219",
+      "version": "3.1.244",
       "date": "2026-11-18",
-      "at": "2026-11-18T04:08:00+07:00",
+      "at": "2026-11-18T05:55:00+07:00",
       "title": "Patch bump for completed agent task",
       "bullets": [
         "Automatic patch bump after completed P0001 task."
@@ -17,39 +17,24 @@
       ]
     },
     {
-      "version": "3.1.217",
+      "version": "3.1.243",
       "date": "2026-11-18",
-      "at": "2026-11-18T04:07:00+07:00",
-      "title": "Use valid Electron accelerator '.' and guard globalShortcut.register",
+      "at": "2026-11-18T05:28:00+07:00",
+      "title": "Track reclaimedBytes in sweepAntigravityStaleTranscripts & resolve debt audit SSOT root",
       "bullets": [
-        "Replaced invalid CommandOrControl+Shift+Period fallback with CommandOrControl+Shift+. and wrapped globalShortcut.register in try/catch."
+        "Measure and return reclaimedBytes across sweepAntigravityStaleTranscripts and display disk/RAM freed on Dashboard Purge AGY & Deep Maintenance toasts; update directory-table-debt-audit.mjs to scan active Tool/P00xx-* roots and accept tablePrefs.read (P0001 debt = 0)."
       ],
       "kind": "improve",
-      "userTitle": "Use valid Electron accelerator '.' and guard global Shortcut.register",
+      "userTitle": "Track reclaimed Bytes in sweep Antigravity Stale Transcripts & resolv…",
       "userSummary": "",
       "userHighlights": [
-        "Replaced invalid Command Or Control+Shift+Period fallback with Command Or Control+Shift+. and wra…"
+        "Measure and return reclaimed Bytes across sweep Antigravity Stale Transcripts and display disk RA…"
       ]
     },
     {
-      "version": "3.1.216",
+      "version": "3.1.242",
       "date": "2026-11-18",
-      "at": "2026-11-18T04:04:00+07:00",
-      "title": "Add Apps & Versions management screen and Host APIs",
-      "bullets": [
-        "Centralize local IDE app version inspection, auto-update pins, ACL locks, GCS release vault, portable SxS builds, state snapshots, and VSIX vault in P0001 Desk Console."
-      ],
-      "kind": "improve",
-      "userTitle": "Add Apps & Versions management screen and Host APIs",
-      "userSummary": "",
-      "userHighlights": [
-        "Centralize local IDE app version inspection, auto-update pins, ACL locks, GCS release vault, port…"
-      ]
-    },
-    {
-      "version": "3.1.215",
-      "date": "2026-11-18",
-      "at": "2026-11-18T04:03:00+07:00",
+      "at": "2026-11-18T05:27:00+07:00",
       "title": "Patch bump for completed agent task",
       "bullets": [
         "Automatic patch bump after completed P0001 task."
@@ -62,39 +47,24 @@
       ]
     },
     {
-      "version": "3.1.211",
+      "version": "3.1.241",
       "date": "2026-11-18",
-      "at": "2026-11-18T03:59:00+07:00",
-      "title": "Set sandbox:false for Electron preload and use smokePort 6019",
+      "at": "2026-11-18T05:20:00+07:00",
+      "title": "Expand SxS stopped cache cleanup (>7d), update debt audit SSOT regex, and run desktop CDP smoke",
       "bullets": [
-        "Added sandbox:false to main/picker webPreferences so preload.cjs can load ./lib/desktop-host-kit.cjs, and moved P0001 smokePort from 6012 to 6019."
+        "Rename cleanAntigravitySxsLogsDir to cleanAntigravitySxsUserCaches covering logs/Code Cache/GPUCache/Cache/Dawn/CachedData (>7d) on stopped SxS instances, recognize HubDirectoryEmptyCell in directory-table-debt-audit.mjs, and verify full desk-core CDP smoke."
       ],
       "kind": "improve",
-      "userTitle": "Set sandbox:false for Electron preload and use smoke Port 6019",
+      "userTitle": "Expand Sx S stopped cache cleanup , update debt audit shared UI regex…",
       "userSummary": "",
       "userHighlights": [
-        "Added sandbox:false to main picker web Preferences so can load . , and moved P0001 smoke Port fro…"
+        "Rename clean Antigravity Sxs Logs Dir to clean Antigravity Sxs User Caches covering logs Code Cac…"
       ]
     },
     {
-      "version": "3.1.210",
+      "version": "3.1.240",
       "date": "2026-11-18",
-      "at": "2026-11-18T03:45:00+07:00",
-      "title": "Unify Created/Update to 7.25rem and fix legacy test assertions",
-      "bullets": [
-        "Aligned Desk/Drives/Jobs Created and Update columns to HUB_DIRECTORY_PLAN_DATE_COL_WIDTH (7.25rem) and updated job-row-chrome.test.mjs to current split cell/tour paths (18/18 pass)."
-      ],
-      "kind": "improve",
-      "userTitle": "Unify Created Update to 7.25rem and fix legacy test assertions",
-      "userSummary": "",
-      "userHighlights": [
-        "Aligned Desk Drives Jobs Created and Update columns to HUB DIRECTORY PLAN DATE COL WIDTH and upda…"
-      ]
-    },
-    {
-      "version": "3.1.209",
-      "date": "2026-11-18",
-      "at": "2026-11-18T03:39:00+07:00",
+      "at": "2026-11-18T05:19:00+07:00",
       "title": "Patch bump for completed agent task",
       "bullets": [
         "Automatic patch bump after completed P0001 task."
@@ -107,24 +77,24 @@
       ]
     },
     {
-      "version": "3.1.207",
+      "version": "3.1.239",
       "date": "2026-11-18",
-      "at": "2026-11-18T03:21:00+07:00",
-      "title": "Sequential round-robin heavy farm queue and 4/6/8 headless cap",
+      "at": "2026-11-18T05:12:00+07:00",
+      "title": "Unify HubDirectoryEmptyCell SSOT, prune SxS >7d logs, and wire ConnectRPC post-sync smoke",
       "bullets": [
-        "Lowered adaptive headless cap to 4/6/8 and added 20m time-sliced sequential queue for heavy Chromium farm daemons."
+        "Replace remaining DirectoryEmptyDash in jobs/drives with HubDirectoryEmptyCell, add cleanAntigravitySxsLogsDir (>7d) for stopped SxS userdata logs, and add Antigravity ConnectRPC sweep smoke check to run-electron-package.mjs and desktop-desk-core.mjs."
       ],
       "kind": "improve",
-      "userTitle": "Sequential round-robin heavy farm queue and 4 6 8 headless cap",
+      "userTitle": "Unify Hub Directory Empty Cell shared UI, prune Sx S >7d logs, and wi…",
       "userSummary": "",
       "userHighlights": [
-        "Lowered adaptive headless cap to 4 6 8 and added 20m time-sliced sequential queue for heavy Chrom…"
+        "Replace remaining Directory Empty Dash in jobs drives with Hub Directory Empty Cell, add clean An…"
       ]
     },
     {
-      "version": "3.1.206",
+      "version": "3.1.238",
       "date": "2026-11-18",
-      "at": "2026-11-18T03:19:00+07:00",
+      "at": "2026-11-18T05:10:00+07:00",
       "title": "Patch bump for completed agent task",
       "bullets": [
         "Automatic patch bump after completed P0001 task."
@@ -137,24 +107,24 @@
       ]
     },
     {
-      "version": "3.1.205",
+      "version": "3.1.237",
       "date": "2026-11-18",
-      "at": "2026-11-18T03:17:00+07:00",
-      "title": "Align Desk Log 15rem and Jobs Created/Update 7.5rem",
+      "at": "2026-11-18T05:02:00+07:00",
+      "title": "Unify Antigravity daemon/presence cleanup SSOT & align Desk HubDirectoryEmptyCell",
       "bullets": [
-        "Updated P0001 Desk/Drives/Jobs column meta and CSS to HUB_DIRECTORY_LOG_COL_WIDTH (15rem) and synced p0009-jobs-directory-fixed-cols.generated.css Created/Update to 7.5rem."
+        "Extract cleanAntigravityDaemonDir helper (hub_*.json dead PIDs + stale ls_*.log) and stale 0-byte presence lock pruning into sweepAntigravityStaleTranscripts, sync workspace-ports snapshots to P0004, and replace leftover DirectoryEmptyDash in desk-directory-cells.tsx."
       ],
       "kind": "improve",
-      "userTitle": "Align Desk Log 15rem and Jobs Created Update 7.5rem",
+      "userTitle": "Unify Antigravity daemon presence cleanup shared UI & align Desk Hub…",
       "userSummary": "",
       "userHighlights": [
-        "Updated P0001 Desk Drives Jobs column meta and CSS to HUB DIRECTORY LOG COL WIDTH and synced Crea…"
+        "Extract clean Antigravity Daemon Dir helper and stale 0-byte presence lock pruning into sweep Ant…"
       ]
     },
     {
-      "version": "3.1.204",
+      "version": "3.1.236",
       "date": "2026-11-18",
-      "at": "2026-11-18T02:47:00+07:00",
+      "at": "2026-11-18T05:01:00+07:00",
       "title": "Patch bump for completed agent task",
       "bullets": [
         "Automatic patch bump after completed P0001 task."
@@ -167,18 +137,48 @@
       ]
     },
     {
-      "version": "3.1.202",
+      "version": "3.1.234",
       "date": "2026-11-18",
-      "at": "2026-11-18T02:45:00+07:00",
-      "title": "Lower EVKey handle leak restart threshold to 1200",
+      "at": "2026-11-18T04:39:00+07:00",
+      "title": "Use original-fs for Antigravity Desktop version & fix JSX syntax",
       "bullets": [
-        "Lowered EVKey64.exe handle-leak auto-restart threshold from 4000 to 1200 in host/pc-optimizer.mjs to prevent WH_KEYBOARD_LL typing and mouse lag."
+        "Read app.asar cleanly from Electron hosts via original-fs + fallback package/product JSON, clarify Claude OAuth status label, and fix DeskDirectoryCard JSX syntax."
       ],
       "kind": "improve",
-      "userTitle": "Lower EVKey handle leak restart threshold to 1200",
+      "userTitle": "Use original-fs for Antigravity Desktop version & fix JSX syntax",
       "userSummary": "",
       "userHighlights": [
-        "Lowered EVKey64.exe handle-leak auto-restart threshold from 4000 to 1200 in to prevent WH KEYBOAR…"
+        "Read app.asar cleanly from Electron hosts via original-fs + fallback package product JSON, clarif…"
+      ]
+    },
+    {
+      "version": "3.1.233",
+      "date": "2026-11-18",
+      "at": "2026-11-18T04:39:00+07:00",
+      "title": "Patch bump for completed agent task",
+      "bullets": [
+        "Automatic patch bump after completed P0001 task."
+      ],
+      "kind": "improve",
+      "userTitle": "Patch bump for completed agent task",
+      "userSummary": "",
+      "userHighlights": [
+        "Automatic patch bump after completed P0001 task."
+      ]
+    },
+    {
+      "version": "3.1.231",
+      "date": "2026-11-18",
+      "at": "2026-11-18T04:35:00+07:00",
+      "title": "Prune dead daemon/hub_*.json, tighten stopped SxS retention, and show LS ghosts in Purge AGY toast",
+      "bullets": [
+        "Clean orphan daemon/hub_*.json across primary and SxS roots, lower stopped SxS session TTL to 24h and compaction threshold to 5MB/1h (fixing 0-byte WAL check), and surface antigravityRpcSync.syncedDeleted on Dashboard Purge AGY toast."
+      ],
+      "kind": "improve",
+      "userTitle": "Prune dead daemon hub *.json, tighten stopped Sx S retention, and sho…",
+      "userSummary": "",
+      "userHighlights": [
+        "Clean orphan daemon hub *.json across primary and Sx S roots, lower stopped Sx S session TTL to 2…"
       ]
     }
   ]

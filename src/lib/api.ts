@@ -301,6 +301,19 @@ export type PcOptimizeResult = {
       ok: boolean;
       removedSessions: number;
       prunedArtifacts: number;
+      reclaimedBytes?: number;
+    };
+    antigravityRpcSync?: {
+      ok: boolean;
+      serversFound: number;
+      serversSynced: number;
+      syncedDeleted: number;
+    };
+    deepMaintenance?: {
+      ok: boolean;
+      skipped?: boolean;
+      lastPassFreedMB?: number;
+      lastPassCleanedProfiles?: number;
     };
   };
   diagnostics: PcDiagnosticsPayload;
@@ -312,8 +325,8 @@ function mergeOpsRows(runners: RunnerRow[], tasks: TaskRow[]): OpsRow[] {
     kind: "task",
     targetId: row.id,
     name: row.name,
-    status: row.status || "—",
-    detail: `last ${row.lastResult || "—"}`,
+    status: row.status || "",
+    detail: row.lastResult ? `last ${row.lastResult}` : "",
     updated: row.lastRun || row.nextRun || "",
     lastRun: row.lastRun,
     lastResult: row.lastResult,

@@ -53,7 +53,7 @@ function JobsLogRail({ jobs, focusedId }: { jobs: SyncJob[]; focusedId: string }
         const actorLabel = entry.actor?.label ? ` (${entry.actor.label})` : "";
         out.push({
           id: `job-act-${job.id}-${i}-${at}`,
-          at: at ? new Date(at).toLocaleTimeString([], { hour12: false }) : "—",
+          at: at ? new Date(at).toLocaleTimeString([], { hour12: false }) : "",
           level: ok ? "info" : "error",
           channel: "sync",
           message: `${code}${actorLabel} — ${msgText || (ok ? "completed" : "failed")}`,
@@ -66,7 +66,7 @@ function JobsLogRail({ jobs, focusedId }: { jobs: SyncJob[]; focusedId: string }
           const ok = job.lastResult?.ok !== false;
           out.push({
             id: `job-last-${job.id}-${at}`,
-            at: at ? new Date(at).toLocaleTimeString([], { hour12: false }) : "—",
+            at: at ? new Date(at).toLocaleTimeString([], { hour12: false }) : "",
             level: ok ? "info" : "error",
             channel: "drive",
             message: `${code} · ${job.remote} ↔ ${job.localPath} (${job.status})`,

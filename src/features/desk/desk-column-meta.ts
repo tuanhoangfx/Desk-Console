@@ -70,12 +70,20 @@ const baseMeta = withDirectoryColumnStickers(
     updated: col("Update", "hub-desk-col--updated", "updated", "col.directory.updated", HUB_DIRECTORY_PLAN_DUE_COL_WIDTH, {
       columnKind: "date",
     }),
-    name: col("Name", "hub-desk-col--name", "name", "col.directory.name", "18rem"),
-    format: col("Format", "hub-desk-col--format", "kind", "col.directory.status", "8.5rem"),
+    name: col("Name", "hub-desk-col--name", "name", "col.directory.name", "18rem", {
+      columnKind: "code",
+    }),
+    format: col("Format", "hub-desk-col--format", "kind", "col.directory.status", "8.5rem", {
+      columnKind: "compact",
+    }),
     run: col("Run", "hub-desk-col--run", "tools", "col.directory.status", "6.5rem"),
-    schedule: col("Schedule", "hub-desk-col--schedule", "period", "col.directory.updated", "10.5rem"),
+    schedule: col("Schedule", "hub-desk-col--schedule", "period", "col.directory.updated", "10.5rem", {
+      columnKind: "code",
+    }),
     status: col("Status", "hub-desk-col--status", "status", "col.directory.status", "9rem"),
-    extra: col("Detail", "hub-desk-col--detail", "email", "col.directory.email", "18rem"),
+    extra: col("Detail", "hub-desk-col--detail", "email", "col.directory.email", "18rem", {
+      columnKind: "code",
+    }),
     log: col("Log", "hub-desk-col--log", "log", "log.panel", HUB_DIRECTORY_LOG_COL_WIDTH, {
       columnKind: "compact",
       headerAlign: "start",

@@ -91,12 +91,12 @@ export function RunnerDetailModal({ row, onClose }: Props) {
                       <HubDirectoryReadonlyCopyText value={row.code} />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Name" value={row.name} headerEmoji="📛" />
-                    <DeskDetailReadonlyField label="Stack" value={row.stack || "—"} headerEmoji="🗂️" />
+                    <DeskDetailReadonlyField label="Stack" value={row.stack || ""} headerEmoji="🗂️" />
                     <DeskDetailReadonlyField label="Tool root" headerEmoji="📂">
-                      <HubDirectoryReadonlyCopyText value={row.toolRoot || "—"} />
+                      <HubDirectoryReadonlyCopyText value={row.toolRoot || ""} />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Probe path" value={row.probePath || "/"} headerEmoji="🎯" />
-                    <DeskDetailReadonlyField label="Open path" value={row.openPath || "—"} headerEmoji="🔗" />
+                    <DeskDetailReadonlyField label="Open path" value={row.openPath || ""} headerEmoji="🔗" />
                     <DeskDetailReadonlyField label="URL" headerEmoji="🌐">
                       <HubDirectoryReadonlyCopyText value={row.url} />
                     </DeskDetailReadonlyField>

@@ -100,9 +100,11 @@ export function DeskHotkeysSettings() {
             <p className="font-medium text-[var(--text)]">{item.label}</p>
             <p>{item.hint}</p>
           </div>
-          <code className="shrink-0 rounded bg-white/5 px-2 py-1 text-xs text-[var(--text)]">
-            {listening === item.role ? "Press keys…" : hotkeys?.labels[item.role] || "—"}
-          </code>
+          {listening === item.role || hotkeys?.labels[item.role] ? (
+            <code className="shrink-0 rounded bg-white/5 px-2 py-1 text-xs text-[var(--text)]">
+              {listening === item.role ? "Press keys…" : hotkeys?.labels[item.role]}
+            </code>
+          ) : null}
           <button
             type="button"
             className="hub-btn shrink-0"

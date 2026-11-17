@@ -246,6 +246,45 @@ function readProtoVarint(buf, pos) {
   throw new Error("truncated varint");
 }
 
+function scanAgyHubSummariesProto(protoPath) {
+  if (!protoPath || !fs.existsSync(protoPath)) return { ok: true, buf: Buffer.alloc(0), entries: [] };
+  const buf = fs.readFileSync(protoPath);
+  if (buf.length === 0) return { ok: true, buf, entries: [] };
+  const entries = [];
+  let p = 0;
+  while (p < buf.length) {
+    const start = p;
+    const { val: tag, pos: p1 } = readProtoVarint(buf, p);
+    if ((tag & 7) !== 2) return { ok: false, reason: "unexpected wire type", entries: [] };
+    const field = tag >> 3;
+    const { val: len, pos: p2 } = readProtoVarint(buf, p1);
+    if (len < 0 || p2 + len > buf.length) return { ok: false, reason: "length overflow", entries: [] };
+    const payload = buf.subarray(p2, p2 + len);
+    const end = p2 + len;
+    let id = "";
+    if (field === 1 && payload.length > 2) {
+      try {
+        const { val: stag, pos: sp1 } = readProtoVarint(payload, 0);
+        if (stag === 0x0a) {
+          const { val: slen, pos: sp2 } = readProtoVarint(payload, sp1);
+          if (slen >= 8 && sp2 + slen <= payload.length) {
+            const candidate = payload.subarray(sp2, sp2 + slen).toString("utf8");
+            if (/^[0-9a-f-]{36}$/i.test(candidate)) {
+              id = candidate;
+            }
+          }
+        }
+      } catch {
+        return { ok: false, reason: "malformed subentry", entries: [] };
+      }
+    }
+    entries.push({ start, end, field, id });
+    p = end;
+  }
+  if (p !== buf.length) return { ok: false, reason: "trailing bytes", entries: [] };
+  return { ok: true, buf, entries };
+}
+
 /**
  * Safely prune dead conversation UUID entries from `agyhub_summaries_proto.pb`
  * using strict protobuf length-delimited wire framing (fail-closed on any unexpected wire byte).
@@ -254,47 +293,20 @@ function readProtoVarint(buf, pos) {
 export function pruneAgyHubSummariesProto(protoPath, activeIds) {
   if (!protoPath || !fs.existsSync(protoPath)) return { ok: true, removed: 0, kept: 0 };
   try {
-    const buf = fs.readFileSync(protoPath);
-    if (buf.length === 0) return { ok: true, removed: 0, kept: 0 };
+    const parsed = scanAgyHubSummariesProto(protoPath);
+    if (!parsed.ok) return { ok: false, removed: 0, kept: 0, reason: parsed.reason };
+    if (parsed.entries.length === 0) return { ok: true, removed: 0, kept: 0 };
     const keptChunks = [];
-    let p = 0;
     let removed = 0;
     let kept = 0;
-    while (p < buf.length) {
-      const start = p;
-      const { val: tag, pos: p1 } = readProtoVarint(buf, p);
-      if ((tag & 7) !== 2) return { ok: false, removed: 0, kept: 0, reason: "unexpected wire type" };
-      const field = tag >> 3;
-      const { val: len, pos: p2 } = readProtoVarint(buf, p1);
-      if (len < 0 || p2 + len > buf.length) return { ok: false, removed: 0, kept: 0, reason: "length overflow" };
-      const payload = buf.subarray(p2, p2 + len);
-      const end = p2 + len;
-      let drop = false;
-      if (field === 1 && payload.length > 2) {
-        try {
-          const { val: stag, pos: sp1 } = readProtoVarint(payload, 0);
-          if (stag === 0x0a) {
-            const { val: slen, pos: sp2 } = readProtoVarint(payload, sp1);
-            if (slen >= 8 && sp2 + slen <= payload.length) {
-              const id = payload.subarray(sp2, sp2 + slen).toString("utf8");
-              if (/^[0-9a-f-]{36}$/i.test(id) && !activeIds.has(id)) {
-                drop = true;
-              }
-            }
-          }
-        } catch {
-          return { ok: false, removed: 0, kept: 0, reason: "malformed subentry" };
-        }
-      }
-      if (drop) {
+    for (const entry of parsed.entries) {
+      if (entry.id && !activeIds.has(entry.id)) {
         removed += 1;
       } else {
-        if (field === 1) kept += 1;
-        keptChunks.push(buf.subarray(start, end));
+        if (entry.field === 1) kept += 1;
+        keptChunks.push(parsed.buf.subarray(entry.start, entry.end));
       }
-      p = end;
     }
-    if (p !== buf.length) return { ok: false, removed: 0, kept: 0, reason: "trailing bytes" };
     if (removed > 0) {
       const tmp = `${protoPath}.prune.tmp`;
       fs.writeFileSync(tmp, Buffer.concat(keptChunks));
@@ -304,6 +316,238 @@ export function pruneAgyHubSummariesProto(protoPath, activeIds) {
   } catch (err) {
     return { ok: false, removed: 0, kept: 0, reason: String(err?.message || err) };
   }
+}
+
+/**
+ * Prune dead/deleted conversation UUIDs from Electron `app_storage.json`
+ * (`pinned_conversations_order`, `antigravity-multi-conversation-layout-v3-<uuid>`, and index).
+ */
+export function cleanAntigravityAppStorage(appStoragePath, activeIds) {
+  if (!appStoragePath || !fs.existsSync(appStoragePath)) {
+    return { ok: true, removedPinned: 0, removedLayouts: 0 };
+  }
+  try {
+    const raw = fs.readFileSync(appStoragePath, "utf8");
+    if (!raw.trim()) return { ok: true, removedPinned: 0, removedLayouts: 0 };
+    const doc = JSON.parse(raw);
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
+      return { ok: false, removedPinned: 0, removedLayouts: 0 };
+    }
+
+    let removedPinned = 0;
+    let removedLayouts = 0;
+    let changed = false;
+
+    if (doc.pinned_conversations_order !== undefined) {
+      const wasString = typeof doc.pinned_conversations_order === "string";
+      let arr = null;
+      if (wasString) {
+        try {
+          const parsed = JSON.parse(doc.pinned_conversations_order);
+          if (Array.isArray(parsed)) arr = parsed;
+        } catch {
+          arr = null;
+        }
+      } else if (Array.isArray(doc.pinned_conversations_order)) {
+        arr = doc.pinned_conversations_order;
+      }
+      if (arr) {
+        const nextArr = arr.filter((id) => activeIds.has(String(id || "").trim()));
+        if (nextArr.length < arr.length) {
+          removedPinned = arr.length - nextArr.length;
+          doc.pinned_conversations_order = wasString ? JSON.stringify(nextArr) : nextArr;
+          changed = true;
+        }
+      }
+    }
+
+    const layoutPrefix = "antigravity-multi-conversation-layout-v3-";
+    const uuidRe = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:$|\+)/i;
+    for (const key of Object.keys(doc)) {
+      if (!key.startsWith(layoutPrefix) || key === `${layoutPrefix}index`) continue;
+      const suffix = key.slice(layoutPrefix.length);
+      const m = uuidRe.exec(suffix);
+      if (m && !activeIds.has(m[1])) {
+        delete doc[key];
+        removedLayouts += 1;
+        changed = true;
+      }
+    }
+
+    const indexKey = `${layoutPrefix}index`;
+    if (doc[indexKey] !== undefined) {
+      const wasString = typeof doc[indexKey] === "string";
+      let idxArr = null;
+      if (wasString) {
+        try {
+          const parsed = JSON.parse(doc[indexKey]);
+          if (Array.isArray(parsed)) idxArr = parsed;
+        } catch {
+          idxArr = null;
+        }
+      } else if (Array.isArray(doc[indexKey])) {
+        idxArr = doc[indexKey];
+      }
+      if (idxArr) {
+        const nextIdx = idxArr.filter((entry) => {
+          const lead = Array.isArray(entry) ? String(entry[0] || "") : String(entry || "");
+          return !lead || activeIds.has(lead);
+        });
+        if (nextIdx.length < idxArr.length) {
+          removedLayouts += idxArr.length - nextIdx.length;
+          doc[indexKey] = wasString ? JSON.stringify(nextIdx) : nextIdx;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      const tmp = `${appStoragePath}.prune.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(doc), "utf8");
+      fs.renameSync(tmp, appStoragePath);
+    }
+    return { ok: true, removedPinned, removedLayouts };
+  } catch {
+    return { ok: false, removedPinned: 0, removedLayouts: 0 };
+  }
+}
+
+/**
+ * Remove dead `hub_*.json` discovery files and stale `ls_*.log` files inside an Antigravity `daemon/` folder.
+ */
+export function cleanAntigravityDaemonDir(daemonDir, options = {}) {
+  if (!daemonDir || !fs.existsSync(daemonDir)) return { removed: 0, reclaimedBytes: 0 };
+  const now = Number(options.now) || Date.now();
+  const maxLogAgeMs = Number(options.maxLogAgeMs) || 48 * 3600_000;
+  const aliveLsPids = options.aliveLsPids || new Set();
+  const canPruneHub = Boolean(options.canPruneHub);
+  let removed = 0;
+  let reclaimedBytes = 0;
+
+  for (const name of fs.readdirSync(daemonDir)) {
+    const fp = path.join(daemonDir, name);
+    try {
+      const dst = fs.statSync(fp);
+      if (/^ls_.*\.log$/i.test(name)) {
+        if (now - dst.mtimeMs > maxLogAgeMs) {
+          const sz = dst.size || 0;
+          fs.rmSync(fp, { force: true });
+          if (!fs.existsSync(fp)) {
+            removed += 1;
+            reclaimedBytes += sz;
+          }
+        }
+        continue;
+      }
+      if (!canPruneHub || !/^hub_.*\.json$/i.test(name)) continue;
+      if (now - dst.mtimeMs < 2 * 60_000) continue;
+      let pidAlive = false;
+      try {
+        const info = JSON.parse(fs.readFileSync(fp, "utf8"));
+        const pid = Number(info?.pid) || 0;
+        if (pid > 0) {
+          if (aliveLsPids.has(pid)) {
+            pidAlive = true;
+          } else {
+            try {
+              process.kill(pid, 0);
+              pidAlive = true;
+            } catch (e) {
+              pidAlive = e?.code === "EPERM";
+            }
+          }
+        }
+      } catch {
+        pidAlive = false;
+      }
+      if (!pidAlive) {
+        const sz = dst.size || 0;
+        fs.rmSync(fp, { force: true });
+        if (!fs.existsSync(fp)) {
+          removed += 1;
+          reclaimedBytes += sz;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return { removed, reclaimedBytes };
+}
+
+function measurePathBytes(targetPath) {
+  if (!targetPath || !fs.existsSync(targetPath)) return 0;
+  let total = 0;
+  const stack = [targetPath];
+  while (stack.length > 0) {
+    const cur = stack.pop();
+    let st;
+    try {
+      st = fs.lstatSync(cur);
+    } catch {
+      continue;
+    }
+    if (st.isSymbolicLink()) continue;
+    if (st.isFile()) {
+      total += st.size || 0;
+      continue;
+    }
+    if (st.isDirectory()) {
+      let children;
+      try {
+        children = fs.readdirSync(cur);
+      } catch {
+        continue;
+      }
+      for (const name of children) {
+        stack.push(path.join(cur, name));
+      }
+    }
+  }
+  return total;
+}
+
+const SXS_DISPOSABLE_CACHE_SUBDIRS = [
+  "logs",
+  "Code Cache",
+  "GPUCache",
+  "Cache",
+  "DawnGraphiteCache",
+  "DawnWebGPUCache",
+  "CachedData",
+];
+
+/**
+ * Remove files or folders older than `maxAgeMs` (default 7d) from stopped SxS `userdata-<ver>` cache subdirectories
+ * (`logs`, `Code Cache`, `GPUCache`, `Cache`, `DawnGraphiteCache`, `DawnWebGPUCache`, `CachedData`).
+ */
+export function cleanAntigravitySxsUserCaches(sxsUserDir, options = {}) {
+  if (!sxsUserDir || !fs.existsSync(sxsUserDir)) return { removed: 0, reclaimedBytes: 0 };
+  const now = Number(options.now) || Date.now();
+  const maxAgeMs = Number(options.maxAgeMs) || 7 * 86400_000;
+  let removed = 0;
+  let reclaimedBytes = 0;
+  for (const sub of SXS_DISPOSABLE_CACHE_SUBDIRS) {
+    const dir = path.join(sxsUserDir, sub);
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir)) {
+      const fp = path.join(dir, name);
+      try {
+        const lst = fs.statSync(fp);
+        if (now - lst.mtimeMs > maxAgeMs) {
+          const sz = measurePathBytes(fp);
+          fs.rmSync(fp, { recursive: true, force: true });
+          if (!fs.existsSync(fp)) {
+            removed += 1;
+            reclaimedBytes += sz;
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return { removed, reclaimedBytes };
 }
 
 const TRIM_TARGET_PROCESSES = new Set([
@@ -2735,6 +2979,17 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
   const now = Number(options.nowMs) || Date.now();
   let removedSessions = 0;
   let prunedArtifacts = 0;
+  let reclaimedBytes = 0;
+
+  const removeCounting = (targetPath, opts = { recursive: true, force: true }) => {
+    const sz = measurePathBytes(targetPath);
+    fs.rmSync(targetPath, opts);
+    if (!fs.existsSync(targetPath)) {
+      reclaimedBytes += sz;
+      return true;
+    }
+    return false;
+  };
 
   const forceRemoveDir = (p, brainDir) => {
     try {
@@ -2850,7 +3105,14 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
       const convDir = path.join(agyRoot, "conversations");
       const annDir = path.join(agyRoot, "annotations");
       const presDir = path.join(agyRoot, "presence");
+      const daemonDir = path.join(agyRoot, "daemon");
       const sumDbPath = path.join(agyRoot, "conversation_summaries.db");
+      const rootLsRunning = isRootLsRunning(agyRoot);
+      const sxsAppMatch = /[\\/]antigravity-sxs[\\/]home-([^\\/]+)[\\/]\.gemini[\\/]antigravity$/i.exec(agyRoot);
+      const effectiveIdleMaxAgeMs =
+        !rootLsRunning && sxsAppMatch && options.idleSessionMaxAgeMs == null
+          ? Math.min(idleSessionMaxAgeMs, 24 * 3600_000)
+          : idleSessionMaxAgeMs;
 
       const activeIds = new Set();
       const summaryMeta = new Map();
@@ -2881,7 +3143,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           if (!st.isDirectory()) continue;
 
           const cDbPath = path.join(convDir, `${id}.db`);
-          const isOpenInIde = isAntigravityDbOpenInIde(cDbPath, now, idleSessionMaxAgeMs);
+          const isOpenInIde = isAntigravityDbOpenInIde(cDbPath, now, effectiveIdleMaxAgeMs);
           const meta = summaryMeta.get(id);
           const tPath = path.join(full, ".system_generated", "logs", "transcript.jsonl");
           let tMtime = 0;
@@ -2901,11 +3163,13 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           const isStaleSubagent =
             (meta?.isSubagent || (!meta && !tMtime)) &&
             now - Math.max(meta?.modMs || 0, tMtime || 0, st.mtimeMs || 0, st.birthtimeMs || 0) > subagentMaxAgeMs;
-          const isStaleSession = now - effectiveLastActiveMs > idleSessionMaxAgeMs;
+          const isStaleSession = now - effectiveLastActiveMs > effectiveIdleMaxAgeMs;
 
           if (!isOpenInIde && (isStaleSubagent || isStaleSession)) {
+            const dirBytes = measurePathBytes(full);
             if (forceRemoveDir(full, brainDir)) {
               removedSessions += 1;
+              reclaimedBytes += dirBytes;
             } else {
               activeIds.add(id);
             }
@@ -2922,8 +3186,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
                 const itemPath = path.join(subDir, item);
                 try {
                   const ist = fs.statSync(itemPath);
-                  if (now - ist.mtimeMs > taskStepMaxAgeMs) {
-                    fs.rmSync(itemPath, { recursive: true, force: true });
+                  if (now - ist.mtimeMs > taskStepMaxAgeMs && removeCounting(itemPath)) {
                     prunedArtifacts += 1;
                   }
                 } catch {
@@ -2942,8 +3205,9 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           if (activeIds.has(baseId)) continue;
           const full = path.join(convDir, name);
           try {
-            fs.rmSync(full, { recursive: true, force: true });
-            prunedArtifacts += 1;
+            if (removeCounting(full)) {
+              prunedArtifacts += 1;
+            }
           } catch {
             /* ignore */
           }
@@ -2954,8 +3218,9 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           const baseId = name.replace(/\.pbtxt$/i, "");
           if (activeIds.has(baseId)) continue;
           try {
-            fs.rmSync(path.join(annDir, name), { force: true });
-            prunedArtifacts += 1;
+            if (removeCounting(path.join(annDir, name), { force: true })) {
+              prunedArtifacts += 1;
+            }
           } catch {
             /* ignore */
           }
@@ -2964,17 +3229,50 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
       if (fs.existsSync(presDir)) {
         for (const name of fs.readdirSync(presDir)) {
           const baseId = name.replace(/\.lock$/i, "");
-          if (activeIds.has(baseId)) continue;
+          const fp = path.join(presDir, name);
+          let shouldRemove = !activeIds.has(baseId);
+          if (!shouldRemove) {
+            try {
+              const pst = fs.statSync(fp);
+              if (
+                pst.size === 0 &&
+                now - pst.mtimeMs > effectiveIdleMaxAgeMs &&
+                !isAntigravityDbOpenInIde(path.join(convDir, `${baseId}.db`), now, effectiveIdleMaxAgeMs)
+              ) {
+                shouldRemove = true;
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+          if (!shouldRemove) continue;
           try {
-            fs.rmSync(path.join(presDir, name), { force: true });
-            prunedArtifacts += 1;
+            if (removeCounting(fp, { force: true })) {
+              prunedArtifacts += 1;
+            }
           } catch {
             /* ignore */
           }
         }
       }
 
-      const rootLsRunning = isRootLsRunning(agyRoot);
+      const daemonRes = cleanAntigravityDaemonDir(daemonDir, {
+        now,
+        maxLogAgeMs: effectiveIdleMaxAgeMs,
+        aliveLsPids,
+        canPruneHub: !lsRunningAny || aliveLsPids.size > 0,
+      });
+      prunedArtifacts += daemonRes.removed;
+      reclaimedBytes += daemonRes.reclaimedBytes;
+      if (!rootLsRunning && sxsAppMatch) {
+        const sxsUserDir = path.join(path.dirname(path.dirname(path.dirname(agyRoot))), `userdata-${sxsAppMatch[1]}`);
+        const sxsCacheRes = cleanAntigravitySxsUserCaches(sxsUserDir, {
+          now,
+          maxAgeMs: options.sxsLogsMaxAgeMs,
+        });
+        prunedArtifacts += sxsCacheRes.removed;
+        reclaimedBytes += sxsCacheRes.reclaimedBytes;
+      }
 
       // Sync conversation_summaries.db + conversations_fts so deleted/ghost chats disappear from the Antigravity UI sidebar
       if (fs.existsSync(sumDbPath)) {
@@ -2986,22 +3284,43 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
       // Prune stale entries from agyhub_summaries_proto.pb only when this root's language_server is stopped (or explicitly allowed in tests)
       const protoPath = path.join(agyRoot, "agyhub_summaries_proto.pb");
       if ((!rootLsRunning || options.allowProtoPrune) && fs.existsSync(protoPath)) {
+        const protoBefore = measurePathBytes(protoPath);
         const protoRes = pruneAgyHubSummariesProto(protoPath, activeIds);
         if (protoRes.removed > 0) {
           prunedArtifacts += protoRes.removed;
+          reclaimedBytes += Math.max(0, protoBefore - measurePathBytes(protoPath));
         }
       }
 
-      // Auto-compact closed trajectory DBs (> 20 MB, no active .db-wal/.db-shm) by trimming old gen_metadata/executor_metadata
+      // Sync Electron app_storage.json (pinned_conversations_order + orphan layout-v3 keys) so deleted chats cannot stick as ghost Pinned items
+      const isRealPrimaryRoot =
+        path.resolve(agyRoot) === path.resolve(path.join(home, ".gemini", "antigravity"));
+      const appStoragePath =
+        options.appStoragePath ||
+        (sxsAppMatch
+          ? path.join(path.dirname(path.dirname(path.dirname(agyRoot))), `userdata-${sxsAppMatch[1]}`, "app_storage.json")
+          : isRealPrimaryRoot
+            ? path.join(appData, "Antigravity", "app_storage.json")
+            : "");
+      if (appStoragePath && fs.existsSync(appStoragePath)) {
+        const appRes = cleanAntigravityAppStorage(appStoragePath, activeIds);
+        if (appRes.removedPinned > 0 || appRes.removedLayouts > 0) {
+          prunedArtifacts += appRes.removedPinned + appRes.removedLayouts;
+        }
+      }
+
+      // Auto-compact closed trajectory DBs by trimming old gen_metadata/executor_metadata (stopped SxS roots compact >= 5 MB / >= 1h)
       if (fs.existsSync(convDir)) {
+        const compactMinBytes = !rootLsRunning && sxsAppMatch ? 5 * 1048576 : 20 * 1048576;
+        const compactMinAgeMs = !rootLsRunning && sxsAppMatch ? 3600_000 : 6 * 3600_000;
         const convFiles = new Set(fs.readdirSync(convDir));
         for (const name of convFiles) {
           if (!name.endsWith(".db")) continue;
-          if (convFiles.has(`${name}-wal`) || convFiles.has(`${name}-shm`)) continue;
           const full = path.join(convDir, name);
+          if (isAntigravityDbOpenInIde(full, now, effectiveIdleMaxAgeMs)) continue;
           try {
             const cst = fs.statSync(full);
-            if (cst.size < 20 * 1048576 || now - cst.mtimeMs < 6 * 3600_000) continue;
+            if (cst.size < compactMinBytes || now - cst.mtimeMs < compactMinAgeMs) continue;
             let cdb = null;
             try {
               cdb = openLocalSqlite(full);
@@ -3014,6 +3333,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
                 cdb.exec("DELETE FROM executor_metadata WHERE idx < (SELECT COALESCE(MAX(idx),0) - 100 FROM steps);");
                 cdb.exec("VACUUM;");
                 prunedArtifacts += 1;
+                reclaimedBytes += Math.max(0, cst.size - measurePathBytes(full));
               }
             } finally {
               try {
@@ -3038,8 +3358,10 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           const st = fs.statSync(fp);
           if (st.size > 2 * 1024 * 1024) {
             const buf = fs.readFileSync(fp);
-            fs.writeFileSync(fp, buf.subarray(buf.length - 512 * 1024));
+            const trimmed = buf.subarray(buf.length - 512 * 1024);
+            fs.writeFileSync(fp, trimmed);
             prunedArtifacts += 1;
+            reclaimedBytes += Math.max(0, st.size - trimmed.length);
           }
         } catch {
           /* ignore */
@@ -3074,8 +3396,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           const childPath = path.join(d, childName);
           try {
             const cst = fs.statSync(childPath);
-            if (now - cst.mtimeMs > 30 * 60_000) {
-              fs.rmSync(childPath, { recursive: true, force: true });
+            if (now - cst.mtimeMs > 30 * 60_000 && removeCounting(childPath)) {
               prunedArtifacts += 1;
             }
           } catch {
@@ -3104,8 +3425,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
             }
           } else if (ent.isFile() && ent.name.endsWith(".jsonl")) {
             const jst = fs.statSync(fp);
-            if (now - jst.mtimeMs > idleSessionMaxAgeMs) {
-              fs.rmSync(fp, { force: true });
+            if (now - jst.mtimeMs > idleSessionMaxAgeMs && removeCounting(fp, { force: true })) {
               removedSessions += 1;
             }
           }
@@ -3127,7 +3447,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
     }
 
     if (options.skipGlobalCaches) {
-      return { ok: true, removedSessions, prunedArtifacts };
+      return { ok: true, removedSessions, prunedArtifacts, reclaimedBytes };
     }
 
     // Keep only latest 1 CLI version in Cursor agent-cli & Claude claude-code, and prune >7d Cursor History
@@ -3136,8 +3456,9 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
       for (const name of fs.readdirSync(cursorCli)) {
         if (name.endsWith(".zip")) {
           try {
-            fs.rmSync(path.join(cursorCli, name), { force: true });
-            prunedArtifacts += 1;
+            if (removeCounting(path.join(cursorCli, name), { force: true })) {
+              prunedArtifacts += 1;
+            }
           } catch {
             /* ignore */
           }
@@ -3151,8 +3472,9 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           .sort((a, b) => b.mtimeMs - a.mtimeMs);
         for (const old of vers.slice(1)) {
           try {
-            fs.rmSync(old.fp, { recursive: true, force: true });
-            prunedArtifacts += 1;
+            if (removeCounting(old.fp)) {
+              prunedArtifacts += 1;
+            }
           } catch {
             /* ignore */
           }
@@ -3167,8 +3489,9 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
         .sort((a, b) => b.mtimeMs - a.mtimeMs);
       for (const old of vers.slice(1)) {
         try {
-          fs.rmSync(old.fp, { recursive: true, force: true });
-          prunedArtifacts += 1;
+          if (removeCounting(old.fp)) {
+            prunedArtifacts += 1;
+          }
         } catch {
           /* ignore */
         }
@@ -3180,8 +3503,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
       for (const h of fs.readdirSync(cursorHist)) {
         const hp = path.join(cursorHist, h);
         try {
-          if (now - fs.statSync(hp).mtimeMs > sevenDaysMs) {
-            fs.rmSync(hp, { recursive: true, force: true });
+          if (now - fs.statSync(hp).mtimeMs > sevenDaysMs && removeCounting(hp)) {
             prunedArtifacts += 1;
           }
         } catch {
@@ -3208,8 +3530,10 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
             }
           });
           if (kept.length < lines.length) {
-            fs.writeFileSync(tgInboxPath, kept.join("\n") + (kept.length ? "\n" : ""), "utf8");
+            const nextBody = kept.join("\n") + (kept.length ? "\n" : "");
+            fs.writeFileSync(tgInboxPath, nextBody, "utf8");
             prunedArtifacts += lines.length - kept.length;
+            reclaimedBytes += Math.max(0, ist.size - Buffer.byteLength(nextBody, "utf8"));
           }
         }
       } catch {
@@ -3222,8 +3546,10 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
         const tst = fs.statSync(tgTurnsPath);
         if (tst.size > 2 * 1024 * 1024) {
           const buf = fs.readFileSync(tgTurnsPath);
-          fs.writeFileSync(tgTurnsPath, buf.subarray(buf.length - 512 * 1024));
+          const tail = buf.subarray(buf.length - 512 * 1024);
+          fs.writeFileSync(tgTurnsPath, tail);
           prunedArtifacts += 1;
+          reclaimedBytes += Math.max(0, tst.size - tail.length);
         }
       } catch {
         /* ignore */
@@ -3232,7 +3558,7 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
   } catch {
     /* ignore */
   }
-  return { ok: true, removedSessions, prunedArtifacts };
+  return { ok: true, removedSessions, prunedArtifacts, reclaimedBytes };
 }
 
 const lastTaskAutoHealMap = new Map();
@@ -3310,7 +3636,6 @@ async function discoverAntigravityServersForRoots(agyRoots) {
             if (pid && httpPort && csrfToken && alivePids.has(pid)) {
               servers.push({ agyRoot: resolvedRoot, pid, httpPort, csrfToken });
               foundDirect = true;
-              break;
             }
           } catch {
             /* ignore malformed hub json */
@@ -3443,7 +3768,21 @@ export async function syncAntigravityLanguageServerDeletions(options = {}) {
       const summaries = listJson?.trajectorySummaries;
       if (!summaries || typeof summaries !== "object") continue;
       serversSynced += 1;
-      for (const cascadeId of Object.keys(summaries)) {
+      const deleteTargets = new Set(Object.keys(summaries));
+      const protoPath = path.join(srv.agyRoot, "agyhub_summaries_proto.pb");
+      if (fs.existsSync(protoPath)) {
+        try {
+          const parsedProto = scanAgyHubSummariesProto(protoPath);
+          if (parsedProto.ok) {
+            for (const entry of parsedProto.entries) {
+              if (entry.id) deleteTargets.add(entry.id);
+            }
+          }
+        } catch {
+          /* ignore unreadable proto cache */
+        }
+      }
+      for (const cascadeId of deleteTargets) {
         if (brainIds.has(cascadeId)) continue;
         try {
           const delRes = await fetchImpl(`${base}/DeleteCascadeTrajectory`, {
@@ -3531,6 +3870,34 @@ export async function pruneWorkspaceJunk() {
   } catch (err) {
     return { ok: false, pruned: false, error: String(err?.message || err) };
   }
+}
+
+/**
+ * Build a unified Ops History entry for PC Optimizer passes including reclaimed disk bytes/MB and LS ghost counts.
+ */
+export function formatPcOptimizeOpsHistoryEntry(action, out) {
+  const ramMb = Math.round((out?.results?.ram?.freedRamBytes || 0) / 1048576);
+  const closedTabs = Number(out?.results?.smoke?.closedTabs || 0);
+  const sweepBytes = Number(out?.results?.antigravitySweep?.reclaimedBytes || 0);
+  const deepMb = Number(out?.results?.deepMaintenance?.lastPassFreedMB || 0);
+  const reclaimedBytes = sweepBytes + Math.round(deepMb * 1048576);
+  const rpcDeleted = Number(out?.results?.antigravityRpcSync?.syncedDeleted || 0);
+  const diskLabel =
+    reclaimedBytes <= 0
+      ? "0 MB"
+      : reclaimedBytes < 1048576
+        ? `${Math.max(1, Math.round(reclaimedBytes / 1024))} KB`
+        : `${(reclaimedBytes / 1048576).toFixed(1)} MB`;
+  return {
+    kind: "task",
+    targetId: "PC-Optimizer",
+    action,
+    ok: Boolean(out?.ok),
+    reclaimedBytes,
+    message: `PC Optimize (${action}): freed ${ramMb} MB RAM, ${diskLabel} disk, closed ${closedTabs} smoke tab(s)${
+      rpcDeleted > 0 ? `, deleted ${rpcDeleted} LS ghost(s)` : ""
+    }`,
+  };
 }
 
 export async function optimizePcHost(options = {}) {

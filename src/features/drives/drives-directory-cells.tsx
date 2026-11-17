@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import {
   DIRECTORY_CELL_TRUNCATE,
-  DirectoryEmptyDash,
   DirectoryTableBodyCell,
   formatHubTimestampCompact,
   HubDirectoryCopyText,
+  HubDirectoryEmptyCell,
   HubDirectoryTimestampTooltipCell,
   HubDirectoryValuePopover,
   HubUsersStatusLabel,
@@ -37,7 +37,7 @@ export function renderDrivesDirectoryBodyCell(
             <HubDirectoryCopyText value={code} copyToastLabel="Drive ID copied" />
           </HubDirectoryValuePopover>
         ) : (
-          <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
       </DirectoryTableBodyCell>
     );
@@ -45,15 +45,17 @@ export function renderDrivesDirectoryBodyCell(
   if (col.key === "account") {
     const label = row.displayName || "";
     return (
-      <DirectoryTableBodyCell key={col.key} colClass={col.colClass}>
+      <DirectoryTableBodyCell
+        key={col.key}
+        colClass={col.colClass}
+        onClick={label ? (e) => e.stopPropagation() : undefined}
+      >
         {label ? (
           <HubDirectoryValuePopover value={label} title="👤 Account">
-            <span className={`hub-users-directory-body-text ${DIRECTORY_CELL_TRUNCATE}`}>
-              {label}
-            </span>
+            <HubDirectoryCopyText value={label} copyToastLabel="Account copied" />
           </HubDirectoryValuePopover>
         ) : (
-          <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
       </DirectoryTableBodyCell>
     );
@@ -69,7 +71,7 @@ export function renderDrivesDirectoryBodyCell(
         {email ? (
           <HubDirectoryCopyText value={email} copyToastLabel="Gmail copied" />
         ) : (
-          <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
       </DirectoryTableBodyCell>
     );
@@ -105,9 +107,9 @@ export function renderDrivesDirectoryBodyCell(
     return (
       <DirectoryTableBodyCell key={col.key} colClass={col.colClass}>
         {label ? (
-          <span className="hub-users-directory-body-text hub-users-directory-body-text--center">{label}</span>
+          <span className="hub-users-directory-body-text">{label}</span>
         ) : (
-          <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
       </DirectoryTableBodyCell>
     );
@@ -127,7 +129,7 @@ export function renderDrivesDirectoryBodyCell(
             </span>
           </HubDirectoryValuePopover>
         ) : (
-          <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
         )}
       </DirectoryTableBodyCell>
     );
@@ -147,14 +149,14 @@ export function renderDrivesDirectoryBodyCell(
           at={at}
           title={col.key === "updated" ? "Update" : "Created"}
           variant={col.key === "created" ? "date" : "activity"}
-          fallback={<DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />}
+          fallback={<HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />}
         />
       </DirectoryTableBodyCell>
     );
   }
   return (
     <DirectoryTableBodyCell key={col.key} colClass={col.colClass}>
-      —
+      <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
     </DirectoryTableBodyCell>
   );
 }

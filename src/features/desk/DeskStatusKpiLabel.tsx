@@ -1,4 +1,8 @@
-import { HubUsersStatusLabel } from "@tool-workspace/hub-ui";
+import {
+  HubDirectoryEmptyCell,
+  HubUsersStatusLabel,
+  isDirectoryEmptyLabel,
+} from "@tool-workspace/hub-ui";
 import { deskStatusDotTone, deskStatusKpiDetail, deskStatusLive } from "./desk-directory-stickers";
 
 type Props = {
@@ -8,9 +12,11 @@ type Props = {
 
 /** Status cell/card/detail — Campaign P0002 / Jobs P0001 SSOT glowing statusDot + HubUsersStatusLabel popover. */
 export function DeskStatusKpiLabel({ status, className = "" }: Props) {
-  const label = status.trim() || "—";
-  if (label === "—") {
-    return <span className={`hub-users-cell-muted${className ? ` ${className}` : ""}`}>—</span>;
+  const label = status.trim();
+  if (isDirectoryEmptyLabel(label)) {
+    return (
+      <HubDirectoryEmptyCell className={`hub-users-cell-muted${className ? ` ${className}` : ""}`} />
+    );
   }
   return (
     <span className={className || undefined}>

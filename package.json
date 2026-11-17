@@ -1,6 +1,6 @@
 {
   "name": "desk-console",
-  "version": "3.1.219",
+  "version": "3.1.244",
   "private": true,
   "description": "Standalone desktop host for clips, runners, and Dev-* tasks.",
   "author": "Desk Console",
@@ -22,6 +22,7 @@
     "desktop:dir": "node scripts/run-electron-package.mjs --dir --publish never",
     "desktop:assemble": "node scripts/assemble-unpacked.mjs --out dist-desktop/win-unpacked",
     "desktop:dist": "node scripts/run-electron-package.mjs --publish never",
+    "desktop:hot-patch": "node ../scripts/desktop-exe-ssot.mjs --code P0001 --action hot-patch",
     "desktop:release": "powershell -ExecutionPolicy Bypass -File scripts/release-desktop.ps1",
     "build": "node node_modules/vite/bin/vite.js build",
     "preview": "vite preview --host 127.0.0.1 --port 4180",

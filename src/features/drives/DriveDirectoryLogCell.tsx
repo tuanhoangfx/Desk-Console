@@ -1,5 +1,5 @@
 import {
-  DirectoryEmptyDash,
+  HubDirectoryEmptyCell,
   HubDirectoryLogLabel,
   flattenHubEntityLog,
   formatHubChangeLogRowTooltip,
@@ -75,7 +75,7 @@ export function DriveDirectoryLogCell({ entries }: { entries?: DriveAccountLog[]
   const row =
     rows.find((item) => item.change?.field === "file" && !isBackupPath(changePath(item.change))) ??
     pickHubEntityLogDirectorySummaryRow(rows);
-  if (!row) return <DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />;
+  if (!row) return <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />;
   const emoji = row.change ? fieldMeta(row.change.field).emoji : undefined;
   return (
     <HubDirectoryLogLabel

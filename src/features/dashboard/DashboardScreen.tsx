@@ -238,15 +238,39 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
       setOptimizingAction(action);
       try {
         const res = await deskApi.pcOptimize(action);
-        const freedSummary = res.results?.ram?.freedRamBytes
-          ? `${(res.results.ram.freedRamBytes / (1024 * 1024)).toFixed(0)} MB RAM freed`
-          : res.results?.antigravitySweep &&
-              (res.results.antigravitySweep.removedSessions > 0 ||
-                res.results.antigravitySweep.prunedArtifacts > 0)
-            ? `${res.results.antigravitySweep.removedSessions} sessions, ${res.results.antigravitySweep.prunedArtifacts} artifacts swept`
-            : res.results?.junk?.pruned
-              ? "Workspace junk pruned"
-              : "completed";
+        const agySweep = res.results?.antigravitySweep;
+        const agyRpc = res.results?.antigravityRpcSync;
+        const deepMaint = res.results?.deepMaintenance;
+        const ramFreedMB = res.results?.ram?.freedRamBytes
+          ? Math.round(res.results.ram.freedRamBytes / (1024 * 1024))
+          : 0;
+        const diskFreedMB =
+          typeof agySweep?.reclaimedBytes === "number" && agySweep.reclaimedBytes > 0
+            ? agySweep.reclaimedBytes >= 1024 * 1024
+              ? `${(agySweep.reclaimedBytes / (1024 * 1024)).toFixed(1)} MB`
+              : `${Math.max(1, Math.round(agySweep.reclaimedBytes / 1024))} KB`
+            : deepMaint?.lastPassFreedMB && deepMaint.lastPassFreedMB > 0
+              ? `${deepMaint.lastPassFreedMB.toFixed(1)} MB`
+              : "";
+        const agyParts: string[] = [];
+        if (agySweep?.removedSessions) agyParts.push(`${agySweep.removedSessions} sessions`);
+        if (agySweep?.prunedArtifacts) agyParts.push(`${agySweep.prunedArtifacts} artifacts`);
+        if (agyRpc?.syncedDeleted) agyParts.push(`${agyRpc.syncedDeleted} LS ghosts`);
+        const deepParts: string[] = [];
+        if (diskFreedMB && deepMaint) deepParts.push(`${diskFreedMB} disk freed`);
+        if (ramFreedMB > 0) deepParts.push(`${ramFreedMB} MB RAM freed`);
+        const freedSummary =
+          action === "deep-maintenance" && deepParts.length > 0
+            ? deepParts.join(" · ")
+            : agyParts.length > 0
+              ? `${agyParts.join(", ")} swept${diskFreedMB ? ` (${diskFreedMB} freed)` : ""}`
+              : ramFreedMB > 0
+                ? `${ramFreedMB} MB RAM freed`
+                : action === "sweep-antigravity"
+                  ? "Clean (0 stale items)"
+                  : res.results?.junk?.pruned
+                    ? "Workspace junk pruned"
+                    : "completed";
         pushToast({ type: "success", title: label, message: freedSummary });
         await loadAll();
       } catch (err) {

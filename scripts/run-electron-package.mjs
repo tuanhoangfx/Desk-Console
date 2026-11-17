@@ -91,7 +91,37 @@ function killDesktopLocks() {
   spawnSync("powershell.exe", ["-NoProfile", "-Command", ps], { windowsHide: true, stdio: "ignore" });
 }
 
-function syncToInstalledDir(unpackedDir) {
+async function verifyInstalledHostSmoke() {
+  for (let i = 0; i < 24; i += 1) {
+    try {
+      const h = await fetch("http://127.0.0.1:6010/api/health", { signal: AbortSignal.timeout(1500) });
+      if (h.ok) {
+        const opt = await fetch("http://127.0.0.1:6010/api/pc/optimize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "sweep-antigravity" }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const optJson = await opt.json().catch(() => null);
+        const rpc = optJson?.results?.antigravityRpcSync;
+        if (opt.ok && optJson?.ok && rpc?.ok) {
+          console.log(
+            `[sync-installed] Antigravity RPC smoke OK: serversFound=${rpc.serversFound} serversSynced=${rpc.serversSynced} syncedDeleted=${rpc.syncedDeleted}`,
+          );
+          return;
+        }
+        throw new Error(`sweep-antigravity HTTP ${opt.status}: ${JSON.stringify(optJson)}`);
+      }
+    } catch (err) {
+      if (i === 23) {
+        throw err;
+      }
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
+async function syncToInstalledDir(unpackedDir) {
   if (!syncInstalled || process.platform !== "win32") return;
   const localAppData = process.env.LOCALAPPDATA || "";
   if (!localAppData) return;
@@ -120,6 +150,7 @@ function syncToInstalledDir(unpackedDir) {
       cwd: installDir,
       taskName: "Dev-Desk-Console-Launch",
     });
+    await verifyInstalledHostSmoke();
   }
 }
 
@@ -193,7 +224,7 @@ const pack = fs.existsSync(ebCli)
   ? spawnSync(process.execPath, [ebCli, ...ebArgs], { cwd: root, stdio: "inherit", env: packEnv })
   : spawnSync("pnpm", ["exec", "electron-builder", ...ebArgs], { cwd: root, stdio: "inherit", shell: true, env: packEnv });
 if (pack.status === 0) {
-  syncToInstalledDir(fallback);
+  await syncToInstalledDir(fallback);
   syncPostPublishIfNeeded();
   process.exit(0);
 }
@@ -214,7 +245,7 @@ if (fs.existsSync(path.join(tmp, "electron.exe")) || fs.existsSync(path.join(fal
   });
   if (assemble.status !== 0) process.exit(assemble.status ?? 1);
   if (dir || prepackaged) {
-    syncToInstalledDir(fallback);
+    await syncToInstalledDir(fallback);
     process.exit(0);
   }
   const prepackArgs = ebArgs.filter((a) => a !== "--dir").concat(["--prepackaged", fallback]);
@@ -222,7 +253,7 @@ if (fs.existsSync(path.join(tmp, "electron.exe")) || fs.existsSync(path.join(fal
     ? spawnSync(process.execPath, [ebCli, ...prepackArgs], { cwd: root, stdio: "inherit", env: packEnv })
     : spawnSync("pnpm", ["exec", "electron-builder", ...prepackArgs], { cwd: root, stdio: "inherit", shell: true, env: packEnv });
   if (nsisPack.status === 0) {
-    syncToInstalledDir(fallback);
+    await syncToInstalledDir(fallback);
   }
   process.exit(nsisPack.status ?? 1);
 }

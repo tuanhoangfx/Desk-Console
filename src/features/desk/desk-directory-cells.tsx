@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import {
-  DirectoryEmptyDash,
   DirectoryTableBodyCell,
   HUB_DIRECTORY_ICON_CELL_HIT_EXPAND_CLASS,
   HUB_FILTER_OPTION_EMOJI_CLASS,
   HubDirectoryCopyText,
+  HubDirectoryEmptyCell,
   HubDirectoryLogCell,
   HubDirectoryRowPinButton,
   HubDirectoryTimestampTooltipCell,
@@ -235,7 +235,7 @@ export function renderDeskDirectoryBodyCell(
           at={row.createdAt || row.updated}
           title="Created"
           variant="date"
-          fallback={<DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />}
+          fallback={<HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />}
         />
       </DirectoryTableBodyCell>
     );
@@ -245,7 +245,11 @@ export function renderDeskDirectoryBodyCell(
     return (
       <DirectoryTableBodyCell key={key} colClass={col.colClass}>
         {row.updatedKind === "text" ? (
-          <span className="truncate">{row.updated || "—"}</span>
+          row.updated ? (
+            <span className="truncate">{row.updated}</span>
+          ) : (
+            <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
+          )
         ) : (
           <HubDirectoryTimestampTooltipCell at={row.updated} title="Updated" />
         )}
@@ -269,7 +273,7 @@ export function renderDeskDirectoryBodyCell(
         <HubDirectoryLogCell
           entries={entries}
           fieldMeta={resolveDeskLogFieldMeta}
-          empty={<DirectoryEmptyDash className="hub-users-directory-body-text hub-users-cell-muted" />}
+          empty={<HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />}
         />
       </DirectoryTableBodyCell>
     );
@@ -284,7 +288,14 @@ export function renderDeskDirectoryBodyCell(
   }
 
   if (key === "schedule") {
-    const sched = row.schedule || "—";
+    const sched = row.schedule?.trim() || "";
+    if (!sched) {
+      return (
+        <DirectoryTableBodyCell key={key} colClass={col.colClass}>
+          <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
+        </DirectoryTableBodyCell>
+      );
+    }
     const schedEmoji = /every\s+\d+\s*(sec|min|hour|h|m)/i.test(sched)
       ? "🔄"
       : /auto/i.test(sched)
@@ -307,17 +318,23 @@ export function renderDeskDirectoryBodyCell(
     const detail = row.extra.replace(/^task · |^runner · /i, "");
     return (
       <DirectoryTableBodyCell key={key} colClass={col.colClass}>
-        <span className="truncate">
-          <span className="text-indigo-300">{group}</span>
-          <span className="text-hub-muted"> · </span>
-          {row.opsKind === "task" && row.opsLastResult && row.opsLastResult !== "—" ? (
-            <>
-              <span className="text-hub-muted">exit {row.opsLastResult}</span>
+        <HubDirectoryCopyText
+          value={row.extra}
+          copyToastLabel="Detail copied"
+          display={
+            <span className="truncate">
+              <span className="text-indigo-300">{group}</span>
               <span className="text-hub-muted"> · </span>
-            </>
-          ) : null}
-          {detail}
-        </span>
+              {row.opsKind === "task" && row.opsLastResult && row.opsLastResult !== "—" ? (
+                <>
+                  <span className="text-hub-muted">exit {row.opsLastResult}</span>
+                  <span className="text-hub-muted"> · </span>
+                </>
+              ) : null}
+              {detail}
+            </span>
+          }
+        />
       </DirectoryTableBodyCell>
     );
   }

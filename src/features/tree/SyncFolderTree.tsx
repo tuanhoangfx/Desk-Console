@@ -86,8 +86,8 @@ function folderSide(side: BrowseSide, kind: BrowseRow["kind"]) {
 
 function sideSize(side: BrowseSide, kind: BrowseRow["kind"]) {
   const folder = folderSide(side, kind);
-  if (!side) return "—";
-  if (folder && (side.size == null || side.size < 0)) return "—";
+  if (!side) return "";
+  if (folder && (side.size == null || side.size < 0)) return "";
   return formatDriveBytes(side.size);
 }
 
@@ -95,9 +95,9 @@ function sideSize(side: BrowseSide, kind: BrowseRow["kind"]) {
 function mergedSize(local: BrowseSide, remote: BrowseSide, kind: BrowseRow["kind"]) {
   const left = sideSize(local, kind);
   const right = sideSize(remote, kind);
-  if (left === "—" && right === "—") return "—";
-  if (left === "—") return right;
-  if (right === "—" || left === right) return left;
+  if (!left && !right) return "";
+  if (!left) return right;
+  if (!right || left === right) return left;
   return `${left} / ${right}`;
 }
 
@@ -711,7 +711,7 @@ export function SyncFolderTree({
                 />
               ) : null}
             </div>
-            <span className="fs-outline-metric" title={row.placeholder ? undefined : job ? mergedSize(row.local, row.remote, row.kind) : undefined}>
+            <span className="fs-outline-metric" title={row.placeholder ? undefined : job ? mergedSize(row.local, row.remote, row.kind) || undefined : undefined}>
               {row.placeholder ? "" : job ? mergedSize(row.local, row.remote, row.kind) : sideSize(row.remote || row.local, row.kind)}
             </span>
             {row.placeholder ? <span className="fs-outline-metric" /> : <OutlineDate local={row.local} remote={row.remote} />}

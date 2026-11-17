@@ -459,49 +459,86 @@ export function DriveDetailModal({
                           }
                         />
                       </HubAdmReadonlyField>
-                      <HubAdmReadonlyField header={{ label: "Account", headerEmoji: "👤" }} valueLayout="inline">
-                        <span className="truncate text-white/90">{account.displayName || "—"}</span>
+                      <HubAdmReadonlyField
+                        header={{ label: "Account", headerEmoji: "👤" }}
+                        valueLayout="inline"
+                        empty={!account.displayName}
+                      >
+                        {account.displayName ? (
+                          <span className="truncate text-white/90">{account.displayName}</span>
+                        ) : null}
                       </HubAdmReadonlyField>
-                      <HubAdmReadonlyField header={{ label: "Gmail", headerEmoji: DIRECTORY_GMAIL_EMOJI }} valueLayout="inline">
+                      <HubAdmReadonlyField
+                        header={{ label: "Gmail", headerEmoji: DIRECTORY_GMAIL_EMOJI }}
+                        valueLayout="inline"
+                        empty={!account.email}
+                      >
                         {account.email ? (
                           <HubDirectoryCopyText value={account.email} copyToastLabel="Gmail copied" />
-                        ) : (
-                          <span className="text-white/55">—</span>
-                        )}
+                        ) : null}
                       </HubAdmReadonlyField>
                     </HubDetailFieldRow>
                     <HubDetailFieldRow slots={3}>
-                      <HubAdmReadonlyField header={{ label: "Storage", headerEmoji: "💾" }} valueLayout="inline">
-                        <span className="truncate text-white/90">{formatDriveUsage(storage) || "—"}</span>
-                      </HubAdmReadonlyField>
-                      <HubAdmReadonlyField header={{ label: "In Drive / Trash", headerEmoji: "🗑️" }} valueLayout="inline">
-                        <div className="flex w-full items-center justify-between gap-2 min-w-0">
-                          <span className="truncate text-white/85">
-                            {`${formatDriveBytes(storage?.driveBytes)} · Trash ${formatDriveBytes(storage?.trashBytes)}`}
-                          </span>
-                          {(storage?.trashBytes ?? 0) > 0 || emptyingTrash ? (
-                            <button
-                              type="button"
-                              className="hub-adm-detail-field-copy inline-flex h-6 shrink-0 items-center gap-1 rounded border border-rose-400/35 bg-rose-500/15 px-1.5 text-xs text-rose-200 hover:bg-rose-500/25 disabled:opacity-40"
-                              title="Permanently empty Google Drive Trash (rclone cleanup) to free up Drive storage quota"
-                              disabled={emptyingTrash}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setConfirmEmptyTrashOpen(true);
-                              }}
-                            >
-                              <Trash2 size={11} aria-hidden />
-                              <span>{emptyingTrash ? "Emptying…" : "Empty Trash"}</span>
-                            </button>
-                          ) : null}
-                        </div>
-                      </HubAdmReadonlyField>
-                      <HubAdmReadonlyField header={{ label: "Free Space", headerEmoji: "⚡" }} valueLayout="inline">
-                        <span className="truncate text-white/90">
-                          {storage?.limitBytes == null ? "Unlimited" : formatDriveBytes(free)}
-                        </span>
-                      </HubAdmReadonlyField>
+                      {(() => {
+                        const storageText = formatDriveUsage(storage);
+                        return (
+                          <HubAdmReadonlyField
+                            header={{ label: "Storage", headerEmoji: "💾" }}
+                            valueLayout="inline"
+                            empty={!storageText}
+                          >
+                            {storageText ? <span className="truncate text-white/90">{storageText}</span> : null}
+                          </HubAdmReadonlyField>
+                        );
+                      })()}
+                      {(() => {
+                        const driveLabel = formatDriveBytes(storage?.driveBytes);
+                        const trashLabel = formatDriveBytes(storage?.trashBytes);
+                        const inDriveTrashText = [driveLabel, trashLabel ? `Trash ${trashLabel}` : ""]
+                          .filter(Boolean)
+                          .join(" · ");
+                        return (
+                          <HubAdmReadonlyField
+                            header={{ label: "In Drive / Trash", headerEmoji: "🗑️" }}
+                            valueLayout="inline"
+                            empty={!inDriveTrashText && !emptyingTrash}
+                          >
+                            <div className="flex w-full items-center justify-between gap-2 min-w-0">
+                              {inDriveTrashText ? (
+                                <span className="truncate text-white/85">{inDriveTrashText}</span>
+                              ) : null}
+                              {(storage?.trashBytes ?? 0) > 0 || emptyingTrash ? (
+                                <button
+                                  type="button"
+                                  className="hub-adm-detail-field-copy inline-flex h-6 shrink-0 items-center gap-1 rounded border border-rose-400/35 bg-rose-500/15 px-1.5 text-xs text-rose-200 hover:bg-rose-500/25 disabled:opacity-40"
+                                  title="Permanently empty Google Drive Trash (rclone cleanup) to free up Drive storage quota"
+                                  disabled={emptyingTrash}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setConfirmEmptyTrashOpen(true);
+                                  }}
+                                >
+                                  <Trash2 size={11} aria-hidden />
+                                  <span>{emptyingTrash ? "Emptying…" : "Empty Trash"}</span>
+                                </button>
+                              ) : null}
+                            </div>
+                          </HubAdmReadonlyField>
+                        );
+                      })()}
+                      {(() => {
+                        const freeText = storage?.limitBytes == null ? "Unlimited" : formatDriveBytes(free);
+                        return (
+                          <HubAdmReadonlyField
+                            header={{ label: "Free Space", headerEmoji: "⚡" }}
+                            valueLayout="inline"
+                            empty={!freeText}
+                          >
+                            {freeText ? <span className="truncate text-white/90">{freeText}</span> : null}
+                          </HubAdmReadonlyField>
+                        );
+                      })()}
                     </HubDetailFieldRow>
                     <HubDetailFieldRow slots={2}>
                       <HubAdmClickFilterField
@@ -684,7 +721,7 @@ export function DriveDetailModal({
         stacked
         tone="danger"
         title="Empty Google Drive Trash"
-        message={`Empty Google Drive Trash (${formatDriveBytes(storage?.trashBytes)}) on ${account.code || account.name}? Files in Google Drive Trash will be permanently deleted to free up quota.`}
+        message={`Empty Google Drive Trash (${formatDriveBytes(storage?.trashBytes) || "0 B"}) on ${account.code || account.name}? Files in Google Drive Trash will be permanently deleted to free up quota.`}
         confirmLabel="Empty Trash"
         busy={emptyingTrash}
         busyLabel="Emptying…"
@@ -692,7 +729,7 @@ export function DriveDetailModal({
           if (!emptyingTrash) setConfirmEmptyTrashOpen(false);
         }}
         onConfirm={() => {
-          const trashLabel = formatDriveBytes(storage?.trashBytes);
+          const trashLabel = formatDriveBytes(storage?.trashBytes) || "0 B";
           void (async () => {
             setEmptyingTrash(true);
             setTrashMsg(null);

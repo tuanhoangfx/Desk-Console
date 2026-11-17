@@ -102,7 +102,7 @@ export function FolderDropdownField({
                 empty ? " hub-adm-click-edit__text--empty" : ""
               }`}
             >
-              {empty ? placeholder || "—" : shown}
+              {empty ? placeholder || "" : shown}
             </span>
             <ChevronDown
               size={10}

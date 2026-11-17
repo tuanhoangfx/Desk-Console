@@ -32,14 +32,12 @@ export function buildDriveJobsUsageHint(jobs: readonly SyncJob[]): HubDirectoryC
     optionsLabelGlyph: null,
     lines: rows.slice(0, 8).map((job) => {
       const code = job.code?.trim() || "";
+      const parts = [statusLabel(job), job.name, job.localPath, job.remote].filter(
+        (v): v is string => Boolean(v && v.trim()),
+      );
       return {
-        label: [statusLabel(job), job.name, job.localPath || "—", job.remote || "—"].join(" • "),
-        tokens: [
-          { text: statusLabel(job) },
-          { text: job.name || "—" },
-          { text: job.localPath || "—" },
-          { text: job.remote || "—" },
-        ],
+        label: parts.join(" • "),
+        tokens: parts.map((text) => ({ text })),
         copyLead: code ? { label: code, value: code, toastLabel: "Job ID copied" } : undefined,
         actionKey: job.id,
       };
