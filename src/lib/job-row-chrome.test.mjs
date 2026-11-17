@@ -78,7 +78,7 @@ test("the jobs table keeps Status and Run as two columns and Drives/New Job shar
   assert.match(fs.readFileSync(new URL("./folder-sync-directory-column-hints.ts", import.meta.url), "utf8"), /JOBS_RUN_HINT_LINES/);
   assert.match(css, /hub-users-col--status[\s\S]*min-width:\s*8\.75rem/);
   assert.match(css, /hub-users-col--run[\s\S]*min-width:\s*7\.25rem/);
-  assert.match(prefs, /p0009_jobs_directory_columns_v6/);
+  assert.match(prefs, /p0009_jobs_directory_columns_v5/);
   const settingRail = fs.readFileSync(new URL("../features/jobs/JobsSettingRail.tsx", import.meta.url), "utf8");
   assert.match(settingRail, /<FolderDropdownField/);
   assert.match(settingRail, /<ExcludeDropdownField/);
@@ -88,9 +88,8 @@ test("the jobs table keeps Status and Run as two columns and Drives/New Job shar
   assert.match(createModal, /FolderPickDropdown/);
   const folderPick = fs.readFileSync(new URL("../features/tree/FolderPickDropdown.tsx", import.meta.url), "utf8");
   assert.match(folderPick, /HubSingleFilterDropdown/);
-  const drivesTable = fs.readFileSync(new URL("../features/drives/DrivesDirectoryTable.tsx", import.meta.url), "utf8");
-  assert.match(drivesTable, /useHubScopedFreeze/);
-  assert.match(drivesTable, /HubDirectoryCopyText/);
+  const drivesCells = fs.readFileSync(new URL("../features/drives/drives-directory-cells.tsx", import.meta.url), "utf8");
+  assert.match(drivesCells, /HubDirectoryCopyText/);
   const appTsx = fs.readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
   assert.match(appTsx, /HubToolLoadingProvider/);
   const jobsScreen = fs.readFileSync(new URL("../features/jobs/JobsScreen.tsx", import.meta.url), "utf8");
@@ -128,10 +127,10 @@ test("public guide lives on the P0008 Landing Platform; the app keeps only the f
   assert.match(appTsx, /FolderSyncGuidedTourModal/);
   assert.doesNotMatch(appTsx, /FolderSyncLandingPage|readAppZone/);
   const guideUrl = fs.readFileSync(new URL("./guide-url.ts", import.meta.url), "utf8");
-  assert.match(guideUrl, /https:\/\/sync\.infi\.io\.vn\/intro\//);
-  const systemScreen = fs.readFileSync(new URL("../features/system/SystemScreen.tsx", import.meta.url), "utf8");
-  assert.match(systemScreen, /openP0009Guide/);
-  assert.match(systemScreen, /Guided Setup Tour/);
+  assert.match(guideUrl, /https:\/\/sync\.infi28\.com\/intro\//);
+  const tourModal = fs.readFileSync(new URL("../features/onboarding/FolderSyncGuidedTourModal.tsx", import.meta.url), "utf8");
+  assert.match(tourModal, /openP0009Guide/);
+  assert.match(tourModal, /Full guide \+ video/);
   assert.equal(fs.existsSync(new URL("../features/landing", import.meta.url)), false, "in-app landing must stay removed");
   assert.equal(fs.existsSync(new URL("../../public/landing", import.meta.url)), false, "landing assets moved to P0008 sites/sync");
 });

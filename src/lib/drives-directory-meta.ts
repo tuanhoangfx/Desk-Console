@@ -1,6 +1,9 @@
 import {
   applyStandardDirectoryColumnHints,
   createDirectoryColumnMetaHelpers,
+  HUB_DIRECTORY_LOG_COL_WIDTH,
+  HUB_DIRECTORY_PLAN_DATE_COL_WIDTH,
+  HUB_DIRECTORY_PLAN_DUE_COL_WIDTH,
 } from "@tool-workspace/hub-ui";
 import {
   DIRECTORY_GMAIL_EMOJI,
@@ -28,7 +31,7 @@ export const DRIVES_COLUMN_META = applyStandardDirectoryColumnHints({
   gmail: col("Gmail", "hub-users-col--email", "email", "col.directory.email", "16rem", {
     headerEmoji: DIRECTORY_GMAIL_EMOJI,
   }),
-  jobs: col("Jobs", "hub-users-col--members", "members", "col.directory.members", "5.5rem", {
+  jobs: col("Jobs", "hub-users-col--members", "members", "col.directory.members", "6.25rem", {
     columnKind: "compact",
     headerEmoji: "📁",
   }),
@@ -43,16 +46,16 @@ export const DRIVES_COLUMN_META = applyStandardDirectoryColumnHints({
   files: col("Files", "hub-users-col--files", "load", "col.directory.number", "11.5rem", {
     headerEmoji: "📄",
   }),
-  log: col("Log", "hub-users-col--notes", "log", "log.panel", "15rem", {
+  log: col("Log", "hub-users-col--notes", "log", "log.panel", HUB_DIRECTORY_LOG_COL_WIDTH, {
     columnKind: "compact",
     headerAlign: "start",
     headerEmoji: "📋",
   }),
-  updated: col("Update", "hub-users-col--updated", "updated", "col.directory.updated", "7.5rem", {
+  updated: col("Update", "hub-users-col--updated", "updated", "col.directory.updated", HUB_DIRECTORY_PLAN_DUE_COL_WIDTH, {
     columnKind: "date",
     headerEmoji: "🔄",
   }),
-  created: col("Created", "hub-users-col--created", "created", "col.directory.created", "7.5rem", {
+  created: col("Created", "hub-users-col--created", "created", "col.directory.created", HUB_DIRECTORY_PLAN_DATE_COL_WIDTH, {
     columnKind: "date",
     headerEmoji: "📅",
   }),

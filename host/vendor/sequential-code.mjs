@@ -11,8 +11,40 @@ function schemeMax(scheme) {
   return scheme.max ?? 10 ** scheme.pad - 1;
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const UPPER_PREFIX_CACHE = new Map();
+
+function getUpperPrefix(prefix) {
+  let upper = UPPER_PREFIX_CACHE.get(prefix);
+  if (upper === undefined) {
+    if (UPPER_PREFIX_CACHE.size >= 128) UPPER_PREFIX_CACHE.clear();
+    upper = String(prefix).toUpperCase();
+    UPPER_PREFIX_CACHE.set(prefix, upper);
+  }
+  return upper;
+}
+
+function parsePrefixedAsciiCounter(raw, prefix, maxDigits) {
+  const pLen = prefix.length;
+  const digitCount = raw.length - pLen;
+  if (digitCount < 1 || digitCount > maxDigits) return null;
+  if (pLen > 0) {
+    const pUpper = getUpperPrefix(prefix);
+    for (let i = 0; i < pLen; i += 1) {
+      let ch = raw.charCodeAt(i);
+      if (ch >= 97 && ch <= 122) ch -= 32;
+      if (ch !== pUpper.charCodeAt(i)) {
+        if (raw.slice(0, pLen).toUpperCase() !== pUpper) return null;
+        break;
+      }
+    }
+  }
+  let n = 0;
+  for (let i = pLen; i < raw.length; i += 1) {
+    const d = raw.charCodeAt(i);
+    if (d < 48 || d > 57) return null;
+    n = n * 10 + (d - 48);
+  }
+  return n;
 }
 
 /** `PREFIX` + zero-padded counter, e.g. buildSequentialCode({prefix:"CS",pad:5}, 0) → `CS00000`. */
@@ -25,12 +57,14 @@ export function buildSequentialCode(scheme, counter) {
 
 /** Numeric counter from a `PREFIX<digits>` code, or null when it does not match the scheme. */
 export function parseSequentialCounter(scheme, value) {
+  if (value == null) return null;
+  const raw = typeof value === "string" ? value.trim() : String(value).trim();
+  if (!raw) return null;
   const maxDigits = Math.max(scheme.pad, Math.trunc(scheme.maxInputDigits ?? scheme.pad));
-  const re = new RegExp(`^${escapeRegExp(scheme.prefix)}(\\d{1,${maxDigits}})$`, "i");
-  const m = String(value ?? "").trim().match(re);
-  if (!m) return null;
-  const n = Number.parseInt(m[1], 10);
-  if (!Number.isFinite(n) || n < schemeMin(scheme) || n > schemeMax(scheme)) return null;
+  const n = parsePrefixedAsciiCounter(raw, scheme.prefix, maxDigits);
+  if (n === null || !Number.isFinite(n) || n < schemeMin(scheme) || n > schemeMax(scheme)) {
+    return null;
+  }
   return n;
 }
 
@@ -42,9 +76,10 @@ export function canonicalizeSequentialCode(scheme, value) {
 
 /** True when `value` is a well-formed code for the scheme (exact pad width). */
 export function isSequentialCode(scheme, value) {
-  const re = new RegExp(`^${escapeRegExp(scheme.prefix)}\\d{${scheme.pad}}$`, "i");
-  if (!re.test(String(value ?? "").trim().toUpperCase())) return false;
-  return parseSequentialCounter(scheme, value) !== null;
+  if (value == null) return false;
+  const raw = typeof value === "string" ? value.trim() : String(value).trim();
+  if (raw.length !== scheme.prefix.length + scheme.pad) return false;
+  return parseSequentialCounter(scheme, raw) !== null;
 }
 
 /**
@@ -114,8 +149,12 @@ const SEQUENTIAL_CODE_COLLATOR = new Intl.Collator(undefined, {
   sensitivity: "base",
 });
 
-function classifySequentialCode(scheme, value, legacyPrefixes) {
-  const raw = String(value ?? "").trim();
+export function sequentialCodeSortKey(scheme, value, options) {
+  const legacyPrefixes = options?.legacyPrefixes ?? [];
+  const raw = value == null ? "" : (typeof value === "string" ? value.trim() : String(value).trim());
+  if (!raw) {
+    return { rank: legacyPrefixes.length + 1, counter: null, raw: "" };
+  }
   const primaryCounter = parseSequentialCounter(scheme, raw);
   if (primaryCounter != null) {
     return {
@@ -127,10 +166,8 @@ function classifySequentialCode(scheme, value, legacyPrefixes) {
   for (let i = 0; i < legacyPrefixes.length; i += 1) {
     const p = legacyPrefixes[i];
     if (!p) continue;
-    const re = new RegExp(`^${escapeRegExp(p)}(\\d+)$`, "i");
-    const m = raw.match(re);
-    if (m) {
-      const counter = Number.parseInt(m[1], 10);
+    const counter = parsePrefixedAsciiCounter(raw, p, raw.length);
+    if (counter != null) {
       return {
         rank: i + 1,
         counter: Number.isFinite(counter) ? counter : null,
@@ -145,18 +182,21 @@ function classifySequentialCode(scheme, value, legacyPrefixes) {
   };
 }
 
+export function compareSequentialCodeSortKeys(a, b) {
+  if (a.rank !== b.rank) return a.rank - b.rank;
+  if (a.rank === 0 && a.counter != null && b.counter != null) {
+    return a.counter - b.counter;
+  }
+  return SEQUENTIAL_CODE_COLLATOR.compare(a.raw, b.raw);
+}
+
 /**
  * Directory sort helper: primary `scheme` codes first (by numeric counter),
  * then any `legacyPrefixes` buckets (in declared order), then remaining strings.
  */
 export function compareSequentialCodes(scheme, a, b, options) {
-  const legacyPrefixes = options?.legacyPrefixes ?? [];
-  const av = classifySequentialCode(scheme, a, legacyPrefixes);
-  const bv = classifySequentialCode(scheme, b, legacyPrefixes);
-  if (av.rank !== bv.rank) return av.rank - bv.rank;
-  if (av.rank === 0 && av.counter != null && bv.counter != null && av.counter !== bv.counter) {
-    return av.counter - bv.counter;
-  }
-  return SEQUENTIAL_CODE_COLLATOR.compare(av.raw, bv.raw);
+  const av = sequentialCodeSortKey(scheme, a, options);
+  const bv = sequentialCodeSortKey(scheme, b, options);
+  return compareSequentialCodeSortKeys(av, bv);
 }
 

@@ -3,6 +3,9 @@ import {
   createDirectoryColumnMetaHelpers,
   HUB_DEBOUNCE_EMOJI,
   HUB_DEBOUNCE_LABEL,
+  HUB_DIRECTORY_LOG_COL_WIDTH,
+  HUB_DIRECTORY_PLAN_DATE_COL_WIDTH,
+  HUB_DIRECTORY_PLAN_DUE_COL_WIDTH,
 } from "@tool-workspace/hub-ui";
 import {
   DIRECTORY_STATUS_EMOJI,
@@ -53,7 +56,7 @@ export const JOBS_COLUMN_META = applyStandardDirectoryColumnHints({
     columnKind: "compact",
     headerEmoji: DIRECTORY_STATUS_EMOJI,
   }),
-  run: col("Run", "hub-users-col--run", "status", "col.directory.status", "7.25rem", {
+  run: col("Action", "hub-users-col--run", "status", "col.directory.status", "7.25rem", {
     columnKind: "compact",
     headerEmoji: "▶️",
   }),
@@ -65,19 +68,19 @@ export const JOBS_COLUMN_META = applyStandardDirectoryColumnHints({
     columnKind: "compact",
     headerEmoji: JOB_MODE_EMOJI,
   }),
-  log: col("Log", "hub-users-col--notes", "log", "log.panel", "15rem", {
+  log: col("Log", "hub-users-col--notes", "log", "log.panel", HUB_DIRECTORY_LOG_COL_WIDTH, {
     columnKind: "compact",
     headerAlign: "start",
     headerEmoji: "📋",
   }),
-  updated: col("Update", "hub-users-col--updated", "updated", "col.directory.updated", "7.5rem", {
+  updated: col("Update", "hub-users-col--updated", "updated", "col.directory.updated", HUB_DIRECTORY_PLAN_DUE_COL_WIDTH, {
     columnKind: "date",
     headerEmoji: "🔄",
   }),
   folder: col("Folder", "hub-users-col--folder", "path", "col.directory.path", "8rem", {
     headerEmoji: "📁",
   }),
-  created: col("Created", "hub-users-col--created", "created", "col.directory.created", "7.5rem", {
+  created: col("Created", "hub-users-col--created", "created", "col.directory.created", HUB_DIRECTORY_PLAN_DATE_COL_WIDTH, {
     columnKind: "date",
     headerEmoji: "📅",
   }),

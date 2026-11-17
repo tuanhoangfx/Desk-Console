@@ -1,5 +1,389 @@
 # Changelog
 
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.209`
+- Timestamp: 2026-11-18 03:39 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.208`
+- Timestamp: 2026-11-18 03:21 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Sequential round-robin heavy farm queue and 4/6/8 headless cap
+
+- Version: `3.1.207`
+- Timestamp: 2026-11-18 03:21 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Lowered adaptive headless cap to 4/6/8 and added 20m time-sliced sequential queue for heavy Chromium farm daemons.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/*.test.mjs (119/119 pass) + pnpm build
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.206`
+- Timestamp: 2026-11-18 03:19 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Align Desk Log 15rem and Jobs Created/Update 7.5rem
+
+- Version: `3.1.205`
+- Timestamp: 2026-11-18 03:17 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Updated P0001 Desk/Drives/Jobs column meta and CSS to HUB_DIRECTORY_LOG_COL_WIDTH (15rem) and synced p0009-jobs-directory-fixed-cols.generated.css Created/Update to 7.5rem.
+
+### Verification
+
+- tsc --noEmit + vite build + hub-ui-preflight P0001 + directory-table-col-parity P0001
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.204`
+- Timestamp: 2026-11-18 02:47 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.203`
+- Timestamp: 2026-11-18 02:46 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Lower EVKey handle leak restart threshold to 1200
+
+- Version: `3.1.202`
+- Timestamp: 2026-11-18 02:45 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Lowered EVKey64.exe handle-leak auto-restart threshold from 4000 to 1200 in host/pc-optimizer.mjs to prevent WH_KEYBOARD_LL typing and mouse lag.
+
+### Verification
+
+- node --test Tool/P0001-Desk-Console/host/*.test.mjs (119/119 pass)
+
+---
+## 2026-11-18 - Antigravity per-root LS lock & SxS parity
+
+- Version: `3.1.201`
+- Timestamp: 2026-11-18 01:36 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Split lsRunning check per Antigravity root (primary + SxS) in sweepAntigravityStaleTranscripts for safe SQLite VACUUM and proto pruning.
+
+### Verification
+
+- desk-host.test.mjs 58/58 pass; verify-cursor-prune-safety ok; packaged exe synced
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.200`
+- Timestamp: 2026-11-18 01:26 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.199`
+- Timestamp: 2026-11-18 01:13 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.198`
+- Timestamp: 2026-11-18 00:55 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.197`
+- Timestamp: 2026-11-18 00:19 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.196`
+- Timestamp: 2026-11-18 00:06 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-17 - Patch bump for completed agent task
+
+- Version: `3.1.195`
+- Timestamp: 2026-11-17 21:14 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-17 - Patch bump for completed agent task
+
+- Version: `3.1.194`
+- Timestamp: 2026-11-17 20:55 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-17 - Rename Jobs Run column header label to Action
+
+- Version: `3.1.193`
+- Timestamp: 2026-11-17 20:50 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Keep Start/Pause/Stop/Retry row buttons while aligning column header label to Action.
+
+### Verification
+
+- typecheck + 54/54 host tests, hub-ui-parity-check, hub-directory-table-gate --all
+
+---
+## 2026-11-16 - Align Tailwind v3 opacity classes to bracketed syntax
+
+- Version: `3.1.192`
+- Timestamp: 2026-11-16 18:51 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Convert unbracketed Tailwind v3 opacity utilities (/6, /8, /12, /14, /16, /18, /22, /26, /28) to bracketed /[0.xx] syntax
+
+### Verification
+
+- tsc --noEmit 0 errors (DriveDetailModal KeyRound fix + DriveOauthNotice opacity) + hub-bulk-action-tone-gate OK
+
+---
+## 2026-11-16 - Patch bump for completed agent task
+
+- Version: `3.1.191`
+- Timestamp: 2026-11-16 18:51 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-16 - Patch bump for completed agent task
+
+- Version: `3.1.190`
+- Timestamp: 2026-11-16 11:25 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-16 - Clean stale renamed binaries during PE CUI subsystem check
+
+- Version: `3.1.189`
+- Timestamp: 2026-11-16 11:24 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Auto-unlink unlocked *.cui-stale*.exe and *.gui-stale*.exe artifacts inside ensureBinaryCuiSubsystem in pc-optimizer.mjs and sync to installed Desk Console host.
+
+### Verification
+
+- node --check pc-optimizer.mjs + Desk Console host restarted (:6010/api/pc/farm-supervisor 200) + 6.5s trace 0 GUI(2) non-conhost
+
+---
+## 2026-11-16 - Patch bump for completed agent task
+
+- Version: `3.1.188`
+- Timestamp: 2026-11-16 10:52 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-16 - Fix wireproxy pool deduplication and enforce CUI subsystem for headless binaries
+
+- Version: `3.1.187`
+- Timestamp: 2026-11-16 10:50 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Fix Desk Console pc-optimizer wireproxy deduplication key (country:port instead of country) to stop the 20s kill-respawn storm, switch bloated Vite restart to CUI node.exe, and patch headless Chrome/wireproxy binaries to PE Subsystem 3 (WINDOWS_CUI) to eliminate IDC_APPSTARTING spinning cursor.
+
+### Verification
+
+- node --check pc-optimizer.mjs + Desk Console host restarted (:6010/api/health 200) + 6.5s Toolhelp32 trace 0 wireproxy spawns / 0 GUI(2) non-conhost spawns
+
+---
+## 2026-11-12 - Unify Google Drive Sign-In onto HubLoginPipelineModal SSOT & auto-relaunch Desk Console after assemble-unpacked
+
+- Version: `3.1.186`
+- Timestamp: 2026-11-12 20:19 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Converted DriveSignInModal, DriveOauthNotice, and DriveDetailModal footer Sign In to the shared 3-step HubLoginPipelineModal SSOT (matching P0002 Telegram/Zalo Login) and added automatic Desk Console.exe relaunch + :6010 health check in assemble-unpacked.mjs
+
+### Verification
+
+- pnpm --dir packages/hub-ui run test && node --test Tool/P0001-Desk-Console/host/desk-host.test.mjs && node Tool/P0001-Desk-Console/scripts/assemble-unpacked.mjs
+
+---
 ## 2026-11-12 - Ignore resources/rclone/*.exe in git & ship NSIS uninstaller unlock release
 
 - Version: `3.1.185`

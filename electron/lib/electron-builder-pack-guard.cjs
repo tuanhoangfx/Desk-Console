@@ -82,6 +82,7 @@ function verifyAsarIntegrity(asarPath) {
     } catch (err) {
       throw new Error(
         `[electron-pack-guard] Corrupted package.json inside app.asar (byte-offset shift from concurrent file mutation during pack): ${err.message}`,
+        { cause: err },
       );
     }
     const mainRel = String(parsedPkg.main || "index.js").replace(/\\/g, "/");
@@ -163,7 +164,7 @@ function scanForbiddenDynamicImportsInCjsDir(
 
   while (stack.length) {
     const dir = stack.pop();
-    let entries = [];
+    let entries;
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
@@ -212,7 +213,7 @@ function findAnyNativeNodeBinary(dir) {
   const stack = [dir];
   while (stack.length) {
     const cur = stack.pop();
-    let ents = [];
+    let ents;
     try {
       ents = fs.readdirSync(cur, { withFileTypes: true });
     } catch {

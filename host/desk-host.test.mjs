@@ -33,6 +33,13 @@ import {
   writeTaskNames,
 } from "./windows.mjs";
 import { findListeningPidsByPortNative, runnerTargets, stopRunner } from "./runners.mjs";
+import {
+  isAntigravityDbOpenInIde,
+  pruneAgyHubSummariesProto,
+  resolveAntigravityRoots,
+  sweepAntigravityStaleTranscripts,
+  syncAntigravityLanguageServerDeletions,
+} from "./pc-optimizer.mjs";
 import { createServer, runBrowseFolderWinAsync, runPurgeCursorChatsAsync } from "./server.mjs";
 import { createRequire } from "node:module";
 
@@ -1532,5 +1539,253 @@ test("startDriveOAuth auto-reclaims stale foreign listener on 127.0.0.1:53682 an
     } catch {
       /* already killed by reclaimStaleCallbackPort */
     }
+  }
+});
+
+test("isAntigravityDbOpenInIde ignores stale 0-byte WAL/SHM and sweepAntigravityStaleTranscripts prunes subagents, ghost summaries, and nested Claude JSONLs", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "desk-agy-sweep-"));
+  const agyRoot = path.join(tmpRoot, "antigravity");
+  const brainDir = path.join(agyRoot, "brain");
+  const convDir = path.join(agyRoot, "conversations");
+  const claudeDir = path.join(tmpRoot, "claude-projects");
+  fs.mkdirSync(brainDir, { recursive: true });
+  fs.mkdirSync(convDir, { recursive: true });
+  fs.mkdirSync(claudeDir, { recursive: true });
+
+  const now = Date.now() + 100 * 3600_000;
+  const h = (hrs) => new Date(now - hrs * 3600_000);
+  const touch = (filePath, hrs) => {
+    const t = h(hrs);
+    fs.utimesSync(filePath, t, t);
+  };
+
+  try {
+    // 1. Unit checks for isAntigravityDbOpenInIde
+    const staleWalDb = path.join(convDir, "stale-session.db");
+    fs.writeFileSync(staleWalDb, "db");
+    fs.writeFileSync(`${staleWalDb}-wal`, ""); // 0 bytes
+    fs.writeFileSync(`${staleWalDb}-shm`, "shm");
+    touch(`${staleWalDb}-wal`, 72);
+    touch(`${staleWalDb}-shm`, 72);
+    assert.equal(isAntigravityDbOpenInIde(staleWalDb, now), false);
+
+    const activeWalDb = path.join(convDir, "active-old-wal.db");
+    fs.writeFileSync(activeWalDb, "db");
+    fs.writeFileSync(`${activeWalDb}-wal`, "non-empty-frames");
+    touch(`${activeWalDb}-wal`, 12);
+    assert.equal(isAntigravityDbOpenInIde(activeWalDb, now), true);
+
+    // 2. Build isolated Antigravity brain + conversation_summaries.db fixture
+    const mkSession = (id, ageHrs, { withTranscript = true } = {}) => {
+      const sDir = path.join(brainDir, id);
+      fs.mkdirSync(path.join(sDir, ".system_generated", "logs"), { recursive: true });
+      if (withTranscript) {
+        const tp = path.join(sDir, ".system_generated", "logs", "transcript.jsonl");
+        fs.writeFileSync(tp, "{}\n");
+        touch(tp, ageHrs);
+      }
+      touch(sDir, ageHrs);
+      return sDir;
+    };
+
+    mkSession("stale-session", 60); // >48h + stale 0-byte WAL -> must delete
+    mkSession("stale-subagent", 8); // >6h subagent with transcript -> must delete
+    mkSession("active-session", 2); // <48h -> must keep
+    mkSession("active-old-wal", 60); // >48h but active non-empty WAL -> must keep
+
+    const sumDbPath = path.join(agyRoot, "conversation_summaries.db");
+    const db = new DatabaseSync(sumDbPath);
+    db.exec(`
+      CREATE TABLE conversation_summaries (
+        conversation_id TEXT PRIMARY KEY,
+        title TEXT NOT NULL DEFAULT "",
+        step_count INTEGER NOT NULL DEFAULT 0,
+        last_modified_time TEXT NOT NULL,
+        last_user_input_time TEXT NOT NULL,
+        parent_conversation_id TEXT NOT NULL DEFAULT ""
+      );
+      CREATE VIRTUAL TABLE conversations_fts USING fts5(conversation_id UNINDEXED, title);
+    `);
+    const ins = db.prepare(
+      "INSERT INTO conversation_summaries (conversation_id, title, step_count, last_modified_time, last_user_input_time, parent_conversation_id) VALUES (?, ?, ?, ?, ?, ?)",
+    );
+    const insFts = db.prepare("INSERT INTO conversations_fts (conversation_id, title) VALUES (?, ?)");
+    ins.run("stale-session", "Old Chat", 5, h(60).toISOString(), h(60).toISOString(), "");
+    insFts.run("stale-session", "Old Chat");
+    ins.run("stale-subagent", "", 2, h(8).toISOString(), "0001-01-01 00:00:00+00:00", "active-session");
+    ins.run("active-session", "Live Chat", 10, h(2).toISOString(), h(2).toISOString(), "");
+    insFts.run("active-session", "Live Chat");
+    ins.run("active-old-wal", "Pinned WAL", 10, h(60).toISOString(), h(60).toISOString(), "");
+    ins.run("ghost-only-row", "Ghost", 3, h(100).toISOString(), h(100).toISOString(), "");
+    insFts.run("ghost-only-row", "Ghost");
+    db.close();
+
+    // 3. Nested Claude Code subagents/*.jsonl (>48h old vs <48h active)
+    const oldSubDir = path.join(claudeDir, "E--", "sess-old", "subagents");
+    const freshSubDir = path.join(claudeDir, "E--", "sess-fresh", "subagents");
+    fs.mkdirSync(oldSubDir, { recursive: true });
+    fs.mkdirSync(freshSubDir, { recursive: true });
+    const oldJsonl = path.join(oldSubDir, "agent-1.jsonl");
+    const freshJsonl = path.join(freshSubDir, "agent-2.jsonl");
+    fs.writeFileSync(oldJsonl, "{}\n");
+    fs.writeFileSync(freshJsonl, "{}\n");
+    touch(oldJsonl, 72);
+    touch(freshJsonl, 4);
+
+    const res = sweepAntigravityStaleTranscripts({
+      agyRoot,
+      claudeProjectsDir: claudeDir,
+      skipGlobalCaches: true,
+      nowMs: now,
+    });
+    assert.equal(res.ok, true);
+    assert.equal(fs.existsSync(path.join(brainDir, "stale-session")), false);
+    assert.equal(fs.existsSync(path.join(brainDir, "stale-subagent")), false);
+    assert.equal(fs.existsSync(path.join(brainDir, "active-session")), true);
+    assert.equal(fs.existsSync(path.join(brainDir, "active-old-wal")), true);
+    assert.equal(fs.existsSync(oldJsonl), false);
+    assert.equal(fs.existsSync(path.join(claudeDir, "E--", "sess-old")), false);
+    assert.equal(fs.existsSync(freshJsonl), true);
+
+    const checkDb = new DatabaseSync(sumDbPath, { readOnly: true });
+    const remainingIds = checkDb
+      .prepare("SELECT conversation_id FROM conversation_summaries ORDER BY conversation_id")
+      .all()
+      .map((r) => r.conversation_id);
+    const remainingFtsIds = checkDb
+      .prepare("SELECT DISTINCT conversation_id FROM conversations_fts ORDER BY conversation_id")
+      .all()
+      .map((r) => r.conversation_id);
+    checkDb.close();
+    assert.deepEqual(remainingIds, ["active-old-wal", "active-session"]);
+    assert.deepEqual(remainingFtsIds, ["active-session"]);
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
+
+test("resolveAntigravityRoots includes SxS home-* roots and syncAntigravityLanguageServerDeletions issues DeleteCascadeTrajectory for pruned IDs only", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "desk-agy-sxs-rpc-"));
+  const sxsBase = path.join(tmpRoot, "antigravity-sxs");
+  const root224 = path.join(sxsBase, "home-2.24.0", ".gemini", "antigravity");
+  const root219 = path.join(sxsBase, "home-2.19.1", ".gemini", "antigravity");
+  fs.mkdirSync(path.join(root224, "brain", "keep-live-1"), { recursive: true });
+  fs.mkdirSync(path.join(root219, "brain"), { recursive: true });
+
+  const deletedCalls = [];
+  const srv = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => {
+      body += c;
+    });
+    req.on("end", () => {
+      assert.equal(req.headers["x-codeium-csrf-token"], "tok-123");
+      if (req.url?.endsWith("/GetAllCascadeTrajectories")) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            trajectorySummaries: {
+              "keep-live-1": { summary: "live" },
+              "ghost-deleted-1": { summary: "gone-1" },
+              "ghost-deleted-2": { summary: "gone-2" },
+            },
+          }),
+        );
+        return;
+      }
+      if (req.url?.endsWith("/DeleteCascadeTrajectory")) {
+        deletedCalls.push(JSON.parse(body || "{}").cascadeId);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end("{}");
+        return;
+      }
+      res.writeHead(404).end();
+    });
+  });
+
+  try {
+    const discoveredRoots = resolveAntigravityRoots({ sxsBaseDir: sxsBase });
+    assert.ok(discoveredRoots.includes(path.resolve(root224)));
+    assert.ok(discoveredRoots.includes(path.resolve(root219)));
+
+    await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+    const port = srv.address().port;
+    const rpcRes = await syncAntigravityLanguageServerDeletions({
+      agyRoot: root224,
+      discoverServers: async () => [{ agyRoot: root224, pid: process.pid, httpPort: port, csrfToken: "tok-123" }],
+    });
+    assert.equal(rpcRes.ok, true);
+    assert.equal(rpcRes.serversSynced, 1);
+    assert.equal(rpcRes.syncedDeleted, 2);
+    assert.deepEqual(deletedCalls.sort(), ["ghost-deleted-1", "ghost-deleted-2"]);
+  } finally {
+    await new Promise((r) => srv.close(r));
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
+
+test("pruneAgyHubSummariesProto filters dead UUID entries strictly and fails closed on non-wire-2 bytes", () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-proto-prune-"));
+  const protoPath = path.join(tmpDir, "agyhub_summaries_proto.pb");
+  const encodeField1Entry = (uuid) => {
+    const idBuf = Buffer.from(uuid, "utf8");
+    const sub = Buffer.concat([Buffer.from([0x0a, idBuf.length]), idBuf, Buffer.from([0x12, 0x02, 0x08, 0x01])]);
+    return Buffer.concat([Buffer.from([0x0a, sub.length]), sub]);
+  };
+  const liveId = "11111111-2222-3333-4444-555555555555";
+  const deadId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const metaField2 = Buffer.from([0x12, 0x04, 0x08, 0x01, 0x10, 0x02]);
+  try {
+    fs.writeFileSync(protoPath, Buffer.concat([encodeField1Entry(liveId), encodeField1Entry(deadId), metaField2]));
+    const res = pruneAgyHubSummariesProto(protoPath, new Set([liveId]));
+    assert.deepEqual(res, { ok: true, removed: 1, kept: 1 });
+    const after = fs.readFileSync(protoPath);
+    assert.equal(after.includes(liveId), true);
+    assert.equal(after.includes(deadId), false);
+    assert.equal(after.subarray(after.length - metaField2.length).equals(metaField2), true);
+
+    // Fail-closed on corrupt / non-wire-2 byte
+    const corrupt = Buffer.from([0x08, 0x01]);
+    fs.writeFileSync(protoPath, corrupt);
+    const bad = pruneAgyHubSummariesProto(protoPath, new Set([liveId]));
+    assert.equal(bad.ok, false);
+    assert.equal(fs.readFileSync(protoPath).equals(corrupt), true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("sweepAntigravityStaleTranscripts isolates lsRunning check per agyRoot for proto prune", () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-per-root-ls-"));
+  const rootLive = path.join(tmpDir, "home-2.31.0", ".gemini", "antigravity");
+  const rootStopped = path.join(tmpDir, "home-2.24.0", ".gemini", "antigravity");
+  const liveId = "11111111-2222-3333-4444-555555555555";
+  const deadId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const encodeField1Entry = (uuid) => {
+    const idBuf = Buffer.from(uuid, "utf8");
+    const sub = Buffer.concat([Buffer.from([0x0a, idBuf.length]), idBuf, Buffer.from([0x12, 0x02, 0x08, 0x01])]);
+    return Buffer.concat([Buffer.from([0x0a, sub.length]), sub]);
+  };
+  try {
+    for (const root of [rootLive, rootStopped]) {
+      fs.mkdirSync(path.join(root, "brain", liveId), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, "agyhub_summaries_proto.pb"),
+        Buffer.concat([encodeField1Entry(liveId), encodeField1Entry(deadId)]),
+      );
+    }
+    const res = sweepAntigravityStaleTranscripts({
+      agyRoots: [rootLive, rootStopped],
+      skipGlobalCaches: true,
+      isRootLsRunning: (r) => r === rootLive,
+    });
+    assert.equal(res.ok, true);
+    // Live root skipped proto prune; stopped root pruned deadId
+    assert.equal(fs.readFileSync(path.join(rootLive, "agyhub_summaries_proto.pb")).includes(deadId), true);
+    assert.equal(fs.readFileSync(path.join(rootStopped, "agyhub_summaries_proto.pb")).includes(deadId), false);
+    assert.equal(fs.readFileSync(path.join(rootStopped, "agyhub_summaries_proto.pb")).includes(liveId), true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });

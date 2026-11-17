@@ -1,22 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Cloud, KeyRound, Loader2 } from "lucide-react";
+import { Cloud, ExternalLink, ShieldCheck, Zap } from "lucide-react";
 import {
-  HubAdmReadonlyField,
-  HubBulkActionButton,
-  HubDetailFieldRow,
-  HubDetailFieldsGroup,
-  HubDirectoryCopyText,
-  HubTocSectionNav,
-  HubToolDetailModal,
-  HubToolDetailModalAccountFooter,
-  HubToolDetailRail,
-  HubToolDetailSection,
-  HubUsersStatusLabel,
-  hubAccountDetailShellClass,
+  HubLoginPipelineModal,
+  HubLoginPipelineSuccessView,
+  type HubLoginPipelineModeTab,
+  type HubLoginPipelineStep,
 } from "@tool-workspace/hub-ui";
-import { DriveOauthLinkPanel, DriveOauthNotice } from "../../components/DriveOauthNotice";
-import { DIRECTORY_STATUS_EMOJI } from "../../lib/folder-sync-directory-column-hints";
-import { navScreenChrome } from "../../lib/nav-structure";
+import { DriveOauthBrowserStage, DriveOauthStealthStage } from "../../components/DriveOauthNotice";
 import {
   authorizeRemote,
   cancelAuthorizeRemote,
@@ -25,6 +15,8 @@ import {
   fetchDriveStatus,
   openDriveOauthInStealth,
 } from "../../lib/sync-api";
+
+export type DriveLoginMode = "browser" | "stealth";
 
 type Props = {
   open: boolean;
@@ -37,9 +29,21 @@ type Props = {
 };
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
-const OAUTH_SECTION = "p0009-drive-oauth";
 
-/** Smart Google OAuth pipeline — auto-generates & copies link on open, zero ghost accounts on cancel. */
+const PIPELINE_STEPS: readonly [
+  HubLoginPipelineStep,
+  HubLoginPipelineStep,
+  HubLoginPipelineStep,
+] = [
+  { step: 1, label: "1. Link Ready" },
+  { step: 2, label: "2. Google Consent" },
+  { step: 3, label: "3. Linked" },
+];
+
+/**
+ * Unified 3-Step Google OAuth Login Pipeline Modal (P0001 Desk Console ↔ P0002 Telegram/Zalo Login SSOT).
+ * Auto-generates & copies OAuth URL on open, supports 1-click Browser or P0003 Stealth launch, and polls :53682.
+ */
 export function DriveSignInModal({
   open,
   remoteName,
@@ -49,18 +53,23 @@ export function DriveSignInModal({
   onSignedIn,
 }: Props) {
   const locked = Boolean(remoteName);
-  const drivesChrome = navScreenChrome("drives");
+  const [mode, setMode] = useState<DriveLoginMode>("browser");
   const [name, setName] = useState(remoteName || suggestedName);
   const [busy, setBusy] = useState(false);
   const [waitingConsent, setWaitingConsent] = useState(false);
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
-  const [autoCopied, setAutoCopied] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [callbackListening, setCallbackListening] = useState(false);
   const [callbackPortBusy, setCallbackPortBusy] = useState(false);
   const [reclaimedPid, setReclaimedPid] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [stealthCode, setStealthCode] = useState("0001");
+  const [stealthBusy, setStealthBusy] = useState(false);
+  const [stealthMsg, setStealthMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
   const pollGen = useRef(0);
   const onSignedInRef = useRef(onSignedIn);
   onSignedInRef.current = onSignedIn;
@@ -68,26 +77,27 @@ export function DriveSignInModal({
   onCloseRef.current = onClose;
 
   const signIn = useCallback(
-    async (targetName?: string) => {
+    async (targetName?: string): Promise<string | null> => {
       const clean = (targetName ?? (locked ? remoteName : name)).trim();
       if (!NAME_RE.test(clean)) {
         setError("Use a name like gdrive or gdrive2 (letters, numbers, _ or -).");
-        return;
+        return null;
       }
       const gen = ++pollGen.current;
       setBusy(true);
       setWaitingConsent(false);
       setConnectedEmail(null);
-      setAutoCopied(false);
+      setCopied(false);
       setCallbackListening(false);
       setCallbackPortBusy(false);
       setReclaimedPid(null);
       setError(null);
       setHint(null);
       setAuthUrl(null);
+      setStealthMsg(null);
       try {
         const auth = await authorizeRemote(clean);
-        if (pollGen.current !== gen) return;
+        if (pollGen.current !== gen) return null;
         const url = auth.authUrl || null;
         setAuthUrl(url);
         setCallbackListening(Boolean(auth.callbackListening ?? Boolean(url)));
@@ -95,49 +105,62 @@ export function DriveSignInModal({
         if (url) {
           try {
             await navigator.clipboard.writeText(url);
-            setAutoCopied(true);
+            setCopied(true);
           } catch {
-            setAutoCopied(false);
+            setCopied(false);
           }
         }
-        setHint(auth.hint || "Sign-in link is ready. Paste it into your browser profile or click Open in Browser.");
+        setHint(
+          auth.hint ||
+            "Sign-in link is ready. Click Open in Browser or paste it into your browser profile.",
+        );
         setBusy(false);
         setWaitingConsent(true);
 
-        for (let i = 0; i < 240; i += 1) {
-          await new Promise((resolve) => window.setTimeout(resolve, 1500));
-          if (pollGen.current !== gen) return;
-          let finished = false;
-          let exitCode: number | null = null;
-          if (auth.sessionId) {
-            try {
-              const session = await fetchAuthorizeSession(auth.sessionId);
-              exitCode = session.exitCode;
-              finished = exitCode != null;
-              if (finished && exitCode !== 0) {
-                setWaitingConsent(false);
-                setCallbackListening(false);
-                setError("Google sign-in was cancelled or failed. Click New link to try again.");
-                return;
+        void (async () => {
+          for (let i = 0; i < 240; i += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 1500));
+            if (pollGen.current !== gen) return;
+            let finished = false;
+            let exitCode: number | null = null;
+            if (auth.sessionId) {
+              try {
+                const session = await fetchAuthorizeSession(auth.sessionId);
+                exitCode = session.exitCode;
+                finished = exitCode != null;
+                if (finished && exitCode !== 0) {
+                  setWaitingConsent(false);
+                  setCallbackListening(false);
+                  setError("Google sign-in was cancelled or failed. Click Refresh Link to try again.");
+                  return;
+                }
+              } catch {
+                /* session poll is best-effort */
               }
-            } catch {
-              /* session poll is best-effort */
             }
-          }
-          if ((finished && exitCode === 0) || i % 2 === 1) {
-            const status = await fetchDriveStatus(clean);
-            if (status.authorized) {
-              setWaitingConsent(false);
-              setCallbackListening(false);
-              setConnectedEmail(status.email || clean);
-              setHint(`Connected${status.email ? ` · ${status.email}` : ""}.`);
-              onSignedInRef.current();
-              onCloseRef.current();
-              return;
+            if ((finished && exitCode === 0) || i % 2 === 1) {
+              try {
+                const status = await fetchDriveStatus(clean);
+                if (status.authorized) {
+                  setWaitingConsent(false);
+                  setCallbackListening(false);
+                  setConnectedEmail(status.email || clean);
+                  setHint(`Connected${status.email ? ` · ${status.email}` : ""}.`);
+                  onSignedInRef.current();
+                  window.setTimeout(() => {
+                    onCloseRef.current();
+                  }, 1250);
+                  return;
+                }
+              } catch {
+                /* ignore transient poll error */
+              }
             }
+            if (finished) break;
           }
-          if (finished) break;
-        }
+        })();
+
+        return url;
       } catch (e) {
         if (pollGen.current === gen) {
           const msg = e instanceof Error ? e.message : String(e);
@@ -151,6 +174,7 @@ export function DriveSignInModal({
             })
             .catch(() => undefined);
         }
+        return null;
       } finally {
         if (pollGen.current === gen) {
           setBusy(false);
@@ -166,6 +190,8 @@ export function DriveSignInModal({
       setWaitingConsent(false);
       return;
     }
+    setMode("browser");
+    setStealthMsg(null);
     const target = (remoteName || suggestedName).trim();
     setName(target);
     void signIn(target);
@@ -184,160 +210,183 @@ export function DriveSignInModal({
     onClose();
   }
 
-  const statusTone = connectedEmail ? "online" : error ? "offline" : waitingConsent || busy ? "active" : "idle";
-  const statusLabel = connectedEmail
-    ? `Connected · ${connectedEmail}`
-    : error
-      ? "Failed"
+  async function handleCopyUrl() {
+    if (!authUrl) return;
+    try {
+      await navigator.clipboard.writeText(authUrl);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  async function handleOpenBrowser() {
+    let targetUrl = authUrl;
+    if (!targetUrl) {
+      targetUrl = await signIn();
+    }
+    if (!targetUrl) return;
+    const viaDesktop = await window.folderSyncDesktop?.openExternal?.(targetUrl);
+    if (viaDesktop?.ok) return;
+    window.open(targetUrl, "_blank", "noopener");
+  }
+
+  async function handleOpenStealth() {
+    const code = stealthCode.trim();
+    if (!code) return;
+    setStealthBusy(true);
+    setStealthMsg(null);
+    try {
+      let targetUrl = authUrl;
+      if (!targetUrl) {
+        targetUrl = await signIn();
+      }
+      if (!targetUrl) {
+        setStealthMsg({ ok: false, text: "Could not generate Google OAuth URL." });
+        return;
+      }
+      const res = await openDriveOauthInStealth(code, targetUrl);
+      if (res.ok) {
+        setStealthMsg({
+          ok: true,
+          text: `Opened in Stealth #${code.padStart(4, "0")} · Waiting for Google consent on 127.0.0.1:53682…`,
+        });
+      } else {
+        setStealthMsg({
+          ok: false,
+          text: res.error || "Could not open P0003 Stealth Browser profile.",
+        });
+      }
+    } catch (err) {
+      setStealthMsg({
+        ok: false,
+        text: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setStealthBusy(false);
+    }
+  }
+
+  const currentStage: 1 | 2 | 3 = connectedEmail ? 3 : authUrl || waitingConsent ? 2 : 1;
+  const cleanRemoteKey = (locked ? remoteName : name).trim() || "gdrive";
+
+  const liveBadgeTone =
+    connectedEmail || callbackListening
+      ? "emerald"
       : busy
-        ? "Generating link…"
-        : waitingConsent
-          ? "Waiting for Google…"
-          : "Idle";
+        ? "sky"
+        : error
+          ? "rose"
+          : "amber";
+
+  const liveBadgeLabel = connectedEmail
+    ? "Connected"
+    : callbackListening
+      ? "127.0.0.1:53682 Live"
+      : busy
+        ? "Generating OAuth…"
+        : error
+          ? "Retry OAuth"
+          : "127.0.0.1:53682";
+
+  const modeTabs: readonly [
+    HubLoginPipelineModeTab<DriveLoginMode>,
+    HubLoginPipelineModeTab<DriveLoginMode>,
+  ] = [
+    {
+      key: "browser",
+      label: "Browser OAuth",
+      icon: <ExternalLink className="h-3.5 w-3.5 text-sky-300" />,
+    },
+    {
+      key: "stealth",
+      label: "Stealth Profile",
+      icon: <ShieldCheck className="h-3.5 w-3.5 text-sky-300" />,
+    },
+  ];
+
+  const guideBanner =
+    mode === "browser"
+      ? {
+          title: "One-Time Google Sign-In Guide",
+          subtitle:
+            "Open the auto-copied link in any browser → Advanced → Go to Folder Sync (unsafe) → Allow",
+          icon: <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-300" />,
+          rightBadge: (
+            <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
+              3 clicks
+            </span>
+          ),
+        }
+      : {
+          title: "Direct P0003 Stealth Browser OAuth",
+          subtitle:
+            "Launches Google OAuth directly inside your chosen Stealth Browser profile (#0001–#0020)",
+          icon: <Zap className="h-3.5 w-3.5 shrink-0 text-sky-300" />,
+          rightBadge: (
+            <span className="rounded-md border border-sky-400/30 bg-sky-500/15 px-1.5 py-0.5 font-mono text-[10px] text-sky-200">
+              :6003
+            </span>
+          ),
+        };
 
   return (
-    <HubToolDetailModal
+    <HubLoginPipelineModal<DriveLoginMode>
       open={open}
       onClose={handleClose}
-      title={locked ? `Sign in ${suggestedCode}` : `New Drive · ${suggestedCode}`}
-      headerIcon={drivesChrome.icon || Cloud}
-      headerIconClassName={drivesChrome.iconClass}
-      ariaLabel="Google Drive sign-in"
-      size="detail"
-      shellClassName={hubAccountDetailShellClass()}
-      busy={busy}
-      sectionIds={[OAUTH_SECTION]}
-      toc={
-        <HubToolDetailRail title="Navigate" titleEmoji="🧭" className="twofa-adm-rail--toc" scroll={false} ariaLabel="Sections">
-          <HubTocSectionNav
-            items={[{ id: OAUTH_SECTION, label: "Google OAuth", emoji: "🔐" }]}
-            admNav
-          />
-        </HubToolDetailRail>
-      }
-      footer={
-        <HubToolDetailModalAccountFooter
-          onClose={handleClose}
-          closeDisabled={busy}
-          onSave={() => void signIn()}
-          saveLabel={authUrl ? "New sign-in link" : "Create sign-in link"}
-          saveVariant="create"
-          saveDisabled={busy || !(locked ? remoteName : name).trim()}
-          busy={busy}
-        />
-      }
+      busy={busy || stealthBusy}
+      titleId="p0001-drive-pipeline-login-title"
+      title={locked ? `Link Google Drive · ${suggestedCode}` : `New Google Drive · ${suggestedCode}`}
+      subtitle="Direct Google OAuth 2.0 · Auto-syncs to Desk Console & rclone"
+      icon={<Cloud className="h-5 w-5 text-white" />}
+      liveBadgeLabel={liveBadgeLabel}
+      liveBadgeTone={liveBadgeTone}
+      liveBadgePulse={Boolean(waitingConsent || busy || callbackListening)}
+      steps={PIPELINE_STEPS}
+      currentStage={currentStage}
+      completed={Boolean(connectedEmail)}
+      modeTabs={modeTabs}
+      activeMode={mode}
+      onModeChange={(nextMode) => {
+        setError(null);
+        setMode(nextMode);
+      }}
+      guideBanner={guideBanner}
+      error={error}
     >
-      {error ? (
-        <div className="hub-directory-body-value mb-3 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-rose-100">
-          {error}
-        </div>
-      ) : null}
-      <HubToolDetailSection id={OAUTH_SECTION} title="Google OAuth" emoji="🔐">
-        <HubDetailFieldsGroup>
-          <HubDetailFieldRow slots={3}>
-            <HubAdmReadonlyField header={{ label: "ID", headerEmoji: "🆔" }} valueLayout="inline">
-              <HubDirectoryCopyText value={suggestedCode} copyToastLabel="Drive ID copied" />
-            </HubAdmReadonlyField>
-            <HubAdmReadonlyField header={{ label: "Status", headerEmoji: DIRECTORY_STATUS_EMOJI }} valueLayout="inline">
-              <HubUsersStatusLabel
-                label={statusLabel}
-                tone={statusTone}
-                live={waitingConsent || busy}
-              />
-            </HubAdmReadonlyField>
-            <HubAdmReadonlyField header={{ label: "Callback", headerEmoji: "🔌" }} valueLayout="inline">
-              <div className="inline-flex items-center gap-1.5">
-                <span
-                  className={
-                    callbackListening
-                      ? "hub-users-status-dot hub-users-status-dot--online"
-                      : callbackPortBusy
-                        ? "hub-users-status-dot hub-users-status-dot--offline"
-                        : "hub-users-status-dot hub-users-status-dot--idle"
-                  }
-                  aria-hidden
-                />
-                <HubDirectoryCopyText
-                  value="127.0.0.1:53682"
-                  copyToastLabel="Callback address copied"
-                />
-                {reclaimedPid ? (
-                  <span className="rounded border border-emerald-400/30 bg-emerald-500/10 px-1 py-0.5 text-[10px] text-emerald-200">
-                    Healed PID {reclaimedPid}
-                  </span>
-                ) : null}
-              </div>
-            </HubAdmReadonlyField>
-          </HubDetailFieldRow>
-        </HubDetailFieldsGroup>
-
-        <div className="mt-3 flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2 text-xs">
-              <CheckCircle2
-                size={14}
-                className={authUrl ? "shrink-0 text-emerald-400" : "shrink-0 text-white/30"}
-                aria-hidden
-              />
-              <div className="min-w-0">
-                <div className="font-medium text-white/90">1. Link Ready</div>
-                <div className="truncate text-xs text-white/55">
-                  {authUrl ? "Auto-copied to clipboard" : "Generating OAuth URL…"}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2 text-xs">
-              {waitingConsent ? (
-                <Loader2 size={14} className="shrink-0 animate-spin text-sky-400" aria-hidden />
-              ) : (
-                <KeyRound size={14} className="shrink-0 text-white/40" aria-hidden />
-              )}
-              <div className="min-w-0">
-                <div className="font-medium text-white/90">2. Google Consent</div>
-                <div className="truncate text-xs text-white/55">
-                  Paste in browser & allow access
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2 text-xs">
-              <CheckCircle2
-                size={14}
-                className={connectedEmail ? "shrink-0 text-emerald-400" : "shrink-0 text-white/30"}
-                aria-hidden
-              />
-              <div className="min-w-0">
-                <div className="font-medium text-white/90">3. Auto-Connect</div>
-                <div className="truncate text-xs text-white/55">
-                  Saves token & closes window
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {authUrl ? (
-            <DriveOauthLinkPanel
-              url={authUrl}
-              autoCopied={autoCopied}
-              busy={busy}
-              onRegenerate={() => void signIn()}
-              onOpenStealth={(profileCode) => openDriveOauthInStealth(profileCode, authUrl)}
-            />
-          ) : !busy ? (
-            <div>
-              <HubBulkActionButton
-                icon={<KeyRound size={14} aria-hidden />}
-                label="Create sign-in link"
-                title="Create a Google sign-in link to copy"
-                tone="indigo"
-                onClick={() => void signIn()}
-              />
-            </div>
-          ) : null}
-
-          <DriveOauthNotice />
-          {hint ? <p className="hub-directory-body-value text-sky-200/85">{hint}</p> : null}
-        </div>
-      </HubToolDetailSection>
-    </HubToolDetailModal>
+      {connectedEmail ? (
+        <HubLoginPipelineSuccessView
+          title="Google Drive Session Connected!"
+          subtitle={`${suggestedCode} · ${connectedEmail}`}
+          badgeText={`${cleanRemoteKey}: · Synced 24/7`}
+        />
+      ) : mode === "browser" ? (
+        <DriveOauthBrowserStage
+          suggestedCode={suggestedCode}
+          cleanRemoteKey={cleanRemoteKey}
+          reclaimedPid={reclaimedPid}
+          copied={copied}
+          busy={busy}
+          authUrl={authUrl}
+          waitingConsent={waitingConsent}
+          callbackListening={callbackListening}
+          callbackPortBusy={callbackPortBusy}
+          hint={hint}
+          error={error}
+          onOpenBrowser={() => void handleOpenBrowser()}
+          onCopyUrl={() => void handleCopyUrl()}
+          onRefreshLink={() => void signIn()}
+        />
+      ) : (
+        <DriveOauthStealthStage
+          stealthCode={stealthCode}
+          stealthBusy={stealthBusy}
+          busy={busy}
+          stealthMsg={stealthMsg}
+          onStealthCodeChange={setStealthCode}
+          onOpenStealth={() => void handleOpenStealth()}
+        />
+      )}
+    </HubLoginPipelineModal>
   );
 }

@@ -106,9 +106,9 @@ table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.h
 table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--updated,
 table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--updated,
 table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--updated {
-  width: 8.25rem;
-  min-width: 8.25rem;
-  max-width: 8.25rem;
+  width: 7.25rem;
+  min-width: 7.25rem;
+  max-width: 7.25rem;
 }
 
 table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] col.hub-users-col--created,
@@ -117,9 +117,9 @@ table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] th.h
 table.hub-users-table.p0009-jobs-directory-table th.hub-users-col--created,
 table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--created,
 table.hub-users-table.p0009-jobs-directory-table td.hub-users-col--created {
-  width: 8.5rem;
-  min-width: 8.5rem;
-  max-width: 8.5rem;
+  width: 7.25rem;
+  min-width: 7.25rem;
+  max-width: 7.25rem;
 }
 
 table.hub-users-table.p0009-jobs-directory-table[data-hub-directory-select] td.hub-users-col--job-id,

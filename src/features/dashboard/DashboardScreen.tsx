@@ -1030,7 +1030,7 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
                   >
                     <div className="flex flex-wrap items-center justify-between gap-1.5">
                       <span className="font-medium">
-                        🛡️ Core Shield: G0({pcDiag.summary.topology.affinityCounts["0"] ?? 0})/G1({pcDiag.summary.topology.affinityCounts["1"] ?? 0}) · Headless {pcDiag.summary.smokePool.leakedHeadlessFarmCount ?? 0}/{pcDiag.summary.adaptiveThrottle?.maxHeadlessConcurrent ?? 40} · Popups Guarded: {pcDiag.summary.suppressedConsolePopups ?? 0}
+                        🛡️ Core Shield: G0({pcDiag.summary.topology.affinityCounts["0"] ?? 0})/G1({pcDiag.summary.topology.affinityCounts["1"] ?? 0}) · Headless {pcDiag.summary.smokePool.leakedHeadlessFarmCount ?? 0}/{pcDiag.summary.adaptiveThrottle?.maxHeadlessConcurrent ?? 8} · Popups Guarded: {pcDiag.summary.suppressedConsolePopups ?? 0}
                       </span>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[var(--muted)]" data-testid="agy-brain-size-badge">

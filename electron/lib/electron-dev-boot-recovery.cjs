@@ -47,7 +47,7 @@ function attachElectronDevBootRecovery(win, opts = {}) {
     if (typeof win.webContents.isLoading === "function" && win.webContents.isLoading()) {
       return { action: "loading" };
     }
-    let hasBootError = false;
+    let hasBootError;
     try {
       hasBootError = Boolean(
         await win.webContents.executeJavaScript(

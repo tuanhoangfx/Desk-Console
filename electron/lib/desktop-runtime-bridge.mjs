@@ -10,6 +10,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -117,13 +118,13 @@ export function createSovereignRuntimeBridge(config) {
     }
   }
 
-  async function acquireSingletonLockSafe(lockName) {
+  async function acquireSingletonLockSafe(lockName, options = {}) {
     const wsGuard = path.join(monorepoRoot, "Tool", "scripts", "lib", "worker-singleton-guard.mjs");
     if (!isPackagedAsar() && fs.existsSync(wsGuard)) {
       try {
         const mod = await import(pathToFileURL(wsGuard).href);
         if (typeof mod.acquireWorkerSingletonGuard === "function") {
-          return mod.acquireWorkerSingletonGuard(lockName);
+          return mod.acquireWorkerSingletonGuard(lockName, options);
         }
       } catch {
         /* fall through to local lockfile */
@@ -236,5 +237,104 @@ export function createSovereignRuntimeBridge(config) {
     resolveDataboxAuthSafe,
     readValidJsonState,
     writeJsonStateAtomic,
+    pickAvailablePort: (startPort, options) => pickAvailablePort(startPort, options),
   };
+}
+
+/**
+ * Probe and pick the first available TCP port with dual-stack (IPv4 + IPv6) safety,
+ * optional atomic reservation, and configurable port bounds.
+ *
+ * @param {number} startPort Starting port to probe.
+ * @param {{
+ *   hosts?: string[],
+ *   endPort?: number,
+ *   maxAttempts?: number,
+ *   reserve?: boolean,
+ *   autoReleaseMs?: number,
+ * }} [options]
+ * @returns {Promise<number | { port: number, servers: import("node:net").Server[], release: () => Promise<void> }>}
+ */
+export async function pickAvailablePort(startPort, options = {}) {
+  const {
+    hosts = ["127.0.0.1", "::1"],
+    endPort = 65535,
+    maxAttempts = 1000,
+    reserve = false,
+    autoReleaseMs = 0,
+  } = options;
+
+  const parsedStart = Math.max(1, Number(startPort) || 1);
+  const parsedEnd = Math.min(65535, Math.max(parsedStart, Number(endPort) || 65535));
+  const maxPort = Math.min(parsedEnd, parsedStart + Math.max(1, Number(maxAttempts) || 1000) - 1);
+
+  const checkSingleHost = (port, host) => {
+    return new Promise((resolve) => {
+      const server = createServer();
+      server.unref();
+
+      server.once("error", () => {
+        resolve({ ok: false });
+      });
+
+      server.listen(port, host, () => {
+        resolve({ ok: true, server });
+      });
+    });
+  };
+
+  const closeServers = (servers) => {
+    return Promise.all(
+      servers.map((s) => new Promise((r) => s.close(() => r())))
+    ).then(() => {});
+  };
+
+  for (let port = parsedStart; port <= maxPort; port++) {
+    const openedServers = [];
+    let isAvailableOnAllHosts = true;
+
+    for (const host of hosts) {
+      const res = await checkSingleHost(port, host);
+      if (res.ok && res.server) {
+        openedServers.push(res.server);
+      } else {
+        isAvailableOnAllHosts = false;
+        break;
+      }
+    }
+
+    if (isAvailableOnAllHosts) {
+      if (reserve) {
+        let released = false;
+        let releaseTimer = null;
+        const release = async () => {
+          if (released) return;
+          released = true;
+          if (releaseTimer) clearTimeout(releaseTimer);
+          await closeServers(openedServers);
+        };
+
+        if (Number(autoReleaseMs) > 0) {
+          releaseTimer = setTimeout(() => {
+            release().catch(() => {});
+          }, Number(autoReleaseMs));
+          if (typeof releaseTimer.unref === "function") releaseTimer.unref();
+        }
+
+        return {
+          port,
+          servers: openedServers,
+          release,
+        };
+      }
+      await closeServers(openedServers);
+      return port;
+    }
+
+    await closeServers(openedServers);
+  }
+
+  throw new Error(
+    `No available TCP port found from ${parsedStart} to ${maxPort} on hosts [${hosts.join(", ")}]`
+  );
 }

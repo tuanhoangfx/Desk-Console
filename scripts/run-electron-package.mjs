@@ -6,10 +6,11 @@
  * `--sync-installed`: stops running Desk Console / Folder Sync, syncs win-unpacked into
  * `%LOCALAPPDATA%\Programs\desk-console`, and relaunches Desk Console.exe.
  */
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { launchInteractiveTrayApp } from "../../scripts/lib/agent-inline-kit.mjs";
 import { listProcessesNative, terminatePidNative } from "../../scripts/lib/win-native-proc-net.mjs";
 import { stagePackagedOAuthClient } from "./lib/stage-oauth-client.mjs";
 
@@ -115,30 +116,10 @@ function syncToInstalledDir(unpackedDir) {
   const installedExe = path.join(installDir, "Desk Console.exe");
   if (fs.existsSync(installedExe)) {
     console.log(`[sync-installed] launching ${installedExe} on interactive desktop`);
-    const psLaunch = [
-      `$exe = '${installedExe.replace(/'/g, "''")}'`,
-      `$dir = '${installDir.replace(/'/g, "''")}'`,
-      `$action = New-ScheduledTaskAction -Execute $exe -WorkingDirectory $dir`,
-      `$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited`,
-      `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)`,
-      `Register-ScheduledTask -TaskName 'Dev-Desk-Console-Launch' -Action $action -Principal $principal -Settings $settings -Force | Out-Null`,
-      `Start-ScheduledTask -TaskName 'Dev-Desk-Console-Launch'`,
-      `Start-Sleep -Seconds 2`,
-      `Unregister-ScheduledTask -TaskName 'Dev-Desk-Console-Launch' -Confirm:$false -ErrorAction SilentlyContinue`,
-    ].join("; ");
-    const launched = spawnSync("powershell.exe", ["-NoProfile", "-Command", psLaunch], {
-      windowsHide: true,
-      stdio: "ignore",
+    launchInteractiveTrayApp(installedExe, ["--hidden"], {
+      cwd: installDir,
+      taskName: "Dev-Desk-Console-Launch",
     });
-    if (launched.status !== 0) {
-      const child = spawn(installedExe, [], {
-        cwd: installDir,
-        detached: true,
-        stdio: "ignore",
-        windowsHide: false,
-      });
-      child.unref();
-    }
   }
 }
 

@@ -53,11 +53,14 @@
    * The app mounted, whatever the boot-ready signal says. A tool opened in a background tab
    * mounts normally but its rAF-scheduled hideBootLoader() never runs, so every timer below
    * used to keep firing against a working app — ending on a full-screen "did not finish
-   * loading" error on top of rendered content. Rendered children are the ground truth.
+   * loading" error on top of rendered content. Rendered children (including portal-mounted
+   * auth/access panels in document.body such as HubAuthGateModal / HubAuthBootPanel) are the
+   * ground truth.
    */
   function appHasRendered() {
     var root = document.getElementById("root");
-    return !!root && root.childElementCount > 0;
+    if (root && root.childElementCount > 0) return true;
+    return typeof document.querySelector === "function" && Boolean(document.querySelector(".auth-gate-root"));
   }
 
   function bootSettled() {
@@ -259,57 +262,73 @@
   (function watchPostMountCrash() {
     var CRASH_ID = "hub-boot-crash";
     var SETTLE_MS = 750;
-    var root = document.getElementById("root");
-    if (!root || typeof MutationObserver !== "function") return;
-    var mounted = false;
-    var timer = null;
+    if (typeof MutationObserver !== "function") return;
+    var attached = false;
 
-    function showCrash() {
-      if (document.getElementById(CRASH_ID)) return;
-      var el = document.createElement("div");
-      el.id = CRASH_ID;
-      el.setAttribute("role", "alert");
-      el.style.cssText =
-        "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#0b1220";
-      var lastErr = "";
-      try {
-        lastErr = String(window.__HUB_LAST_RENDER_ERROR || window.__P0021_LAST_ERROR || "").slice(0, 1200);
-      } catch (e) {
-        lastErr = "";
+    function attach() {
+      if (attached) return;
+      var root = document.getElementById("root");
+      if (!root) return;
+      attached = true;
+      var mounted = appHasRendered();
+      var timer = null;
+
+      function showCrash() {
+        if (document.getElementById(CRASH_ID)) return;
+        var el = document.createElement("div");
+        el.id = CRASH_ID;
+        el.setAttribute("role", "alert");
+        el.style.cssText =
+          "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#0b1220";
+        var lastErr = "";
+        try {
+          lastErr = String(window.__HUB_LAST_RENDER_ERROR || window.__P0021_LAST_ERROR || "").slice(0, 1200);
+        } catch (e) {
+          lastErr = "";
+        }
+        el.innerHTML =
+          '<div style="max-width:32rem;padding:1.5rem;text-align:center;font-family:Inter,system-ui,sans-serif;color:#e8ecff">' +
+          '<p style="margin:0 0 0.5rem;font-size:0.95rem;font-weight:600">This screen stopped rendering</p>' +
+          '<p style="margin:0 0 1rem;font-size:0.75rem;line-height:1.5;color:#94a3b8">An unexpected error unmounted the app. Reload to continue.</p>' +
+          (lastErr
+            ? '<pre style="margin:0 0 1rem;padding:0.75rem;border-radius:0.5rem;background:rgba(15,23,42,0.85);color:#fca5a5;font:11px/1.45 ui-monospace,Consolas,monospace;text-align:left;white-space:pre-wrap;word-break:break-word;max-height:10rem;overflow:auto">' +
+              lastErr.replace(/[<>&]/g, function (ch) {
+                return ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : "&amp;";
+              }) +
+              "</pre>"
+            : "") +
+          '<button type="button" onclick="location.reload()" style="cursor:pointer;border:1px solid rgba(129,140,248,0.4);border-radius:0.5rem;background:rgba(99,102,241,0.15);color:#c7d2fe;padding:0.45rem 1rem;font-size:0.75rem">Reload</button>' +
+          "</div>";
+        document.body.appendChild(el);
       }
-      el.innerHTML =
-        '<div style="max-width:32rem;padding:1.5rem;text-align:center;font-family:Inter,system-ui,sans-serif;color:#e8ecff">' +
-        '<p style="margin:0 0 0.5rem;font-size:0.95rem;font-weight:600">This screen stopped rendering</p>' +
-        '<p style="margin:0 0 1rem;font-size:0.75rem;line-height:1.5;color:#94a3b8">An unexpected error unmounted the app. Reload to continue.</p>' +
-        (lastErr
-          ? '<pre style="margin:0 0 1rem;padding:0.75rem;border-radius:0.5rem;background:rgba(15,23,42,0.85);color:#fca5a5;font:11px/1.45 ui-monospace,Consolas,monospace;text-align:left;white-space:pre-wrap;word-break:break-word;max-height:10rem;overflow:auto">' +
-            lastErr.replace(/[<>&]/g, function (ch) {
-              return ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : "&amp;";
-            }) +
-            "</pre>"
-          : "") +
-        '<button type="button" onclick="location.reload()" style="cursor:pointer;border:1px solid rgba(129,140,248,0.4);border-radius:0.5rem;background:rgba(99,102,241,0.15);color:#c7d2fe;padding:0.45rem 1rem;font-size:0.75rem">Reload</button>' +
-        "</div>";
-      document.body.appendChild(el);
+
+      function evaluate() {
+        if (appHasRendered()) {
+          mounted = true;
+          if (timer) {
+            window.clearTimeout(timer);
+            timer = null;
+          }
+          var existing = document.getElementById(CRASH_ID);
+          if (existing) existing.remove();
+          return;
+        }
+        if (!mounted || timer || document.getElementById(CRASH_ID)) return;
+        timer = window.setTimeout(function () {
+          timer = null;
+          if (!appHasRendered()) showCrash();
+        }, SETTLE_MS);
+      }
+
+      var observer = new MutationObserver(evaluate);
+      observer.observe(root, { childList: true });
+      if (document.body) observer.observe(document.body, { childList: true });
     }
 
-    new MutationObserver(function () {
-      if (root.childElementCount > 0) {
-        mounted = true;
-        if (timer) {
-          window.clearTimeout(timer);
-          timer = null;
-        }
-        var existing = document.getElementById(CRASH_ID);
-        if (existing) existing.remove();
-        return;
-      }
-      if (!mounted || timer) return;
-      timer = window.setTimeout(function () {
-        timer = null;
-        if (root.childElementCount === 0) showCrash();
-      }, SETTLE_MS);
-    }).observe(root, { childList: true });
+    attach();
+    if (!attached && typeof document.addEventListener === "function") {
+      document.addEventListener("DOMContentLoaded", attach);
+    }
   })();
 
   function rememberRenderError(message, detail) {

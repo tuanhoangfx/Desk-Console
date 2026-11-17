@@ -14,6 +14,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { DEV_ROOT, listDevTasks, runTask } from "./windows.mjs";
 
@@ -43,6 +44,266 @@ function openLocalSqlite(filePath, { readOnly = false } = {}) {
     }
   }
   return cachedLocalSqliteOpen(filePath, readOnly);
+}
+
+/**
+ * Fallback to external CUI `node.exe` (`node:sqlite`) when running inside Electron,
+ * where neither Node-ABI `better-sqlite3` nor built-in `node:sqlite` is available.
+ */
+function runNodeSqliteBridge(scriptBody, stdinPayload) {
+  const nodeBin = resolveFarmCuiNodeExe();
+  if (!nodeBin || nodeBin === process.execPath || !fs.existsSync(nodeBin)) return null;
+  const out = execFileSync(nodeBin, ["--input-type=commonjs", "-e", scriptBody], {
+    input: JSON.stringify(stdinPayload),
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 12000,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  return JSON.parse(String(out || "{}").trim() || "{}");
+}
+
+function readAntigravitySummaryRows(sumDbPath, columnsSql) {
+  if (!fs.existsSync(sumDbPath)) return [];
+  let sdb = null;
+  try {
+    sdb = openLocalSqlite(sumDbPath, { readOnly: true });
+    return sdb.prepare(`SELECT ${columnsSql} FROM conversation_summaries`).all();
+  } catch {
+    if (!process.versions?.electron) return [];
+    try {
+      const res = runNodeSqliteBridge(
+        `const fs = require("node:fs");
+const { DatabaseSync } = require("node:sqlite");
+const req = JSON.parse(fs.readFileSync(0, "utf8"));
+const db = new DatabaseSync(req.dbPath, { open: true, readOnly: true });
+try {
+  const rows = db.prepare("SELECT " + req.cols + " FROM conversation_summaries").all();
+  process.stdout.write(JSON.stringify({ rows }));
+} finally {
+  db.close();
+}`,
+        { dbPath: sumDbPath, cols: columnsSql },
+      );
+      return Array.isArray(res?.rows) ? res.rows : [];
+    } catch {
+      return [];
+    }
+  } finally {
+    try {
+      sdb?.close();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function cleanAntigravitySummaryDb(sumDbPath, activeIds, { allowVacuum = false } = {}) {
+  if (!fs.existsSync(sumDbPath)) return 0;
+  const activeList = Array.from(activeIds);
+  const runInProcess = () => {
+    let sdb = null;
+    try {
+      sdb = openLocalSqlite(sumDbPath);
+      sdb.exec("PRAGMA busy_timeout = 3000;");
+      const delSum = sdb.prepare("DELETE FROM conversation_summaries WHERE conversation_id = ?");
+      const delFts = sdb.prepare("DELETE FROM conversations_fts WHERE conversation_id = ?");
+      let dbRemoved = 0;
+      sdb.exec("BEGIN IMMEDIATE;");
+      const curRows = sdb.prepare("SELECT conversation_id FROM conversation_summaries").all();
+      for (const r of curRows) {
+        if (!activeIds.has(r.conversation_id)) {
+          delSum.run(r.conversation_id);
+          delFts.run(r.conversation_id);
+          dbRemoved += 1;
+        }
+      }
+      const ftsRows = sdb.prepare("SELECT DISTINCT conversation_id FROM conversations_fts").all();
+      for (const r of ftsRows) {
+        if (!activeIds.has(r.conversation_id)) {
+          delFts.run(r.conversation_id);
+          dbRemoved += 1;
+        }
+      }
+      sdb.exec("COMMIT;");
+      if (allowVacuum) {
+        try {
+          const fl = sdb.prepare("PRAGMA freelist_count").get();
+          if (dbRemoved > 0 || (Number(fl?.freelist_count) || 0) > 500) {
+            sdb.exec("INSERT INTO conversations_fts(conversations_fts) VALUES('optimize');");
+            sdb.exec("VACUUM;");
+            sdb.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      return dbRemoved;
+    } finally {
+      try {
+        sdb?.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  try {
+    return runInProcess();
+  } catch {
+    if (!process.versions?.electron) return 0;
+    try {
+      const res = runNodeSqliteBridge(
+        `const fs = require("node:fs");
+const { DatabaseSync } = require("node:sqlite");
+const req = JSON.parse(fs.readFileSync(0, "utf8"));
+const active = new Set(req.activeIds || []);
+const sdb = new DatabaseSync(req.dbPath, { open: true });
+let dbRemoved = 0;
+try {
+  sdb.exec("PRAGMA busy_timeout = 3000;");
+  const delSum = sdb.prepare("DELETE FROM conversation_summaries WHERE conversation_id = ?");
+  const delFts = sdb.prepare("DELETE FROM conversations_fts WHERE conversation_id = ?");
+  sdb.exec("BEGIN IMMEDIATE;");
+  for (const r of sdb.prepare("SELECT conversation_id FROM conversation_summaries").all()) {
+    if (!active.has(r.conversation_id)) {
+      delSum.run(r.conversation_id);
+      delFts.run(r.conversation_id);
+      dbRemoved += 1;
+    }
+  }
+  for (const r of sdb.prepare("SELECT DISTINCT conversation_id FROM conversations_fts").all()) {
+    if (!active.has(r.conversation_id)) {
+      delFts.run(r.conversation_id);
+      dbRemoved += 1;
+    }
+  }
+  sdb.exec("COMMIT;");
+  if (req.allowVacuum) {
+    try {
+      const fl = sdb.prepare("PRAGMA freelist_count").get();
+      if (dbRemoved > 0 || (Number(fl?.freelist_count) || 0) > 500) {
+        sdb.exec("INSERT INTO conversations_fts(conversations_fts) VALUES('optimize');");
+        sdb.exec("VACUUM;");
+        sdb.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+      }
+    } catch {}
+  }
+} finally {
+  sdb.close();
+}
+process.stdout.write(JSON.stringify({ dbRemoved }));`,
+        { dbPath: sumDbPath, activeIds: activeList, allowVacuum },
+      );
+      return Number(res?.dbRemoved) || 0;
+    } catch {
+      return 0;
+    }
+  }
+}
+
+/**
+ * Determine whether an Antigravity conversation SQLite DB is genuinely open in the IDE.
+ * Ignores stale 0-byte leftover `-wal`/`-shm` files untouched past `recentWindowMs`.
+ */
+export function isAntigravityDbOpenInIde(
+  cDbPath,
+  now = Date.now(),
+  idleSessionMaxAgeMs = 48 * 3600_000,
+  recentWindowMs = 6 * 3600_000,
+) {
+  const walPath = `${cDbPath}-wal`;
+  const shmPath = `${cDbPath}-shm`;
+  let walSt = null;
+  let shmSt = null;
+  try {
+    if (fs.existsSync(walPath)) walSt = fs.statSync(walPath);
+  } catch {
+    return true;
+  }
+  try {
+    if (fs.existsSync(shmPath)) shmSt = fs.statSync(shmPath);
+  } catch {
+    return true;
+  }
+  if (!walSt && !shmSt) return false;
+  if (walSt && walSt.size > 0 && now - walSt.mtimeMs < idleSessionMaxAgeMs) return true;
+  const newestSidecarMs = Math.max(walSt?.mtimeMs || 0, shmSt?.mtimeMs || 0);
+  if (newestSidecarMs > 0 && now - newestSidecarMs < recentWindowMs) return true;
+  return false;
+}
+
+function readProtoVarint(buf, pos) {
+  let val = 0;
+  let shift = 0;
+  while (pos < buf.length) {
+    const byte = buf[pos++];
+    val += (byte & 0x7f) * (2 ** shift);
+    if ((byte & 0x80) === 0) return { val, pos };
+    shift += 7;
+    if (shift > 49) throw new Error("varint overflow");
+  }
+  throw new Error("truncated varint");
+}
+
+/**
+ * Safely prune dead conversation UUID entries from `agyhub_summaries_proto.pb`
+ * using strict protobuf length-delimited wire framing (fail-closed on any unexpected wire byte).
+ * Call ONLY when `language_server` for that root is not running.
+ */
+export function pruneAgyHubSummariesProto(protoPath, activeIds) {
+  if (!protoPath || !fs.existsSync(protoPath)) return { ok: true, removed: 0, kept: 0 };
+  try {
+    const buf = fs.readFileSync(protoPath);
+    if (buf.length === 0) return { ok: true, removed: 0, kept: 0 };
+    const keptChunks = [];
+    let p = 0;
+    let removed = 0;
+    let kept = 0;
+    while (p < buf.length) {
+      const start = p;
+      const { val: tag, pos: p1 } = readProtoVarint(buf, p);
+      if ((tag & 7) !== 2) return { ok: false, removed: 0, kept: 0, reason: "unexpected wire type" };
+      const field = tag >> 3;
+      const { val: len, pos: p2 } = readProtoVarint(buf, p1);
+      if (len < 0 || p2 + len > buf.length) return { ok: false, removed: 0, kept: 0, reason: "length overflow" };
+      const payload = buf.subarray(p2, p2 + len);
+      const end = p2 + len;
+      let drop = false;
+      if (field === 1 && payload.length > 2) {
+        try {
+          const { val: stag, pos: sp1 } = readProtoVarint(payload, 0);
+          if (stag === 0x0a) {
+            const { val: slen, pos: sp2 } = readProtoVarint(payload, sp1);
+            if (slen >= 8 && sp2 + slen <= payload.length) {
+              const id = payload.subarray(sp2, sp2 + slen).toString("utf8");
+              if (/^[0-9a-f-]{36}$/i.test(id) && !activeIds.has(id)) {
+                drop = true;
+              }
+            }
+          }
+        } catch {
+          return { ok: false, removed: 0, kept: 0, reason: "malformed subentry" };
+        }
+      }
+      if (drop) {
+        removed += 1;
+      } else {
+        if (field === 1) kept += 1;
+        keptChunks.push(buf.subarray(start, end));
+      }
+      p = end;
+    }
+    if (p !== buf.length) return { ok: false, removed: 0, kept: 0, reason: "trailing bytes" };
+    if (removed > 0) {
+      const tmp = `${protoPath}.prune.tmp`;
+      fs.writeFileSync(tmp, Buffer.concat(keptChunks));
+      fs.renameSync(tmp, protoPath);
+    }
+    return { ok: true, removed, kept };
+  } catch (err) {
+    return { ok: false, removed: 0, kept: 0, reason: String(err?.message || err) };
+  }
 }
 
 const TRIM_TARGET_PROCESSES = new Set([
@@ -903,45 +1164,108 @@ let autoMaintenanceTimer = null;
 let consolePopupGuardTimer = null;
 let totalSuppressedConsolePopups = 0;
 
+function ensureBinaryCuiSubsystem(exePath, sourceCopyPath = "") {
+  if (process.platform !== "win32" || !exePath || !fs.existsSync(exePath)) return false;
+  try {
+    try {
+      const binDir = path.dirname(exePath);
+      for (const entryName of fs.readdirSync(binDir)) {
+        if (!/\.(?:cui|gui)-stale(?:-\d+)?\.exe$/i.test(entryName)) continue;
+        try {
+          fs.unlinkSync(path.join(binDir, entryName));
+        } catch {
+          /* ignore while held by old process */
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    let subOffset = 0;
+    let curSub = 0;
+    const rfd = fs.openSync(exePath, "r");
+    try {
+      const hdr = Buffer.alloc(1024);
+      const bytesRead = fs.readSync(rfd, hdr, 0, 1024, 0);
+      if (bytesRead >= 256 && hdr.readUInt16LE(0) === 0x5a4d) {
+        const peOffset = hdr.readUInt32LE(0x3c);
+        if (peOffset + 96 <= bytesRead && hdr.readUInt32LE(peOffset) === 0x00004550) {
+          subOffset = peOffset + 4 + 20 + 68;
+          curSub = hdr.readUInt16LE(subOffset);
+        }
+      }
+    } finally {
+      fs.closeSync(rfd);
+    }
+    if (!subOffset || curSub !== 2) return false;
+    const writeCui = (targetPath) => {
+      const wfd = fs.openSync(targetPath, "r+");
+      try {
+        const b = Buffer.alloc(2);
+        b.writeUInt16LE(3, 0); // 3 = IMAGE_SUBSYSTEM_WINDOWS_CUI (prevents IDC_APPSTARTING cursor spin)
+        fs.writeSync(wfd, b, 0, 2, subOffset);
+      } finally {
+        fs.closeSync(wfd);
+      }
+    };
+    try {
+      writeCui(exePath);
+      return true;
+    } catch {
+      const dir = path.dirname(exePath);
+      const base = path.basename(exePath, path.extname(exePath));
+      const stalePath = path.join(dir, `${base}.gui-stale.exe`);
+      try {
+        fs.unlinkSync(stalePath);
+      } catch {
+        /* ignore if locked */
+      }
+      const backupPath = fs.existsSync(stalePath)
+        ? path.join(dir, `${base}.gui-stale-${process.pid}.exe`)
+        : stalePath;
+      fs.renameSync(exePath, backupPath);
+      const copySrc = sourceCopyPath && fs.existsSync(sourceCopyPath) ? sourceCopyPath : backupPath;
+      fs.copyFileSync(copySrc, exePath);
+      writeCui(exePath);
+      try {
+        fs.unlinkSync(backupPath);
+      } catch {
+        /* cleaned on next cycle after old process exits */
+      }
+      return true;
+    }
+  } catch {
+    return false;
+  }
+}
+
 export function ensurePlaywrightHeadlessShellsGuiSubsystem() {
   const patched = [];
   try {
     const msPw = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "ms-playwright");
-    if (!fs.existsSync(msPw)) return patched;
-    for (const dir of fs.readdirSync(msPw)) {
-      if (!/headless_shell/i.test(dir)) continue;
-      const candidates = [
-        path.join(msPw, dir, "chrome-headless-shell-win64", "chrome-headless-shell.exe"),
-        path.join(msPw, dir, "chrome-win", "headless_shell.exe"),
-      ];
-      for (const exePath of candidates) {
-        if (!fs.existsSync(exePath)) continue;
-        try {
-          const fd = fs.openSync(exePath, "r+");
-          try {
-            const hdr = Buffer.alloc(1024);
-            const bytesRead = fs.readSync(fd, hdr, 0, 1024, 0);
-            if (bytesRead >= 256 && hdr.readUInt16LE(0) === 0x5a4d) {
-              const peOffset = hdr.readUInt32LE(0x3c);
-              if (peOffset + 96 <= bytesRead && hdr.readUInt32LE(peOffset) === 0x00004550) {
-                const subOffset = peOffset + 4 + 20 + 68;
-                const curSub = hdr.readUInt16LE(subOffset);
-                if (curSub === 3) {
-                  const b = Buffer.alloc(2);
-                  b.writeUInt16LE(2, 0); // 2 = IMAGE_SUBSYSTEM_WINDOWS_GUI
-                  fs.writeSync(fd, b, 0, 2, subOffset);
-                  patched.push(exePath);
-                }
-              }
-            }
-          } finally {
-            fs.closeSync(fd);
-          }
-        } catch {
-          /* ignore if binary is currently locked */
+    if (fs.existsSync(msPw)) {
+      for (const dir of fs.readdirSync(msPw)) {
+        if (!/headless_shell/i.test(dir)) continue;
+        const candidates = [
+          path.join(msPw, dir, "chrome-headless-shell-win64", "chrome-headless-shell.exe"),
+          path.join(msPw, dir, "chrome-win", "headless_shell.exe"),
+        ];
+        for (const exePath of candidates) {
+          if (ensureBinaryCuiSubsystem(exePath)) patched.push(exePath);
         }
       }
     }
+    const cloakDir = process.env.CLOAKBROWSER_CACHE_DIR || path.join(os.homedir(), ".cloakbrowser");
+    if (fs.existsSync(cloakDir)) {
+      for (const entry of fs.readdirSync(cloakDir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || !entry.name.startsWith("chromium-")) continue;
+        const binDir = path.join(cloakDir, entry.name);
+        const headlessExe = path.join(binDir, "chrome-headless.exe");
+        const guiExe = path.join(binDir, "chrome.exe");
+        if (ensureBinaryCuiSubsystem(headlessExe, guiExe)) patched.push(headlessExe);
+      }
+    }
+    const wireproxyExe = path.join(DEV_ROOT, "Tool", "scripts", "bin", "wireproxy.exe");
+    if (ensureBinaryCuiSubsystem(wireproxyExe)) patched.push(wireproxyExe);
   } catch {
     /* ignore */
   }
@@ -1030,7 +1354,7 @@ function getProcessAgeMsNative(api, pid) {
 
 /**
  * Zero-WMI native handle-leak self-healer (<3ms via Toolhelp32 + NtQueryInformationProcess):
- * - Restarts `EVKey64.exe` cleanly if it leaks >4,000 handles (normal ~180; bloated WH_KEYBOARD_LL lags all typing/clicks).
+ * - Restarts `EVKey64.exe` cleanly if it leaks >1,200 handles (normal ~180; bloated WH_KEYBOARD_LL lags all typing/clicks).
  * - Terminates windowless `olk.exe` if it leaks >15,000 handles in the background.
  * - Terminates runaway Chrome `--type=renderer` child processes leaking >35,000 handles (never touches root browser windows).
  */
@@ -1079,7 +1403,7 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
   for (const p of scan.processes) {
     const lower = p.name.toLowerCase();
     if (lower === "evkey64.exe") {
-      if (p.handles > 4000) {
+      if (p.handles > 1200) {
         const rawCmd = readNativeProcessCmd(api, p.pid);
         const cmdExeMatch = rawCmd.match(/^"([^"]+)"|^(\S+)/);
         const detectedEvkPath = cmdExeMatch ? (cmdExeMatch[1] || cmdExeMatch[2] || "").trim() : "";
@@ -1243,12 +1567,12 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
       }
       const cmd = readNativeProcessCmd(api, p.pid);
       const m = cmd.match(/wireproxy-([a-z]{2})-(\d+)\.conf/i);
-      const cc = m ? m[1].toUpperCase() : "UNK";
       const confMatch = cmd.match(/-c\s+(?:"([^"]+)"|([^\s]+))/i);
       const confPath = confMatch ? confMatch[1] || confMatch[2] || "" : "";
-      const list = wireproxyByCountry.get(cc) || [];
+      const tunnelKey = m ? `${m[1].toUpperCase()}:${m[2]}` : confPath || "UNK";
+      const list = wireproxyByCountry.get(tunnelKey) || [];
       list.push({ pid: p.pid, handles: p.handles, name: p.name, confPath });
-      wireproxyByCountry.set(cc, list);
+      wireproxyByCountry.set(tunnelKey, list);
     } else if (lower === "node.exe" || lower === "nodew.exe") {
       const hPri = api.OpenProcess(0x0200, false, p.pid);
       if (hPri) {
@@ -1293,11 +1617,11 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
             for (const chPid of conhostChildrenByParent.get(p.pid) || []) {
               terminatePidNative(api, chPid, protectedPids);
             }
-            const nodewBin = path.join(DEV_ROOT, ".tools", "nodew.exe");
+            const nodeCuiBin = resolveFarmCuiNodeExe();
             const leanScript = path.join(DEV_ROOT, "Tool", "scripts", "ensure-dev-lean.cjs");
-            if (fs.existsSync(nodewBin) && fs.existsSync(leanScript)) {
+            if (fs.existsSync(nodeCuiBin) && fs.existsSync(leanScript)) {
               try {
-                const child = spawn(nodewBin, [leanScript, code, "--vite-only", "--force"], {
+                const child = spawn(nodeCuiBin, [leanScript, code, "--vite-only", "--force"], {
                   cwd: DEV_ROOT,
                   detached: true,
                   stdio: "ignore",
@@ -1319,16 +1643,17 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
       }
     }
   }
-  // Deduplicate wireproxy.exe tunnels: keep at most 1 (newest PID) per country code
+  // Deduplicate wireproxy.exe tunnels: keep at most 1 (newest PID) per country:port slot
   for (const [, wpList] of wireproxyByCountry.entries()) {
     if (wpList.length > 1) {
       wpList.sort((a, b) => b.pid - a.pid);
+      const keepConf = wpList[0]?.confPath || "";
       for (const dup of wpList.slice(1)) {
         if (terminatePidNative(api, dup.pid)) {
           for (const chPid of conhostChildrenByParent.get(dup.pid) || []) {
             terminatePidNative(api, chPid);
           }
-          if (dup.confPath && fs.existsSync(dup.confPath)) {
+          if (dup.confPath && dup.confPath !== keepConf && fs.existsSync(dup.confPath)) {
             try {
               fs.unlinkSync(dup.confPath);
             } catch {
@@ -1423,16 +1748,16 @@ export function measureDwmCpuLoadNative(existingScan = null) {
 
 /**
  * Adaptive Headless Throttling (`ok 3`):
- * Dynamically adjusts `maxHeadlessConcurrent` between `2`, `4`, and `6` based on live `dwm.exe` CPU load,
- * with `maxHeadlessIdleMs` between 2 and 4 minutes so multi-step Gmail/FB/Muse 3-chat warmup flows
- * (which take ~90–150s per profile) are never prematurely killed mid-flight.
+ * Dynamically adjusts `maxHeadlessConcurrent` between `4`, `6`, and `8` based on live `dwm.exe` CPU load,
+ * with `maxHeadlessIdleMs` between 90s and 180s so multi-step Gmail/FB/Muse warmup flows
+ * (which take ~90–150s per profile) are never prematurely killed mid-flight while protecting SSD/Xeon UI.
  */
 export function computeAdaptiveHeadlessCap(existingScan = null) {
   const dwmCpuSecPerSec = measureDwmCpuLoadNative(existingScan);
   if (dwmCpuSecPerSec >= 1.2) {
     return {
       dwmCpuSecPerSec,
-      maxHeadlessConcurrent: 16,
+      maxHeadlessConcurrent: 4,
       maxHeadlessIdleMs: 90_000,
       throttled: true,
       mode: "heavy-dwm-throttle",
@@ -1441,7 +1766,7 @@ export function computeAdaptiveHeadlessCap(existingScan = null) {
   if (dwmCpuSecPerSec >= 0.6) {
     return {
       dwmCpuSecPerSec,
-      maxHeadlessConcurrent: 28,
+      maxHeadlessConcurrent: 6,
       maxHeadlessIdleMs: 120_000,
       throttled: true,
       mode: "moderate-dwm-throttle",
@@ -1449,7 +1774,7 @@ export function computeAdaptiveHeadlessCap(existingScan = null) {
   }
   return {
     dwmCpuSecPerSec,
-    maxHeadlessConcurrent: 40,
+    maxHeadlessConcurrent: 8,
     maxHeadlessIdleMs: 180_000,
     throttled: false,
     mode: "normal-sweet-spot",
@@ -1475,6 +1800,14 @@ const {
 } = farmSupervisorLib || {};
 
 const FARM_RESPAWN_COOLDOWN_MS = 3 * 60_000;
+const HEAVY_FARM_SLOT_MS = 20 * 60_000;
+const SEQUENTIAL_HEAVY_FARM_IDS = new Set([
+  "fb-fleet-autologin",
+  "fasttrack-totp-healer",
+  "fleet-autonomous-maintainer",
+  "fanpage-fleet-daemon",
+  "muse-fleet-onboard",
+]);
 const farmLastSpawnAttemptByJob = new Map();
 
 function resolveFarmCuiNodeExe() {
@@ -1657,18 +1990,70 @@ export async function runFarmSupervisorTick(existingScan = null) {
 
   const uptimeSec = os.uptime();
   const nowMs = Date.now();
-  const missingAutoJobs = status.jobs.filter((j) => {
-    if (!j.autoResume || j.running) return false;
-    // Never auto-launch heavy Chromium-spawning farm daemons during the first 5 minutes after Windows boot
-    if (uptimeSec < 300 && j.id !== "muse-headless-adapter") return false;
-    // Enforce 3-minute per-job respawn backoff so exiting/blocked scripts never rapid-loop every 20s tick
-    const memLast = farmLastSpawnAttemptByJob.get(j.id) || 0;
-    const cfgLast = j.lastStartedAt ? Date.parse(j.lastStartedAt) || 0 : 0;
-    const lastAttempt = Math.max(memLast, cfgLast);
-    if (lastAttempt > 0 && nowMs - lastAttempt < FARM_RESPAWN_COOLDOWN_MS) return false;
-    return true;
-  });
+  const runningHeavyJobs = status.jobs.filter((j) => SEQUENTIAL_HEAVY_FARM_IDS.has(j.id) && j.running);
+  const queuedHeavyAutoJobs = status.jobs.filter(
+    (j) => SEQUENTIAL_HEAVY_FARM_IDS.has(j.id) && j.autoResume && !j.running,
+  );
+  let cfg = null;
+  let cfgChanged = false;
+
+  // Time-sliced Sequential Round-Robin: keep at most 1 heavy Chromium batch job running at a time;
+  // if another heavy autoResume job is waiting and the active slot exceeded 20 minutes, rotate cleanly.
+  if (api && runningHeavyJobs.length > 0 && (runningHeavyJobs.length > 1 || queuedHeavyAutoJobs.length > 0)) {
+    const sortedRunning = [...runningHeavyJobs].sort((a, b) => {
+      const aAt = Date.parse(a.lastStartedAt || "") || 0;
+      const bAt = Date.parse(b.lastStartedAt || "") || 0;
+      return bAt - aAt;
+    });
+    for (let i = 0; i < sortedRunning.length; i++) {
+      const activeJob = sortedRunning[i];
+      const startedMs = Math.max(
+        farmLastSpawnAttemptByJob.get(activeJob.id) || 0,
+        Date.parse(activeJob.lastStartedAt || "") || 0,
+      );
+      const isDuplicateHeavy = i > 0;
+      const slotExpired = queuedHeavyAutoJobs.length > 0 && startedMs > 0 && nowMs - startedMs >= HEAVY_FARM_SLOT_MS;
+      if (isDuplicateHeavy || slotExpired) {
+        for (const pid of activeJob.shardPids || (activeJob.pid ? [activeJob.pid] : [])) {
+          terminatePidNative(api, pid);
+        }
+        activeJob.running = false;
+        if (!cfg) cfg = readFarmSupervisorConfig();
+        const cIdx = cfg.jobs.findIndex((j) => j.id === activeJob.id);
+        if (cIdx >= 0) {
+          cfg.jobs[cIdx].lastStoppedAt = new Date(nowMs).toISOString();
+          cfgChanged = true;
+        }
+      }
+    }
+  }
+
+  const heavySlotBusy = status.jobs.some((j) => SEQUENTIAL_HEAVY_FARM_IDS.has(j.id) && j.running);
+  const missingAutoJobs = status.jobs
+    .filter((j) => {
+      if (!j.autoResume || j.running) return false;
+      // Never auto-launch heavy Chromium-spawning farm daemons during the first 5 minutes after Windows boot
+      if (uptimeSec < 300 && j.id !== "muse-headless-adapter") return false;
+      // Enforce Sequential Queue: only 1 heavy Chromium batch job active at a time
+      if (SEQUENTIAL_HEAVY_FARM_IDS.has(j.id) && heavySlotBusy) return false;
+      // Enforce 3-minute per-job respawn backoff so exiting/blocked scripts never rapid-loop every 20s tick
+      const memLast = farmLastSpawnAttemptByJob.get(j.id) || 0;
+      const cfgLast = j.lastStartedAt ? Date.parse(j.lastStartedAt) || 0 : 0;
+      const lastAttempt = Math.max(memLast, cfgLast);
+      if (lastAttempt > 0 && nowMs - lastAttempt < FARM_RESPAWN_COOLDOWN_MS) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      // Round-Robin fairness: prefer light/always-on first, then oldest lastStartedAt among heavy jobs
+      const aHeavy = SEQUENTIAL_HEAVY_FARM_IDS.has(a.id) ? 1 : 0;
+      const bHeavy = SEQUENTIAL_HEAVY_FARM_IDS.has(b.id) ? 1 : 0;
+      if (aHeavy !== bHeavy) return aHeavy - bHeavy;
+      const aAt = Date.parse(a.lastStartedAt || "") || 0;
+      const bAt = Date.parse(b.lastStartedAt || "") || 0;
+      return aAt - bAt;
+    });
   if (missingAutoJobs.length === 0) {
+    if (cfgChanged && cfg) writeFarmSupervisorConfig(cfg);
     return { ok: true, deduplicatedPids, resumedJobs, status };
   }
 
@@ -1680,11 +2065,11 @@ export async function runFarmSupervisorTick(existingScan = null) {
     stealthOnline = false;
   }
   if (!stealthOnline) {
+    if (cfgChanged && cfg) writeFarmSupervisorConfig(cfg);
     return { ok: true, waitingForStealth: true, deduplicatedPids, resumedJobs, status };
   }
 
-  const cfg = readFarmSupervisorConfig();
-  let cfgChanged = false;
+  if (!cfg) cfg = readFarmSupervisorConfig();
   // Stagger at most 1 heavy daemon launch per tick to prevent simultaneous Chromium process storms
   for (const job of missingAutoJobs.slice(0, 1)) {
     farmLastSpawnAttemptByJob.set(job.id, nowMs);
@@ -2168,10 +2553,7 @@ export function readAntigravityBrainStats(force = false, existingScan = null) {
   if (!force && cachedAntigravityStats.data && now - cachedAntigravityStats.atMs < 20_000) {
     return { ...cachedAntigravityStats.data, lsRamMB };
   }
-  const agyRoot = path.join(os.homedir(), ".gemini", "antigravity");
-  const brainDir = path.join(agyRoot, "brain");
-  const convDir = path.join(agyRoot, "conversations");
-  const sumDbPath = path.join(agyRoot, "conversation_summaries.db");
+  const agyRoots = resolveAntigravityRoots();
   let sessionCount = 0;
   let openTabCount = 0;
   let brainBytes = 0;
@@ -2180,131 +2562,121 @@ export function readAntigravityBrainStats(force = false, existingScan = null) {
   const bloatedIdSet = new Set();
   const openBloatedTabs = [];
 
-  try {
-    const summaryMap = new Map();
-    if (fs.existsSync(sumDbPath)) {
-      try {
-        sumDbBytes = fs.statSync(sumDbPath).size;
-      } catch {
-        /* ignore */
-      }
-      let sdb = null;
-      try {
-        sdb = openLocalSqlite(sumDbPath, { readOnly: true });
-        const rows = sdb
-          .prepare("SELECT conversation_id, title, step_count FROM conversation_summaries")
-          .all();
-        for (const r of rows) {
+  for (const agyRoot of agyRoots) {
+    const brainDir = path.join(agyRoot, "brain");
+    const convDir = path.join(agyRoot, "conversations");
+    const sumDbPath = path.join(agyRoot, "conversation_summaries.db");
+    try {
+      const summaryMap = new Map();
+      if (fs.existsSync(sumDbPath)) {
+        try {
+          sumDbBytes += fs.statSync(sumDbPath).size;
+        } catch {
+          /* ignore */
+        }
+        for (const r of readAntigravitySummaryRows(sumDbPath, "conversation_id, title, step_count")) {
           summaryMap.set(r.conversation_id, {
             title: String(r.title || "").trim(),
             steps: Number(r.step_count) || 0,
           });
         }
-      } catch {
-        /* ignore */
-      } finally {
-        try {
-          sdb?.close();
-        } catch {
-          /* ignore */
-        }
       }
-    }
 
-    if (fs.existsSync(brainDir)) {
-      for (const id of fs.readdirSync(brainDir)) {
-        if (id === "tempmediaStorage" || id.startsWith(".")) continue;
-        const full = path.join(brainDir, id);
-        let st;
-        try {
-          st = fs.statSync(full);
-        } catch {
-          continue;
-        }
-        if (!st.isDirectory()) continue;
-        sessionCount += 1;
-        const logsDir = path.join(full, ".system_generated", "logs");
-        if (fs.existsSync(logsDir)) {
-          for (const lf of fs.readdirSync(logsDir, { withFileTypes: true })) {
-            const lfp = path.join(logsDir, lf.name);
-            try {
-              if (lf.isDirectory()) {
-                for (const cf of fs.readdirSync(lfp)) {
-                  try {
-                    brainBytes += fs.statSync(path.join(lfp, cf)).size;
-                  } catch {
-                    /* ignore */
+      if (fs.existsSync(brainDir)) {
+        for (const id of fs.readdirSync(brainDir)) {
+          if (id === "tempmediaStorage" || id.startsWith(".")) continue;
+          const full = path.join(brainDir, id);
+          let st;
+          try {
+            st = fs.statSync(full);
+          } catch {
+            continue;
+          }
+          if (!st.isDirectory()) continue;
+          sessionCount += 1;
+          const logsDir = path.join(full, ".system_generated", "logs");
+          if (fs.existsSync(logsDir)) {
+            for (const lf of fs.readdirSync(logsDir, { withFileTypes: true })) {
+              const lfp = path.join(logsDir, lf.name);
+              try {
+                if (lf.isDirectory()) {
+                  for (const cf of fs.readdirSync(lfp)) {
+                    try {
+                      brainBytes += fs.statSync(path.join(lfp, cf)).size;
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                } else {
+                  const lst = fs.statSync(lfp);
+                  brainBytes += lst.size;
+                  if (lf.name === "transcript.jsonl" && lst.size >= 5 * 1024 * 1024) {
+                    bloatedIdSet.add(id.slice(0, 8));
                   }
                 }
-              } else {
-                const lst = fs.statSync(lfp);
-                brainBytes += lst.size;
-                if (lf.name === "transcript.jsonl" && lst.size >= 5 * 1024 * 1024) {
-                  bloatedIdSet.add(id.slice(0, 8));
-                }
-              }
-            } catch {
-              /* ignore */
-            }
-          }
-        }
-        const scratchDir = path.join(full, "scratch");
-        if (fs.existsSync(scratchDir)) {
-          const stack = [scratchDir];
-          while (stack.length) {
-            const cur = stack.pop();
-            let children = [];
-            try {
-              children = fs.readdirSync(cur, { withFileTypes: true });
-            } catch {
-              continue;
-            }
-            for (const c of children) {
-              const cp = path.join(cur, c.name);
-              try {
-                if (c.isDirectory()) stack.push(cp);
-                else brainBytes += fs.statSync(cp).size;
               } catch {
                 /* ignore */
               }
             }
           }
-        }
-      }
-    }
-    if (fs.existsSync(convDir)) {
-      const convFiles = new Set(fs.readdirSync(convDir));
-      for (const f of convFiles) {
-        const fp = path.join(convDir, f);
-        try {
-          const cst = fs.statSync(fp);
-          convBytes += cst.size;
-          if (f.endsWith(".db")) {
-            const id = f.replace(/\.db$/i, "");
-            const openInIde = convFiles.has(`${f}-wal`) || convFiles.has(`${f}-shm`);
-            if (openInIde) openTabCount += 1;
-            const dbMB = Math.round((cst.size / 1048576) * 10) / 10;
-            const meta = summaryMap.get(id);
-            const steps = meta?.steps || 0;
-            const isBloated = dbMB >= 50 || steps >= 4000 || bloatedIdSet.has(id.slice(0, 8));
-            if (isBloated) {
-              bloatedIdSet.add(id.slice(0, 8));
-              openBloatedTabs.push({
-                id: id.slice(0, 8),
-                title: (meta?.title || id.slice(0, 8)).slice(0, 34),
-                steps,
-                dbMB,
-                openInIde,
-              });
+          const scratchDir = path.join(full, "scratch");
+          if (fs.existsSync(scratchDir)) {
+            const stack = [scratchDir];
+            while (stack.length) {
+              const cur = stack.pop();
+              let children = [];
+              try {
+                children = fs.readdirSync(cur, { withFileTypes: true });
+              } catch {
+                continue;
+              }
+              for (const c of children) {
+                const cp = path.join(cur, c.name);
+                try {
+                  if (c.isDirectory()) stack.push(cp);
+                  else brainBytes += fs.statSync(cp).size;
+                } catch {
+                  /* ignore */
+                }
+              }
             }
           }
-        } catch {
-          /* ignore */
         }
       }
+      if (fs.existsSync(convDir)) {
+        const convFiles = new Set(fs.readdirSync(convDir));
+        for (const f of convFiles) {
+          const fp = path.join(convDir, f);
+          try {
+            const cst = fs.statSync(fp);
+            convBytes += cst.size;
+            if (f.endsWith(".db")) {
+              const id = f.replace(/\.db$/i, "");
+              const openInIde = isAntigravityDbOpenInIde(fp, now);
+              if (openInIde) openTabCount += 1;
+              const dbMB = Math.round((cst.size / 1048576) * 10) / 10;
+              const meta = summaryMap.get(id);
+              const steps = meta?.steps || 0;
+              const isBloated = dbMB >= 50 || steps >= 4000 || bloatedIdSet.has(id.slice(0, 8));
+              if (isBloated) {
+                bloatedIdSet.add(id.slice(0, 8));
+                openBloatedTabs.push({
+                  id: id.slice(0, 8),
+                  title: (meta?.title || id.slice(0, 8)).slice(0, 34),
+                  steps,
+                  dbMB,
+                  openInIde,
+                });
+              }
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    } catch {
+      /* ignore */
     }
-  } catch {
-    /* ignore */
   }
 
   openBloatedTabs.sort((a, b) => Number(b.openInIde) - Number(a.openInIde) || b.dbMB - a.dbMB);
@@ -2329,29 +2701,48 @@ export function readAntigravityBrainStats(force = false, existingScan = null) {
   return data;
 }
 
+export function resolveAntigravityRoots(options = {}) {
+  if (options.agyRoot) return [path.resolve(options.agyRoot)];
+  if (Array.isArray(options.agyRoots) && options.agyRoots.length > 0) {
+    return options.agyRoots.map((r) => path.resolve(r));
+  }
+  const roots = [path.join(os.homedir(), ".gemini", "antigravity")];
+  const sxsBase = options.sxsBaseDir || (DEV_ROOT ? path.join(DEV_ROOT, ".tools", "antigravity-sxs") : "");
+  if (sxsBase && fs.existsSync(sxsBase)) {
+    try {
+      for (const ent of fs.readdirSync(sxsBase, { withFileTypes: true })) {
+        if (!ent.isDirectory() || !ent.name.startsWith("home-")) continue;
+        const candidate = path.join(sxsBase, ent.name, ".gemini", "antigravity");
+        if (fs.existsSync(candidate) && !roots.includes(candidate)) {
+          roots.push(candidate);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return roots;
+}
+
 export function sweepAntigravityStaleTranscripts(options = {}) {
   // Keep conversations touched by the user or agent within the last 48h (2 days); only delete closed sessions
   // with zero activity > 48h, ghost entries in conversation_summaries.db, and finished subagents (> 6h idle).
+  // Scans both primary ~/.gemini/antigravity and all side-by-side (.tools/antigravity-sxs/home-*) roots.
   const idleSessionMaxAgeMs = Number(options.idleSessionMaxAgeMs) || 48 * 3600_000;
-  const subagentMaxAgeMs = 6 * 3600_000;
+  const subagentMaxAgeMs = Number(options.subagentMaxAgeMs) || 6 * 3600_000;
   const taskStepMaxAgeMs = Number(options.taskStepMaxAgeMs) || 24 * 3600_000; // 24h for closed session task/step files
-  const agyRoot = path.join(os.homedir(), ".gemini", "antigravity");
-  const brainDir = path.join(agyRoot, "brain");
-  const convDir = path.join(agyRoot, "conversations");
-  const annDir = path.join(agyRoot, "annotations");
-  const presDir = path.join(agyRoot, "presence");
-  const sumDbPath = path.join(agyRoot, "conversation_summaries.db");
-  const now = Date.now();
+  const agyRoots = resolveAntigravityRoots(options);
+  const now = Number(options.nowMs) || Date.now();
   let removedSessions = 0;
   let prunedArtifacts = 0;
 
-  const forceRemoveDir = (p) => {
+  const forceRemoveDir = (p, brainDir) => {
     try {
       fs.rmSync(p, { recursive: true, force: true });
     } catch {
       /* ignore */
     }
-    if (fs.existsSync(p)) {
+    if (fs.existsSync(p) && process.platform === "win32") {
       try {
         execFileSync(
           "cmd.exe",
@@ -2361,22 +2752,113 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
       } catch {
         /* ignore */
       }
+      // Fallback for restricted ACL subdirs (e.g. OptimizationGuideModelsManifest) strictly inside brainDir
+      const resolvedBrain = path.resolve(brainDir);
+      const resolvedTarget = path.resolve(p);
+      if (fs.existsSync(p) && resolvedTarget.startsWith(resolvedBrain + path.sep)) {
+        try {
+          execFileSync(
+            "cmd.exe",
+            [
+              "/d",
+              "/s",
+              "/c",
+              `takeown /F "${p}" /R /D Y >nul 2>&1 & icacls "${p}" /reset /T /C /Q >nul 2>&1 & rd /s /q "${p}" >nul 2>&1`,
+            ],
+            { windowsHide: true, timeout: 10000 },
+          );
+        } catch {
+          /* ignore */
+        }
+      }
     }
     return !fs.existsSync(p);
   };
 
+  const home = os.homedir();
+  const appData = process.env.APPDATA || path.join(home, "AppData", "Roaming");
+  let aliveLsPids = new Set();
+  let lsRunningAny = false;
   try {
-    const activeIds = new Set();
-    const summaryMeta = new Map();
-    if (fs.existsSync(sumDbPath)) {
-      let sdb = null;
+    for (const p of scanNativeProcesses().processes) {
+      if (/^language_server/i.test(String(p.name || ""))) {
+        const pid = Number(p.pid || 0);
+        if (pid > 0) aliveLsPids.add(pid);
+        lsRunningAny = true;
+      }
+    }
+  } catch {
+    lsRunningAny = true;
+  }
+
+  const parseLsLogPids = (logPath) => {
+    if (!fs.existsSync(logPath)) return [];
+    try {
+      const raw = fs.readFileSync(logPath, "utf8");
+      const pids = [];
+      const re = /Starting language server process with pid (\d+)/g;
+      let m;
+      while ((m = re.exec(raw)) !== null) {
+        const pid = Number(m[1]);
+        if (Number.isFinite(pid) && pid > 0) pids.push(pid);
+      }
+      return pids;
+    } catch {
+      return [];
+    }
+  };
+
+  const isRootLsRunning = (targetRoot) => {
+    if (typeof options.isRootLsRunning === "function") {
+      return Boolean(options.isRootLsRunning(targetRoot, aliveLsPids));
+    }
+    if (!lsRunningAny) return false;
+    if (aliveLsPids.size === 0) return true; // scan failed earlier
+
+    const daemonDir = path.join(targetRoot, "daemon");
+    if (fs.existsSync(daemonDir)) {
       try {
-        sdb = openLocalSqlite(sumDbPath, { readOnly: true });
-        const rows = sdb
-          .prepare(
-            "SELECT conversation_id, last_modified_time, last_user_input_time, parent_conversation_id FROM conversation_summaries",
-          )
-          .all();
+        for (const name of fs.readdirSync(daemonDir)) {
+          if (!/^hub_.*\.json$/i.test(name)) continue;
+          try {
+            const parsed = JSON.parse(fs.readFileSync(path.join(daemonDir, name), "utf8"));
+            const pid = Number(parsed?.pid || 0);
+            if (pid > 0 && aliveLsPids.has(pid)) return true;
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const sxsMatch = /[\\/]antigravity-sxs[\\/]home-([^\\/]+)[\\/]\.gemini[\\/]antigravity$/i.exec(targetRoot);
+    if (sxsMatch) {
+      const sxsBase = path.dirname(path.dirname(path.dirname(targetRoot)));
+      const sxsLog = path.join(sxsBase, `userdata-${sxsMatch[1]}`, "logs", "language_server.log");
+      return parseLsLogPids(sxsLog).some((pid) => aliveLsPids.has(pid));
+    }
+
+    const primaryLog = path.join(appData, "Antigravity", "logs", "language_server.log");
+    return parseLsLogPids(primaryLog).some((pid) => aliveLsPids.has(pid));
+  };
+
+  try {
+    for (const agyRoot of agyRoots) {
+      const brainDir = path.join(agyRoot, "brain");
+      const convDir = path.join(agyRoot, "conversations");
+      const annDir = path.join(agyRoot, "annotations");
+      const presDir = path.join(agyRoot, "presence");
+      const sumDbPath = path.join(agyRoot, "conversation_summaries.db");
+
+      const activeIds = new Set();
+      const summaryMeta = new Map();
+      if (fs.existsSync(sumDbPath)) {
+        const rows = readAntigravitySummaryRows(
+          sumDbPath,
+          "conversation_id, last_modified_time, last_user_input_time, parent_conversation_id",
+        );
         for (const r of rows) {
           summaryMeta.set(r.conversation_id, {
             modMs: Date.parse(r.last_modified_time) || 0,
@@ -2384,203 +2866,165 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
             isSubagent: Boolean(r.parent_conversation_id),
           });
         }
-      } catch {
-        /* ignore */
-      } finally {
-        try {
-          sdb?.close();
-        } catch {
-          /* ignore */
-        }
       }
-    }
 
-    if (fs.existsSync(brainDir)) {
-      for (const id of fs.readdirSync(brainDir)) {
-        if (id === "tempmediaStorage" || id.startsWith(".")) continue;
-        const full = path.join(brainDir, id);
-        let st;
-        try {
-          st = fs.statSync(full);
-        } catch {
-          continue;
-        }
-        if (!st.isDirectory()) continue;
-
-        const cDbPath = path.join(convDir, `${id}.db`);
-        const isOpenInIde = fs.existsSync(`${cDbPath}-wal`) || fs.existsSync(`${cDbPath}-shm`);
-        const meta = summaryMeta.get(id);
-        const tPath = path.join(full, ".system_generated", "logs", "transcript.jsonl");
-        let tMtime = 0;
-        try {
-          tMtime = fs.statSync(tPath).mtimeMs;
-        } catch {
-          /* ignore */
-        }
-
-        const effectiveLastActiveMs = Math.max(
-          meta?.userMs || 0,
-          meta?.modMs || 0,
-          tMtime || 0,
-          st.mtimeMs || 0,
-          st.birthtimeMs || 0,
-        );
-        const isStaleSubagent =
-          (meta?.isSubagent || (!meta && !tMtime)) &&
-          now - Math.max(meta?.modMs || 0, tMtime || 0, st.mtimeMs || 0, st.birthtimeMs || 0) > subagentMaxAgeMs;
-        const isStaleSession = now - effectiveLastActiveMs > idleSessionMaxAgeMs;
-
-        if (!isOpenInIde && (isStaleSubagent || isStaleSession)) {
-          if (forceRemoveDir(full)) {
-            removedSessions += 1;
+      if (fs.existsSync(brainDir)) {
+        for (const id of fs.readdirSync(brainDir)) {
+          if (id === "tempmediaStorage" || id.startsWith(".")) continue;
+          const full = path.join(brainDir, id);
+          let st;
+          try {
+            st = fs.statSync(full);
+          } catch {
+            continue;
           }
-          continue;
-        }
-        activeIds.add(id);
-        // Never touch brain/<id>/scratch or any files in open/active conversations.
-        // Only prune .system_generated/tasks or steps from a closed conversation idle > 24h.
-        if (!isOpenInIde && now - effectiveLastActiveMs > 24 * 3600_000) {
-          for (const sub of ["tasks", "steps"]) {
-            const subDir = path.join(full, ".system_generated", sub);
-            if (!fs.existsSync(subDir)) continue;
-            for (const item of fs.readdirSync(subDir)) {
-              const itemPath = path.join(subDir, item);
-              try {
-                const ist = fs.statSync(itemPath);
-                if (now - ist.mtimeMs > taskStepMaxAgeMs) {
-                  fs.rmSync(itemPath, { recursive: true, force: true });
-                  prunedArtifacts += 1;
+          if (!st.isDirectory()) continue;
+
+          const cDbPath = path.join(convDir, `${id}.db`);
+          const isOpenInIde = isAntigravityDbOpenInIde(cDbPath, now, idleSessionMaxAgeMs);
+          const meta = summaryMeta.get(id);
+          const tPath = path.join(full, ".system_generated", "logs", "transcript.jsonl");
+          let tMtime = 0;
+          try {
+            tMtime = fs.statSync(tPath).mtimeMs;
+          } catch {
+            /* ignore */
+          }
+
+          const effectiveLastActiveMs = Math.max(
+            meta?.userMs || 0,
+            meta?.modMs || 0,
+            tMtime || 0,
+            st.mtimeMs || 0,
+            st.birthtimeMs || 0,
+          );
+          const isStaleSubagent =
+            (meta?.isSubagent || (!meta && !tMtime)) &&
+            now - Math.max(meta?.modMs || 0, tMtime || 0, st.mtimeMs || 0, st.birthtimeMs || 0) > subagentMaxAgeMs;
+          const isStaleSession = now - effectiveLastActiveMs > idleSessionMaxAgeMs;
+
+          if (!isOpenInIde && (isStaleSubagent || isStaleSession)) {
+            if (forceRemoveDir(full, brainDir)) {
+              removedSessions += 1;
+            } else {
+              activeIds.add(id);
+            }
+            continue;
+          }
+          activeIds.add(id);
+          // Never touch brain/<id>/scratch or any files in open/active conversations.
+          // Only prune .system_generated/tasks or steps from a closed conversation idle > 24h.
+          if (!isOpenInIde && now - effectiveLastActiveMs > 24 * 3600_000) {
+            for (const sub of ["tasks", "steps"]) {
+              const subDir = path.join(full, ".system_generated", sub);
+              if (!fs.existsSync(subDir)) continue;
+              for (const item of fs.readdirSync(subDir)) {
+                const itemPath = path.join(subDir, item);
+                try {
+                  const ist = fs.statSync(itemPath);
+                  if (now - ist.mtimeMs > taskStepMaxAgeMs) {
+                    fs.rmSync(itemPath, { recursive: true, force: true });
+                    prunedArtifacts += 1;
+                  }
+                } catch {
+                  /* ignore */
                 }
-              } catch {
-                /* ignore */
               }
             }
           }
         }
       }
-    }
 
-    // Remove orphan files in conversations/, annotations/, and presence/ FIRST before cleaning conversation_summaries.db
-    if (fs.existsSync(convDir)) {
-      for (const name of fs.readdirSync(convDir)) {
-        const baseId = name.replace(/\.(pb|json|db|bak).*$/i, "");
-        if (activeIds.has(baseId)) continue;
-        const full = path.join(convDir, name);
-        try {
-          fs.rmSync(full, { recursive: true, force: true });
-          prunedArtifacts += 1;
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-    if (fs.existsSync(annDir)) {
-      for (const name of fs.readdirSync(annDir)) {
-        const baseId = name.replace(/\.pbtxt$/i, "");
-        if (activeIds.has(baseId)) continue;
-        try {
-          fs.rmSync(path.join(annDir, name), { force: true });
-          prunedArtifacts += 1;
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-    if (fs.existsSync(presDir)) {
-      for (const name of fs.readdirSync(presDir)) {
-        const baseId = name.replace(/\.lock$/i, "");
-        if (activeIds.has(baseId)) continue;
-        try {
-          fs.rmSync(path.join(presDir, name), { force: true });
-          prunedArtifacts += 1;
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-
-    // Sync conversation_summaries.db + conversations_fts so deleted/ghost chats disappear from the Antigravity UI sidebar
-    if (fs.existsSync(sumDbPath)) {
-      let sdb = null;
-      try {
-        sdb = openLocalSqlite(sumDbPath);
-        sdb.exec("PRAGMA busy_timeout = 3000;");
-        const delSum = sdb.prepare("DELETE FROM conversation_summaries WHERE conversation_id = ?");
-        const delFts = sdb.prepare("DELETE FROM conversations_fts WHERE conversation_id = ?");
-        let dbRemoved = 0;
-        sdb.exec("BEGIN IMMEDIATE;");
-        const curRows = sdb.prepare("SELECT conversation_id FROM conversation_summaries").all();
-        for (const r of curRows) {
-          if (!activeIds.has(r.conversation_id)) {
-            delSum.run(r.conversation_id);
-            delFts.run(r.conversation_id);
-            dbRemoved += 1;
+      // Remove orphan files in conversations/, annotations/, and presence/ FIRST before cleaning conversation_summaries.db
+      if (fs.existsSync(convDir)) {
+        for (const name of fs.readdirSync(convDir)) {
+          const baseId = name.replace(/\.(pb|json|db|bak).*$/i, "");
+          if (activeIds.has(baseId)) continue;
+          const full = path.join(convDir, name);
+          try {
+            fs.rmSync(full, { recursive: true, force: true });
+            prunedArtifacts += 1;
+          } catch {
+            /* ignore */
           }
         }
-        const ftsRows = sdb.prepare("SELECT DISTINCT conversation_id FROM conversations_fts").all();
-        for (const r of ftsRows) {
-          if (!activeIds.has(r.conversation_id)) {
-            delFts.run(r.conversation_id);
-            dbRemoved += 1;
+      }
+      if (fs.existsSync(annDir)) {
+        for (const name of fs.readdirSync(annDir)) {
+          const baseId = name.replace(/\.pbtxt$/i, "");
+          if (activeIds.has(baseId)) continue;
+          try {
+            fs.rmSync(path.join(annDir, name), { force: true });
+            prunedArtifacts += 1;
+          } catch {
+            /* ignore */
           }
         }
-        sdb.exec("COMMIT;");
+      }
+      if (fs.existsSync(presDir)) {
+        for (const name of fs.readdirSync(presDir)) {
+          const baseId = name.replace(/\.lock$/i, "");
+          if (activeIds.has(baseId)) continue;
+          try {
+            fs.rmSync(path.join(presDir, name), { force: true });
+            prunedArtifacts += 1;
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
+      const rootLsRunning = isRootLsRunning(agyRoot);
+
+      // Sync conversation_summaries.db + conversations_fts so deleted/ghost chats disappear from the Antigravity UI sidebar
+      if (fs.existsSync(sumDbPath)) {
+        const dbRemoved = cleanAntigravitySummaryDb(sumDbPath, activeIds, { allowVacuum: !rootLsRunning });
         if (dbRemoved > 0) {
           removedSessions += dbRemoved;
         }
-        try {
-          const fl = sdb.prepare("PRAGMA freelist_count").get();
-          if (dbRemoved > 0 || (Number(fl?.freelist_count) || 0) > 500) {
-            sdb.exec("INSERT INTO conversations_fts(conversations_fts) VALUES('optimize');");
-            sdb.exec("VACUUM;");
-            sdb.exec("PRAGMA wal_checkpoint(TRUNCATE);");
-          }
-        } catch {
-          /* ignore */
-        }
-      } catch {
-        /* ignore */
-      } finally {
-        try {
-          sdb?.close();
-        } catch {
-          /* ignore */
+      }
+      // Prune stale entries from agyhub_summaries_proto.pb only when this root's language_server is stopped (or explicitly allowed in tests)
+      const protoPath = path.join(agyRoot, "agyhub_summaries_proto.pb");
+      if ((!rootLsRunning || options.allowProtoPrune) && fs.existsSync(protoPath)) {
+        const protoRes = pruneAgyHubSummariesProto(protoPath, activeIds);
+        if (protoRes.removed > 0) {
+          prunedArtifacts += protoRes.removed;
         }
       }
-    }
 
-    // Auto-compact closed trajectory DBs (> 20 MB, no active .db-wal/.db-shm) by trimming old gen_metadata/executor_metadata
-    if (fs.existsSync(convDir)) {
-      const convFiles = new Set(fs.readdirSync(convDir));
-      for (const name of convFiles) {
-        if (!name.endsWith(".db")) continue;
-        if (convFiles.has(`${name}-wal`) || convFiles.has(`${name}-shm`)) continue;
-        const full = path.join(convDir, name);
-        try {
-          const cst = fs.statSync(full);
-          if (cst.size < 20 * 1048576 || now - cst.mtimeMs < 6 * 3600_000) continue;
-          let cdb = null;
+      // Auto-compact closed trajectory DBs (> 20 MB, no active .db-wal/.db-shm) by trimming old gen_metadata/executor_metadata
+      if (fs.existsSync(convDir)) {
+        const convFiles = new Set(fs.readdirSync(convDir));
+        for (const name of convFiles) {
+          if (!name.endsWith(".db")) continue;
+          if (convFiles.has(`${name}-wal`) || convFiles.has(`${name}-shm`)) continue;
+          const full = path.join(convDir, name);
           try {
-            cdb = openLocalSqlite(full);
-            cdb.exec("PRAGMA busy_timeout = 1500;");
-            const oldGen = cdb
-              .prepare("SELECT COUNT(*) as c FROM gen_metadata WHERE idx < (SELECT COALESCE(MAX(idx),0) - 100 FROM steps)")
-              .get();
-            if (oldGen?.c > 50) {
-              cdb.exec("DELETE FROM gen_metadata WHERE idx < (SELECT COALESCE(MAX(idx),0) - 100 FROM steps);");
-              cdb.exec("DELETE FROM executor_metadata WHERE idx < (SELECT COALESCE(MAX(idx),0) - 100 FROM steps);");
-              cdb.exec("VACUUM;");
-              prunedArtifacts += 1;
-            }
-          } finally {
+            const cst = fs.statSync(full);
+            if (cst.size < 20 * 1048576 || now - cst.mtimeMs < 6 * 3600_000) continue;
+            let cdb = null;
             try {
-              cdb?.close();
-            } catch {
-              /* ignore */
+              cdb = openLocalSqlite(full);
+              cdb.exec("PRAGMA busy_timeout = 1500;");
+              const oldGen = cdb
+                .prepare("SELECT COUNT(*) as c FROM gen_metadata WHERE idx < (SELECT COALESCE(MAX(idx),0) - 100 FROM steps)")
+                .get();
+              if (oldGen?.c > 50) {
+                cdb.exec("DELETE FROM gen_metadata WHERE idx < (SELECT COALESCE(MAX(idx),0) - 100 FROM steps);");
+                cdb.exec("DELETE FROM executor_metadata WHERE idx < (SELECT COALESCE(MAX(idx),0) - 100 FROM steps);");
+                cdb.exec("VACUUM;");
+                prunedArtifacts += 1;
+              }
+            } finally {
+              try {
+                cdb?.close();
+              } catch {
+                /* ignore */
+              }
             }
+          } catch {
+            /* ignore */
           }
-        } catch {
-          /* ignore */
         }
       }
     }
@@ -2604,56 +3048,64 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
     }
 
     // 2. Cursor, Claude, Codex & Grok Bot unified cache / snapshot / queue optimization
-    const home = os.homedir();
-    const appData = process.env.APPDATA || path.join(home, "AppData", "Roaming");
-    const disposableAgentDirs = [
-      // Cursor (1.49 GB snapshots + GPU/Code caches)
-      path.join(appData, "Cursor", "snapshots"),
-      path.join(appData, "Cursor", "CachedData"),
-      path.join(appData, "Cursor", "Cache"),
-      path.join(appData, "Cursor", "Code Cache"),
-      path.join(appData, "Cursor", "GPUCache"),
-      path.join(appData, "Cursor", "DawnGraphiteCache"),
-      path.join(appData, "Cursor", "Crashpad", "reports"),
-      // Claude Desktop & Claude Code (489 MB Code Cache + Cache + logs)
-      path.join(appData, "Claude", "Code Cache"),
-      path.join(appData, "Claude", "Cache"),
-      path.join(appData, "Claude", "GPUCache"),
-      path.join(appData, "Claude", "GrShaderCache"),
-      path.join(appData, "Claude", "logs"),
-      // OpenAI Codex CLI (187 MB .tmp + cache)
-      path.join(home, ".codex", ".tmp"),
-      path.join(home, ".codex", "cache"),
-    ];
-    for (const d of disposableAgentDirs) {
-      if (!fs.existsSync(d)) continue;
-      for (const childName of fs.readdirSync(d)) {
-        const childPath = path.join(d, childName);
-        try {
-          const cst = fs.statSync(childPath);
-          if (now - cst.mtimeMs > 30 * 60_000) {
-            fs.rmSync(childPath, { recursive: true, force: true });
-            prunedArtifacts += 1;
+    if (!options.skipGlobalCaches) {
+      const disposableAgentDirs = [
+        // Cursor (1.49 GB snapshots + GPU/Code caches)
+        path.join(appData, "Cursor", "snapshots"),
+        path.join(appData, "Cursor", "CachedData"),
+        path.join(appData, "Cursor", "Cache"),
+        path.join(appData, "Cursor", "Code Cache"),
+        path.join(appData, "Cursor", "GPUCache"),
+        path.join(appData, "Cursor", "DawnGraphiteCache"),
+        path.join(appData, "Cursor", "Crashpad", "reports"),
+        // Claude Desktop & Claude Code (489 MB Code Cache + Cache + logs)
+        path.join(appData, "Claude", "Code Cache"),
+        path.join(appData, "Claude", "Cache"),
+        path.join(appData, "Claude", "GPUCache"),
+        path.join(appData, "Claude", "GrShaderCache"),
+        path.join(appData, "Claude", "logs"),
+        // OpenAI Codex CLI (187 MB .tmp + cache)
+        path.join(home, ".codex", ".tmp"),
+        path.join(home, ".codex", "cache"),
+      ];
+      for (const d of disposableAgentDirs) {
+        if (!fs.existsSync(d)) continue;
+        for (const childName of fs.readdirSync(d)) {
+          const childPath = path.join(d, childName);
+          try {
+            const cst = fs.statSync(childPath);
+            if (now - cst.mtimeMs > 30 * 60_000) {
+              fs.rmSync(childPath, { recursive: true, force: true });
+              prunedArtifacts += 1;
+            }
+          } catch {
+            /* ignore locked active files */
           }
-        } catch {
-          /* ignore locked active files */
         }
       }
     }
 
-    // Prune Claude Code & Cursor old JSONL session transcripts (> 48h idle)
-    const claudeProjectsDir = path.join(home, ".claude", "projects");
-    if (fs.existsSync(claudeProjectsDir)) {
-      for (const proj of fs.readdirSync(claudeProjectsDir)) {
-        const pDir = path.join(claudeProjectsDir, proj);
+    // Prune Claude Code & Cursor old JSONL session transcripts (> 48h idle), including nested <session>/subagents/*.jsonl
+    const claudeProjectsDir = options.claudeProjectsDir || path.join(home, ".claude", "projects");
+    const pruneClaudeDirRecursive = (dir) => {
+      let entries;
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const ent of entries) {
+        const fp = path.join(dir, ent.name);
         try {
-          if (!fs.statSync(pDir).isDirectory()) continue;
-          for (const jf of fs.readdirSync(pDir)) {
-            if (!jf.endsWith(".jsonl")) continue;
-            const jPath = path.join(pDir, jf);
-            const jst = fs.statSync(jPath);
+          if (ent.isDirectory()) {
+            pruneClaudeDirRecursive(fp);
+            if (fs.readdirSync(fp).length === 0) {
+              fs.rmdirSync(fp);
+            }
+          } else if (ent.isFile() && ent.name.endsWith(".jsonl")) {
+            const jst = fs.statSync(fp);
             if (now - jst.mtimeMs > idleSessionMaxAgeMs) {
-              fs.rmSync(jPath, { force: true });
+              fs.rmSync(fp, { force: true });
               removedSessions += 1;
             }
           }
@@ -2661,6 +3113,21 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
           /* ignore */
         }
       }
+    };
+    if (fs.existsSync(claudeProjectsDir)) {
+      for (const proj of fs.readdirSync(claudeProjectsDir)) {
+        const pDir = path.join(claudeProjectsDir, proj);
+        try {
+          if (!fs.statSync(pDir).isDirectory()) continue;
+          pruneClaudeDirRecursive(pDir);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    if (options.skipGlobalCaches) {
+      return { ok: true, removedSessions, prunedArtifacts };
     }
 
     // Keep only latest 1 CLI version in Cursor agent-cli & Claude claude-code, and prune >7d Cursor History
@@ -2795,6 +3262,208 @@ export async function autoHealFailedScheduledTasks() {
   return { ok: true, retried };
 }
 
+async function discoverAntigravityServersForRoots(agyRoots) {
+  const servers = [];
+  const alivePids = new Set();
+  try {
+    for (const p of scanNativeProcesses().processes) {
+      if (/^language_server/i.test(String(p.name || ""))) {
+        alivePids.add(Number(p.pid));
+      }
+    }
+  } catch {
+    return servers;
+  }
+  if (alivePids.size === 0) return servers;
+
+  const primaryRoot = path.resolve(path.join(os.homedir(), ".gemini", "antigravity"));
+  const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  const parseLsLog = (logPath) => {
+    if (!logPath || !fs.existsSync(logPath)) return null;
+    try {
+      const logHead = fs.readFileSync(logPath, "utf8").slice(0, 4096);
+      const pidMatch = /Starting language server process with pid (\d+)/i.exec(logHead);
+      const httpMatch = /Language server listening on random port at (\d+) for HTTP\b/i.exec(logHead);
+      const pid = pidMatch ? Number(pidMatch[1]) : 0;
+      const httpPort = httpMatch ? Number(httpMatch[1]) : 0;
+      if (pid && httpPort && alivePids.has(pid)) return { pid, httpPort };
+    } catch {
+      /* ignore */
+    }
+    return null;
+  };
+
+  const candidates = [];
+  for (const agyRoot of agyRoots) {
+    const resolvedRoot = path.resolve(agyRoot);
+    const daemonDir = path.join(resolvedRoot, "daemon");
+    let foundDirect = false;
+    if (fs.existsSync(daemonDir)) {
+      try {
+        for (const f of fs.readdirSync(daemonDir)) {
+          if (!f.startsWith("hub_") || !f.endsWith(".json")) continue;
+          try {
+            const info = JSON.parse(fs.readFileSync(path.join(daemonDir, f), "utf8"));
+            const pid = Number(info?.pid) || 0;
+            const httpPort = Number(info?.httpPort) || 0;
+            const csrfToken = String(info?.csrfToken || "").trim();
+            if (pid && httpPort && csrfToken && alivePids.has(pid)) {
+              servers.push({ agyRoot: resolvedRoot, pid, httpPort, csrfToken });
+              foundDirect = true;
+              break;
+            }
+          } catch {
+            /* ignore malformed hub json */
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    if (foundDirect) continue;
+
+    // Fallback: SxS userdata-<ver>/logs/language_server.log, primary %APPDATA%/Antigravity/logs/language_server.log, or daemon/ls_*.log
+    const logPaths = [];
+    const sxsMatch = /[\\/]antigravity-sxs[\\/]home-([^\\/]+)[\\/]\.gemini[\\/]antigravity$/i.exec(resolvedRoot);
+    if (sxsMatch?.[1]) {
+      const sxsBase = path.resolve(resolvedRoot, "..", "..", "..");
+      logPaths.push(path.join(sxsBase, `userdata-${sxsMatch[1]}`, "logs", "language_server.log"));
+    } else if (resolvedRoot.toLowerCase() === primaryRoot.toLowerCase()) {
+      logPaths.push(path.join(appData, "Antigravity", "logs", "language_server.log"));
+    }
+    if (fs.existsSync(daemonDir)) {
+      try {
+        for (const f of fs.readdirSync(daemonDir).filter((n) => n.startsWith("ls_") && n.endsWith(".log")).sort().reverse()) {
+          logPaths.push(path.join(daemonDir, f));
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    for (const lp of logPaths) {
+      const parsed = parseLsLog(lp);
+      if (parsed) {
+        candidates.push({ agyRoot: resolvedRoot, ...parsed });
+        break;
+      }
+    }
+  }
+  if (candidates.length === 0) return servers;
+
+  let cmdlineByPid = new Map();
+  try {
+    const procNetPath = DEV_ROOT ? path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-native-proc-net.mjs") : "";
+    if (procNetPath && fs.existsSync(procNetPath)) {
+      const mod = await import(pathToFileURL(procNetPath).href);
+      if (typeof mod?.listProcessesNative === "function") {
+        const procs = mod.listProcessesNative({ imagePrefix: "language_server", includeCmdline: true }) || [];
+        for (const p of procs) {
+          if (p?.pid && p?.cmd) cmdlineByPid.set(Number(p.pid), String(p.cmd));
+        }
+      }
+    }
+  } catch {
+    /* fallback below */
+  }
+
+  for (const cand of candidates) {
+    let cmdLine = cmdlineByPid.get(cand.pid) || "";
+    if (!cmdLine && process.platform === "win32") {
+      try {
+        const { stdout } = await execFileAsync(
+          "powershell.exe",
+          [
+            "-NoLogo",
+            "-NonInteractive",
+            "-NoProfile",
+            "-Command",
+            `(Get-CimInstance Win32_Process -Filter "ProcessId=${cand.pid}").CommandLine`,
+          ],
+          { windowsHide: true, timeout: 4000 },
+        );
+        cmdLine = String(stdout || "").trim();
+      } catch {
+        cmdLine = "";
+      }
+    }
+    const csrfMatch = /--csrf_token\s+([a-f0-9-]+)/i.exec(cmdLine);
+    if (csrfMatch?.[1]) {
+      servers.push({ ...cand, csrfToken: csrfMatch[1] });
+    }
+  }
+  return servers;
+}
+
+/**
+ * Sync deletions from disk (`brain/<id>` already removed) to live Antigravity `language_server`
+ * processes via ConnectRPC `GetAllCascadeTrajectories` + `DeleteCascadeTrajectory`, freeing RAM
+ * and keeping `agyhub_summaries_proto.pb` + `conversation_summaries.db` consistent while IDE is open.
+ */
+export async function syncAntigravityLanguageServerDeletions(options = {}) {
+  const agyRoots = resolveAntigravityRoots(options);
+  const fetchImpl = options.fetchImpl || fetch;
+  let servers = [];
+  if (typeof options.discoverServers === "function") {
+    servers = await options.discoverServers(agyRoots);
+  } else {
+    servers = await discoverAntigravityServersForRoots(agyRoots);
+  }
+  let syncedDeleted = 0;
+  let serversSynced = 0;
+
+  for (const srv of servers) {
+    if (!srv?.httpPort || !srv?.csrfToken || !srv?.agyRoot) continue;
+    const brainDir = path.join(srv.agyRoot, "brain");
+    const brainIds = new Set();
+    if (fs.existsSync(brainDir)) {
+      try {
+        for (const id of fs.readdirSync(brainDir)) {
+          if (id === "tempmediaStorage" || id.startsWith(".")) continue;
+          brainIds.add(id);
+        }
+      } catch {
+        continue;
+      }
+    }
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        "Connect-Protocol-Version": "1",
+        "x-codeium-csrf-token": srv.csrfToken,
+      };
+      const base = `http://127.0.0.1:${srv.httpPort}/exa.language_server_pb.LanguageServerService`;
+      const listRes = await fetchImpl(`${base}/GetAllCascadeTrajectories`, {
+        method: "POST",
+        headers,
+        body: "{}",
+        signal: AbortSignal.timeout(2500),
+      });
+      if (!listRes.ok) continue;
+      const listJson = await listRes.json().catch(() => null);
+      const summaries = listJson?.trajectorySummaries;
+      if (!summaries || typeof summaries !== "object") continue;
+      serversSynced += 1;
+      for (const cascadeId of Object.keys(summaries)) {
+        if (brainIds.has(cascadeId)) continue;
+        try {
+          const delRes = await fetchImpl(`${base}/DeleteCascadeTrajectory`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ cascadeId }),
+            signal: AbortSignal.timeout(2000),
+          });
+          if (delRes.ok) syncedDeleted += 1;
+        } catch {
+          /* ignore individual RPC failure */
+        }
+      }
+    } catch {
+      /* ignore transient LS RPC failure */
+    }
+  }
+  return { ok: true, serversFound: servers.length, serversSynced, syncedDeleted };
+}
+
 export function startAutoPcMaintenanceWatch() {
   ensurePlaywrightHeadlessShellsGuiSubsystem();
   if (autoMaintenanceTimer) return;
@@ -2809,6 +3478,7 @@ export function startAutoPcMaintenanceWatch() {
         lastAntigravitySweepMs = Date.now();
         ensurePlaywrightHeadlessShellsGuiSubsystem();
         sweepAntigravityStaleTranscripts();
+        void syncAntigravityLanguageServerDeletions().catch(() => undefined);
         void autoHealFailedScheduledTasks().catch(() => undefined);
       }
       adaptive = computeAdaptiveHeadlessCap(scan);
@@ -2885,6 +3555,7 @@ export async function optimizePcHost(options = {}) {
       idleSessionMaxAgeMs: 48 * 3600_000,
       taskStepMaxAgeMs: 2 * 60_000,
     });
+    results.antigravityRpcSync = await syncAntigravityLanguageServerDeletions();
     readAntigravityBrainStats(true);
   }
   if (action === "sweep-antigravity") {
@@ -2892,6 +3563,7 @@ export async function optimizePcHost(options = {}) {
       idleSessionMaxAgeMs: 48 * 3600_000,
       taskStepMaxAgeMs: 2 * 60_000,
     });
+    results.antigravityRpcSync = await syncAntigravityLanguageServerDeletions();
     readAntigravityBrainStats(true);
   }
   if (action === "all" || action === "trim-ram") {

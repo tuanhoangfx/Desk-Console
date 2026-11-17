@@ -143,7 +143,7 @@ const JOBS_LABELS: Record<JobsColumnKey, string> = {
   local: "Local",
   remote: "Remote",
   status: "Status",
-  run: "Run",
+  run: "Action",
   next: HUB_DEBOUNCE_LABEL,
   mode: "Mode",
   log: "Log",

@@ -322,6 +322,15 @@ export function DrivesScreen() {
         jobs={detailAccount ? jobsByRemote[detailAccount.name] || [] : []}
         onClose={() => setDetailName(null)}
         onSaved={() => void reload()}
+        onSignIn={
+          detailAccount
+            ? () => {
+                const targetName = detailAccount.name;
+                setDetailName(null);
+                setSignInName(targetName);
+              }
+            : undefined
+        }
         onOpenJob={(id) => setDetailJobId(id)}
         onCreateJob={
           detailAccount ? () => setCreateJobRemoteName(detailAccount.name) : undefined

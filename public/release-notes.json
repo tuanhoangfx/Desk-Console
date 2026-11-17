@@ -1,184 +1,184 @@
 {
-  "generatedAt": "2026-11-12T11:50:54.301Z",
+  "generatedAt": "2026-11-17T20:40:08.970Z",
   "entries": [
     {
-      "version": "3.1.185",
-      "date": "2026-11-12",
-      "at": "2026-11-12T18:44:00+07:00",
-      "title": "Ignore resources/rclone/*.exe in git & ship NSIS uninstaller unlock release",
+      "version": "3.1.209",
+      "date": "2026-11-18",
+      "at": "2026-11-18T03:39:00+07:00",
+      "title": "Patch bump for completed agent task",
       "bullets": [
-        "Added resources/rclone/*.exe to .gitignore and -SkipInstall/-SkipWorker switches to scripts/release-desktop.ps1."
+        "Automatic patch bump after completed P0001 task."
       ],
       "kind": "improve",
-      "userTitle": "Ignore resources rclone *.exe in git & ship NSIS uninstaller unlock r…",
+      "userTitle": "Patch bump for completed agent task",
       "userSummary": "",
       "userHighlights": [
-        "Added resources rclone *.exe to .gitignore and -Skip Install -Skip Worker switches to scripts rel…"
+        "Automatic patch bump after completed P0001 task."
       ]
     },
     {
-      "version": "3.1.184",
-      "date": "2026-11-12",
-      "at": "2026-11-12T18:37:00+07:00",
-      "title": "Accept -SkipInstall & -SkipWorker in release-desktop.ps1 for ship-desktop.ps1 hybrid lane",
+      "version": "3.1.207",
+      "date": "2026-11-18",
+      "at": "2026-11-18T03:21:00+07:00",
+      "title": "Sequential round-robin heavy farm queue and 4/6/8 headless cap",
       "bullets": [
-        "Added -SkipInstall and -SkipWorker switches to scripts/release-desktop.ps1 so ship-desktop.ps1 -Code P0001 -Lane User runs cleanly."
+        "Lowered adaptive headless cap to 4/6/8 and added 20m time-sliced sequential queue for heavy Chromium farm daemons."
       ],
       "kind": "improve",
-      "userTitle": "Accept -Skip Install & -Skip Worker in release-desktop.ps1 for ship-d…",
+      "userTitle": "Sequential round-robin heavy farm queue and 4 6 8 headless cap",
       "userSummary": "",
       "userHighlights": [
-        "Added -Skip Install and -Skip Worker switches to scripts release-desktop.ps1 so ship-desktop.ps1…"
+        "Lowered adaptive headless cap to 4 6 8 and added 20m time-sliced sequential queue for heavy Chrom…"
       ]
     },
     {
-      "version": "3.1.183",
-      "date": "2026-11-12",
-      "at": "2026-11-12T17:45:00+07:00",
-      "title": "Auto-reclaim stale port 53682 OAuth listener, live Callback status dot, 1-click Open in Stealth Profile, and v3.1.182 GitHub Release",
+      "version": "3.1.206",
+      "date": "2026-11-18",
+      "at": "2026-11-18T03:19:00+07:00",
+      "title": "Patch bump for completed agent task",
       "bullets": [
-        "Reclaim orphaned listeners on 127.0.0.1:53682 via native GetExtendedTcpTable before Google Drive OAuth, expose /api/remotes/authorize/callback-status and /api/remotes/authorize/open-stealth (blocking 8xxx customer profiles), render live Callback status + Open in Stealth in DriveSignInModal, and publish v3.1.182 NSIS installer."
+        "Automatic patch bump after completed P0001 task."
       ],
       "kind": "improve",
-      "userTitle": "Auto-reclaim stale port 53682 OAuth listener, live Callback status do…",
+      "userTitle": "Patch bump for completed agent task",
       "userSummary": "",
       "userHighlights": [
-        "Reclaim orphaned listeners on 127.0.0.1:53682 via native Get Extended Tcp Table before Google Dri…"
+        "Automatic patch bump after completed P0001 task."
       ]
     },
     {
-      "version": "3.1.182",
-      "date": "2026-11-12",
-      "at": "2026-11-12T17:29:00+07:00",
-      "title": "Eliminate stale app.asar.unpacked hijack and harden Drive OAuth host-fetch recovery",
+      "version": "3.1.205",
+      "date": "2026-11-18",
+      "at": "2026-11-18T03:17:00+07:00",
+      "title": "Align Desk Log 15rem and Jobs Created/Update 7.5rem",
       "bullets": [
-        "Removed stale resources/app.asar.unpacked during unpacked assembly, guarded electron/main.cjs hostCwd/hostEntry/distRoot against stale unpacked folders, lowered host respawn delay to 300ms, and added direct loopback :6010 fallback + 4.6s retry window in fetchDeskHost."
+        "Updated P0001 Desk/Drives/Jobs column meta and CSS to HUB_DIRECTORY_LOG_COL_WIDTH (15rem) and synced p0009-jobs-directory-fixed-cols.generated.css Created/Update to 7.5rem."
       ],
       "kind": "improve",
-      "userTitle": "Eliminate stale app.asar.unpacked hijack and harden Drive OAuth host-…",
+      "userTitle": "Align Desk Log 15rem and Jobs Created Update 7.5rem",
       "userSummary": "",
       "userHighlights": [
-        "Removed stale resources app.asar.unpacked during unpacked assembly, guarded host Cwd host Entry d…"
+        "Updated P0001 Desk Drives Jobs column meta and CSS to HUB DIRECTORY LOG COL WIDTH and synced Crea…"
       ]
     },
     {
-      "version": "3.1.181",
-      "date": "2026-11-12",
-      "at": "2026-11-12T16:47:00+07:00",
-      "title": "Fix Google Drive OAuth sign-in on fresh PCs (GG0001) and auto-recover local host (:6010) on transient fetch failures",
+      "version": "3.1.204",
+      "date": "2026-11-18",
+      "at": "2026-11-18T02:47:00+07:00",
+      "title": "Patch bump for completed agent task",
       "bullets": [
-        "Stage git-ignored host/oauth-client.runtime.json during assemble/package so packaged Desk Console resolves the Google Desktop OAuth client on fresh PCs without .env.local; add desk:ensure-host IPC + fetchDeskHost auto-retry recovery across sync-api.ts and api.ts; default standalone Vite :5180 proxy to :6010 when DESK_DEV_ISOLATED!=1."
+        "Automatic patch bump after completed P0001 task."
       ],
-      "kind": "fix",
-      "userTitle": "Fix Google Drive OAuth sign-in on fresh PCs and auto-recover local ho…",
+      "kind": "improve",
+      "userTitle": "Patch bump for completed agent task",
       "userSummary": "",
       "userHighlights": [
-        "Stage git-ignored host oauth-client.runtime.json during assemble package so packaged Desk Console…"
+        "Automatic patch bump after completed P0001 task."
       ]
     },
     {
-      "version": "3.1.180",
-      "date": "2026-11-12",
-      "at": "2026-11-12T15:17:00+07:00",
-      "title": "NSIS Uninstall.exe upgrade unlock & Update Release modal user download/guide chips",
+      "version": "3.1.202",
+      "date": "2026-11-18",
+      "at": "2026-11-18T02:45:00+07:00",
+      "title": "Lower EVKey handle leak restart threshold to 1200",
       "bullets": [
-        "Added build/installer.nsh + nsis-uninstaller-unlock.nsh, synced desktop-host-kit.cjs, and wired userDownloadUrl + introUrl into Update Release modal."
+        "Lowered EVKey64.exe handle-leak auto-restart threshold from 4000 to 1200 in host/pc-optimizer.mjs to prevent WH_KEYBOARD_LL typing and mouse lag."
       ],
       "kind": "improve",
-      "userTitle": "NSIS Uninstall.exe upgrade unlock & Update Release modal user downloa…",
+      "userTitle": "Lower EVKey handle leak restart threshold to 1200",
       "userSummary": "",
       "userHighlights": [
-        "Added build installer.nsh + nsis-uninstaller-unlock.nsh, synced , and wired user Download Url + i…"
+        "Lowered EVKey64.exe handle-leak auto-restart threshold from 4000 to 1200 in to prevent WH KEYBOAR…"
       ]
     },
     {
-      "version": "3.1.179",
-      "date": "2026-11-12",
-      "at": "2026-11-12T14:52:00+07:00",
-      "title": "Eliminate post-reboot IDC_APPSTARTING cursor spin, rclone/conhost churn, and idle Vite boot stampede",
+      "version": "3.1.201",
+      "date": "2026-11-18",
+      "at": "2026-11-18T01:36:00+07:00",
+      "title": "Antigravity per-root LS lock & SxS parity",
       "bullets": [
-        "Spawn hidden child processes with CUI node.exe + DETACHED_PROCESS (zero nodew.exe IDC_APPSTARTING spin and zero conhost.exe spawns), gate Runner Watchdog recovery on active 30m .vite-active-lease.txt without resetting idle timers via HTTP GET, add 120s cadence + 90s cache to Drive lsjson polling, and enforce 3m farm respawn backoff."
+        "Split lsRunning check per Antigravity root (primary + SxS) in sweepAntigravityStaleTranscripts for safe SQLite VACUUM and proto pruning."
       ],
       "kind": "improve",
-      "userTitle": "Eliminate post-reboot IDC APPSTARTING cursor spin, rclone conhost chu…",
+      "userTitle": "Antigravity per-root LS lock & Sx S parity",
       "userSummary": "",
       "userHighlights": [
-        "Spawn hidden child processes with CUI node.exe + DETACHED PROCESS , gate Runner Watchdog recovery…"
+        "Split ls Running check per Antigravity root in sweep Antigravity Stale Transcripts for safe SQLit…"
       ]
     },
     {
-      "version": "3.1.178",
-      "date": "2026-11-12",
-      "at": "2026-11-12T05:07:00+07:00",
-      "title": "Zero-PowerShell native Win32 dev Electron orchestrator checks in dev-desktop-process.mjs",
+      "version": "3.1.200",
+      "date": "2026-11-18",
+      "at": "2026-11-18T01:26:00+07:00",
+      "title": "Patch bump for completed agent task",
       "bullets": [
-        "Wire readProcessCommandLine and killOrphanDevElectron in dev-desktop-process.mjs to shared win-native-proc-net.mjs NtQueryInformationProcess and Toolhelp32Snapshot."
+        "Automatic patch bump after completed P0001 task."
       ],
       "kind": "improve",
-      "userTitle": "Zero-Power Shell native Win32 dev Electron orchestrator checks in",
+      "userTitle": "Patch bump for completed agent task",
       "userSummary": "",
       "userHighlights": [
-        "Wire read Process Command Line and kill Orphan Dev Electron in to shared Nt Query Information Pro…"
+        "Automatic patch bump after completed P0001 task."
       ]
     },
     {
-      "version": "3.1.177",
-      "date": "2026-11-12",
-      "at": "2026-11-12T04:50:00+07:00",
-      "title": "Zero-PowerShell native Win32 exe folder lock killer in assemble-unpacked and run-electron-package",
+      "version": "3.1.193",
+      "date": "2026-11-17",
+      "at": "2026-11-17T20:50:00+07:00",
+      "title": "Rename Jobs Run column header label to Action",
       "bullets": [
-        "Wire assemble-unpacked.mjs and run-electron-package.mjs lock cleanup to shared win-native-proc-net.mjs QueryFullProcessImageNameW + NtQueryInformationProcess (< 100ms, 0 PowerShell spawns)."
+        "Keep Start/Pause/Stop/Retry row buttons while aligning column header label to Action."
       ],
       "kind": "improve",
-      "userTitle": "Zero-Power Shell native Win32 exe folder lock killer in assemble-unpa…",
+      "userTitle": "Rename Jobs Run column header label to Action",
       "userSummary": "",
       "userHighlights": [
-        "Wire and lock cleanup to shared Query Full Process Image Name W + Nt Query Information Process ."
+        "Keep Start Pause Stop Retry row buttons while aligning column header label to Action."
       ]
     },
     {
-      "version": "3.1.176",
-      "date": "2026-11-12",
-      "at": "2026-11-12T03:32:00+07:00",
-      "title": "Native iphlpapi GetExtendedTcpTable stopRunner (<1ms, 0 PowerShell)",
+      "version": "3.1.192",
+      "date": "2026-11-16",
+      "at": "2026-11-16T18:51:00+07:00",
+      "title": "Align Tailwind v3 opacity classes to bracketed syntax",
       "bullets": [
-        "Replaced PowerShell Get-NetTCPConnection in host/runners.mjs stopRunner with native Win32 iphlpapi!GetExtendedTcpTable (IPv4 + IPv6 TCP_TABLE_OWNER_PID_LISTENER) via koffi."
+        "Convert unbracketed Tailwind v3 opacity utilities (/6, /8, /12, /14, /16, /18, /22, /26, /28) to bracketed /[0.xx] syntax"
       ],
       "kind": "improve",
-      "userTitle": "Native iphlpapi Get Extended Tcp Table stop Runner",
+      "userTitle": "Align Tailwind v3 opacity classes to bracketed syntax",
       "userSummary": "",
       "userHighlights": [
-        "Replaced Power Shell Get-Net TCPConnection in stop Runner with native Win32 iphlpapi!Get Extended…"
+        "Convert unbracketed Tailwind v3 opacity utilities to bracketed [0.xx] syntax"
       ]
     },
     {
-      "version": "3.1.175",
-      "date": "2026-11-12",
-      "at": "2026-11-12T01:42:00+07:00",
-      "title": "TypeScript zero-error parity, HubToolLoadingProvider, and 14/14 hub-ssot-wave-gate enrollment",
+      "version": "3.1.191",
+      "date": "2026-11-16",
+      "at": "2026-11-16T18:51:00+07:00",
+      "title": "Patch bump for completed agent task",
       "bullets": [
-        "Healed all TypeScript errors across 15 files without casts, wired HubToolLoadingProvider in App.tsx, added tsc --noEmit to scripts.typecheck, and enrolled P0001 into HUB_SSOT_UI_SHELL_CODES (14/14 PASS)."
+        "Automatic patch bump after completed P0001 task."
       ],
       "kind": "improve",
-      "userTitle": "Type Script zero-error parity, Hub Tool Loading Provider, and 14 14 h…",
+      "userTitle": "Patch bump for completed agent task",
       "userSummary": "",
       "userHighlights": [
-        "Healed all Type Script errors across 15 files without casts, wired Hub Tool Loading Provider in ,…"
+        "Automatic patch bump after completed P0001 task."
       ]
     },
     {
-      "version": "3.1.174",
-      "date": "2026-11-12",
-      "at": "2026-11-12T01:41:00+07:00",
-      "title": "Async singleflight runBrowseFolderWinAsync on :6010",
+      "version": "3.1.189",
+      "date": "2026-11-16",
+      "at": "2026-11-16T11:24:00+07:00",
+      "title": "Clean stale renamed binaries during PE CUI subsystem check",
       "bullets": [
-        "Replaced blocking spawnSync PowerShell FolderBrowserDialog in host/server.mjs with non-blocking execFile + _browseFolderSingleflight coalescing so :6010 stays responsive while folder dialog is open."
+        "Auto-unlink unlocked *.cui-stale*.exe and *.gui-stale*.exe artifacts inside ensureBinaryCuiSubsystem in pc-optimizer.mjs and sync to installed Desk Console host."
       ],
       "kind": "improve",
-      "userTitle": "Async singleflight run Browse Folder Win Async on :6010",
+      "userTitle": "Clean stale renamed binaries during PE CUI subsystem check",
       "userSummary": "",
       "userHighlights": [
-        "Replaced blocking spawn Sync Power Shell Folder Browser Dialog in with non-blocking exec File + b…"
+        "Auto-unlink unlocked *.cui-stale*.exe and *.gui-stale*.exe artifacts inside ensure Binary Cui Sub…"
       ]
     }
   ]

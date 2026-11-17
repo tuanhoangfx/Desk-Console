@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { File, Folder, HardDrive, Layers, Plus, Save, Trash2, Zap } from "lucide-react";
+import { File, Folder, HardDrive, KeyRound, Layers, Plus, Save, Trash2, Zap } from "lucide-react";
 import {
   HUB_ACCOUNT_DETAIL_ACCOUNT_EMOJI,
   HUB_ACCOUNT_DETAIL_JOB_EMOJI,
@@ -23,6 +23,7 @@ import {
   HubTocSectionNav,
   HubToolDetailModal,
   HubToolDetailModalAccountFooter,
+  HubToolDetailModalSecondaryAction,
   HubToolDetailRail,
   HubToolDetailSection,
   HubToolDetailSections,
@@ -180,6 +181,7 @@ type Props = {
   jobs: SyncJob[];
   onClose: () => void;
   onSaved?: () => void;
+  onSignIn?: () => void;
   onOpenJob: (jobId: string) => void;
   onCreateJob?: () => void;
   onStart?: (id: string) => void;
@@ -194,6 +196,7 @@ export function DriveDetailModal({
   jobs,
   onClose,
   onSaved,
+  onSignIn,
   onOpenJob,
   onCreateJob,
   onStart,
@@ -380,6 +383,16 @@ export function DriveDetailModal({
       footer={
         <HubToolDetailModalAccountFooter
           onClose={onClose}
+          leading={
+            account && onSignIn ? (
+              <HubToolDetailModalSecondaryAction
+                label={account.authorized ? "Sign In Again (OAuth)" : "Sign In (Google OAuth)"}
+                icon={KeyRound}
+                disabled={saving}
+                onClick={onSignIn}
+              />
+            ) : undefined
+          }
           onSave={() => {
             if (!account || !networkDirty) return;
             void (async () => {

@@ -3,6 +3,9 @@ import {
   createDirectoryColumnMetaHelpers,
   HUB_ACTIVITY_AGE_HINT_LINES,
   HUB_DIRECTORY_HEADER_EMOJI,
+  HUB_DIRECTORY_LOG_COL_WIDTH,
+  HUB_DIRECTORY_PLAN_DATE_COL_WIDTH,
+  HUB_DIRECTORY_PLAN_DUE_COL_WIDTH,
   withDirectoryColumnStickers,
   type HubDirectoryColumnHintLine,
 } from "@tool-workspace/hub-ui";
@@ -60,10 +63,10 @@ const SCHEDULE_HINT_LINES: HubDirectoryColumnHintLine[] = [
 
 const baseMeta = withDirectoryColumnStickers(
   applyStandardDirectoryColumnHints({
-    created: col("Created", "hub-desk-col--created", "created", "col.directory.created", "7.5rem", {
+    created: col("Created", "hub-desk-col--created", "created", "col.directory.created", HUB_DIRECTORY_PLAN_DATE_COL_WIDTH, {
       columnKind: "date",
     }),
-    updated: col("Update", "hub-desk-col--updated", "updated", "col.directory.updated", "7.5rem", {
+    updated: col("Update", "hub-desk-col--updated", "updated", "col.directory.updated", HUB_DIRECTORY_PLAN_DUE_COL_WIDTH, {
       columnKind: "date",
     }),
     name: col("Name", "hub-desk-col--name", "name", "col.directory.name", "18rem"),
@@ -72,7 +75,7 @@ const baseMeta = withDirectoryColumnStickers(
     schedule: col("Schedule", "hub-desk-col--schedule", "period", "col.directory.updated", "10.5rem"),
     status: col("Status", "hub-desk-col--status", "status", "col.directory.status", "9rem"),
     extra: col("Detail", "hub-desk-col--detail", "email", "col.directory.email", "18rem"),
-    log: col("Log", "hub-desk-col--log", "log", "log.panel", "14rem", {
+    log: col("Log", "hub-desk-col--log", "log", "log.panel", HUB_DIRECTORY_LOG_COL_WIDTH, {
       columnKind: "compact",
       headerAlign: "start",
     }),

@@ -62,27 +62,27 @@ table.hub-users-table--desk-directory td.hub-desk-col--detail {
 table.hub-users-table--desk-directory col.hub-desk-col--created,
 table.hub-users-table--desk-directory th.hub-desk-col--created,
 table.hub-users-table--desk-directory td.hub-desk-col--created {
-  width: 7.5rem;
-  min-width: 7.5rem;
-  max-width: 7.5rem;
+  width: 7.25rem;
+  min-width: 7.25rem;
+  max-width: 7.25rem;
   text-align: center;
 }
 
 table.hub-users-table--desk-directory col.hub-desk-col--updated,
 table.hub-users-table--desk-directory th.hub-desk-col--updated,
 table.hub-users-table--desk-directory td.hub-desk-col--updated {
-  width: 7.5rem;
-  min-width: 7.5rem;
-  max-width: 7.5rem;
+  width: 7.25rem;
+  min-width: 7.25rem;
+  max-width: 7.25rem;
   text-align: center;
 }
 
 table.hub-users-table--desk-directory col.hub-desk-col--log,
 table.hub-users-table--desk-directory th.hub-desk-col--log,
 table.hub-users-table--desk-directory td.hub-desk-col--log {
-  width: 14rem;
-  min-width: 14rem;
-  max-width: 14rem;
+  width: 15rem;
+  min-width: 15rem;
+  max-width: 15rem;
   text-align: left;
 }
 

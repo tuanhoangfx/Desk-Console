@@ -126,7 +126,7 @@ function reloadHotPatchedModules({ force = false } = {}) {
     const targetHotFile = isHotFile || isWorkspaceElectronFile ? key : remapAsarPathToHotPatch(key);
     if (!targetHotFile || !fs.existsSync(targetHotFile)) continue;
 
-    let mtime = 0;
+    let mtime;
     try {
       mtime = fs.statSync(targetHotFile).mtimeMs || 0;
     } catch {

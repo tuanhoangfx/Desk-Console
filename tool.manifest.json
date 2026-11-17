@@ -94,7 +94,7 @@
     "registryKey": "P0001-INTRO",
     "platform": "P0008",
     "siteId": "sync",
-    "domain": "sync.infi.io.vn"
+    "domain": "sync.infi28.com"
   },
   "docs": {
     "readme": "README.md",
@@ -185,7 +185,7 @@
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.185",
+    "version": "3.1.209",
     "latestPublished": {
       "tag": "v3.1.185",
       "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.185",
@@ -206,7 +206,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-12T11:50:55.949Z",
+  "manifestUpdatedAt": "2026-11-17T20:39:13.166Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -232,6 +232,6 @@
   },
   "versions": {
     "latestPublished": "3.1.185",
-    "current": "3.1.185"
+    "current": "3.1.209"
   }
 }

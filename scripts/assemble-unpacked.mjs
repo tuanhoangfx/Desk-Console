@@ -4,14 +4,17 @@
  * runtime. Avoids electron-builder's win-unpacked.tmp rename (EPERM / Defender).
  * Ship / NSIS stays `release-desktop.ps1` (P0003 Fast).
  */
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { killProcessesInFolderNative } from "../../scripts/lib/win-native-proc-net.mjs";
+import winShellEnv from "../../scripts/lib/win-shell-env.cjs";
 import { stagePackagedOAuthClient } from "./lib/stage-oauth-client.mjs";
+
+const { spawnInteractiveDesktopProcess } = winShellEnv;
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 stagePackagedOAuthClient(root);
@@ -26,13 +29,14 @@ if (!fs.existsSync(electronExe) && !fs.existsSync(productExe)) {
 
 /** Release file locks before rm/cp (running Desk Console + Defender → EPERM / missing ico). */
 function killPackLocks() {
-  if (process.platform !== "win32") return;
+  if (process.platform !== "win32") return false;
   const nat = killProcessesInFolderNative(out);
   if (nat) {
     if (nat.killedPids.length > 0) {
       console.log(`[assemble] killed ${nat.killedPids.join(", ")}`);
+      return true;
     }
-    return;
+    return false;
   }
   const needle = path.normalize(out).toLowerCase().replace(/'/g, "''");
   const ps = [
@@ -46,10 +50,14 @@ function killPackLocks() {
     encoding: "utf8",
   });
   const outText = `${r.stdout || ""}${r.stderr || ""}`.trim();
-  if (outText) console.log(`[assemble] ${outText.split(/\r?\n/).filter(Boolean).join("; ")}`);
+  if (outText) {
+    console.log(`[assemble] ${outText.split(/\r?\n/).filter(Boolean).join("; ")}`);
+    return true;
+  }
+  return false;
 }
 
-killPackLocks();
+const wasRunningBeforeAssemble = killPackLocks();
 
 const appDir = path.join(out, "resources", "app");
 fs.mkdirSync(appDir, { recursive: true });
@@ -335,3 +343,48 @@ if (fs.existsSync(smoke)) {
 }
 
 console.log(`[assemble] ${productExe}`);
+
+async function relaunchDeskConsoleIfWasRunning() {
+  if (process.platform !== "win32") return;
+  if (!wasRunningBeforeAssemble || process.argv.includes("--no-relaunch")) return;
+  const launchExe = fs.existsSync(productExe) ? productExe : electronExe;
+  if (!fs.existsSync(launchExe)) return;
+  console.log(`[assemble] auto-relaunching ${path.basename(launchExe)} (was running before assemble)...`);
+  const launchedPid =
+    typeof spawnInteractiveDesktopProcess === "function"
+      ? spawnInteractiveDesktopProcess({
+          exePath: launchExe,
+          args: [],
+          cwd: out,
+          showWindow: 5,
+        })
+      : null;
+  if (!launchedPid) {
+    const child = spawn(launchExe, [], {
+      cwd: out,
+      detached: true,
+      stdio: "ignore",
+      windowsHide: false,
+    });
+    child.unref();
+  }
+
+  const deadline = Date.now() + 12_000;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch("http://127.0.0.1:6010/api/health", {
+        signal: AbortSignal.timeout(1200),
+      });
+      if (res.ok) {
+        console.log("[assemble] Desk Console host :6010/api/health is UP (200 OK)");
+        return;
+      }
+    } catch {
+      /* wait for boot */
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  console.warn("[assemble] Desk Console launched; :6010/api/health still warming up");
+}
+
+await relaunchDeskConsoleIfWasRunning();
