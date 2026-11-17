@@ -5,7 +5,8 @@
 - Version: `3.1.210`
 - Timestamp: 2026-11-18 03:45 (UTC+7)
 - Type: Patch
-- Status: Committed
+- Status: Verified
+- Release: https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.210
 
 ### Changes
 

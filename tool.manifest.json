@@ -76,6 +76,13 @@
       "layout": "split-workspace",
       "golden": "P0001/runners",
       "notes": "Built-in Daemons (Daemon-*) + Windows Scheduled Tasks (Dev-*) — 8 KPI Golden Strip + Start/Stop row + History · Log · Console rail."
+    },
+    {
+      "screen": "apps",
+      "template": "directory",
+      "layout": "split-workspace",
+      "golden": "P0001/runners",
+      "notes": "Local IDE app versions, SxS portable builds, auto-update pin/ACL locks, GCS release vault, state snapshots & VSIX extensions."
     }
   ],
   "commands": {
@@ -182,21 +189,29 @@
       "panelFillRows": "pageSize",
       "partialPagePad": "invisible"
     },
+    "apps": {
+      "scope": "Apps & Versions directory — IDE builds, SxS, update guard & VSIX",
+      "columnStorageKey": "p0001_apps_directory_columns",
+      "presetsStorageKey": "p0001_apps_directory_column_presets",
+      "displayPanelVariant": "panel",
+      "panelFillRows": "pageSize",
+      "partialPagePad": "invisible"
+    },
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
     "version": "3.1.210",
     "latestPublished": {
-      "tag": "v3.1.209",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.209",
-      "publishedAt": "2026-11-17T20:42:37Z",
+      "tag": "v3.1.210",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.210",
+      "publishedAt": "2026-11-17T20:49:30Z",
       "asset": {
-        "name": "Desk-Console-Setup-3.1.209.exe",
-        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.209/Desk-Console-Setup-3.1.209.exe",
-        "size": 124039417,
-        "sha256": "f083797f07413964233d3a8cddbde50a0f610dff3255b780fe33acc6f60ef9e4",
-        "sha512": "R59j8vDVm4b09/Zoa531Ge5F5IAm/8JzT5yytH3jJYFc93+oHf8G8CwbjZnAT672Vmtdb+E87t8rUxiGu/PQkA==",
-        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.209/latest.yml"
+        "name": "Desk-Console-Setup-3.1.210.exe",
+        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.210/Desk-Console-Setup-3.1.210.exe",
+        "size": 124039342,
+        "sha256": "3b21d8c2f8f40931950d43320f4a5ce2c0359fe0f3fd7d3a03ac2d9ff1d92de3",
+        "sha512": "Mb7ZMDQJdQAwKihVPXXR9MRESDHe0Byv/rIacOnVPBo+8AmzRai+6/XKxTXpGdzlm6EoPbQTrUgq9RAKOa2npA==",
+        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.210/latest.yml"
       }
     }
   },
@@ -206,7 +221,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-17T20:45:41.412Z",
+  "manifestUpdatedAt": "2026-11-17T20:53:24.755Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -231,7 +246,7 @@
     "syncedAt": "2026-10-28T17:14:22.333Z"
   },
   "versions": {
-    "latestPublished": "3.1.209",
+    "latestPublished": "3.1.210",
     "current": "3.1.210"
   }
 }
