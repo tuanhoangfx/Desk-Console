@@ -200,18 +200,18 @@
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.244",
+    "version": "3.1.246",
     "latestPublished": {
-      "tag": "v3.1.221",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.221",
-      "publishedAt": "2026-11-17T21:13:16Z",
+      "tag": "v3.1.246",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.246",
+      "publishedAt": "2026-11-17T23:18:40Z",
       "asset": {
-        "name": "Desk-Console-Setup-3.1.221.exe",
-        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.221/Desk-Console-Setup-3.1.221.exe",
-        "size": 124046094,
+        "name": "Desk-Console-Setup-3.1.246.exe",
+        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.246/Desk-Console-Setup-3.1.246.exe",
+        "size": 124057036,
         "sha256": "18e6d03cee35413dee113ed57f2b41369c76dedb334ac6918af8ddc331633499",
-        "sha512": "pkKGrzdNLqYBXgBYMgYXAAm1HnXjUIs96yWLUdPu7C8hPRt6oBzADB88Yyv5RP703sgL57MiwQ3OhHh2rwFLfQ==",
-        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.221/latest.yml"
+        "sha512": "O2/MoWEKZKbB9fMm1qAFCaHBQ/jEnIYutGNCdX/gohDUysLbKuLhFWlOCQ3MLcuuKs2BwDf+Zf7TU+QY8khF6w==",
+        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.246/latest.yml"
       }
     }
   },
@@ -221,7 +221,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-17T22:55:21.950Z",
+  "manifestUpdatedAt": "2026-11-17T23:22:50.506Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -246,7 +246,7 @@
     "syncedAt": "2026-10-28T17:14:22.333Z"
   },
   "versions": {
-    "latestPublished": "3.1.221",
-    "current": "3.1.244"
+    "latestPublished": "3.1.246",
+    "current": "3.1.246"
   }
 }

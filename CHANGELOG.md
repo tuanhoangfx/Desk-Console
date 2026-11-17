@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-11-18 - Record reclaimedBytes in PC Optimize Ops History & refine table debt audit
+
+- Version: `3.1.246`
+- Timestamp: 2026-11-18 06:16 (UTC+7)
+- Type: Patch
+- Status: Verified
+- Release: https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.246
+
+### Changes
+
+- Add formatPcOptimizeOpsHistoryEntry to record reclaimedBytes/disk MB/LS ghosts in Desk Console Ops History and update directory-table-debt-audit.mjs to recognize directory-prefs/directory-meta/useVisibleColumns (clearing P0002/P0003/P0009/P0012/P0024 false positives).
+
+### Verification
+
+- typecheck + 62/62 tests + lint pass; total debt lines dropped 56->7 (13 tools clean)
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.245`
+- Timestamp: 2026-11-18 06:15 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
 ## 2026-11-18 - Patch bump for completed agent task
 
 - Version: `3.1.244`
