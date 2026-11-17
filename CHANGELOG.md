@@ -1,11 +1,28 @@
 # Changelog
 
+## 2026-11-18 - Unify Created/Update to 7.25rem and fix legacy test assertions
+
+- Version: `3.1.210`
+- Timestamp: 2026-11-18 03:45 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Aligned Desk/Drives/Jobs Created and Update columns to HUB_DIRECTORY_PLAN_DATE_COL_WIDTH (7.25rem) and updated job-row-chrome.test.mjs to current split cell/tour paths (18/18 pass).
+
+### Verification
+
+- tsc --noEmit + vite build + hub-ui-preflight P0001 + src/lib/*.test.mjs 18/18
+
+---
 ## 2026-11-18 - Patch bump for completed agent task
 
 - Version: `3.1.209`
 - Timestamp: 2026-11-18 03:39 (UTC+7)
 - Type: Patch
-- Status: Committed
+- Status: Verified
+- Release: https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.209
 
 ### Changes
 

@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-11-17T20:40:08.970Z",
+  "generatedAt": "2026-11-17T20:47:02.877Z",
   "entries": [
+    {
+      "version": "3.1.210",
+      "date": "2026-11-18",
+      "at": "2026-11-18T03:45:00+07:00",
+      "title": "Unify Created/Update to 7.25rem and fix legacy test assertions",
+      "bullets": [
+        "Aligned Desk/Drives/Jobs Created and Update columns to HUB_DIRECTORY_PLAN_DATE_COL_WIDTH (7.25rem) and updated job-row-chrome.test.mjs to current split cell/tour paths (18/18 pass)."
+      ],
+      "kind": "improve",
+      "userTitle": "Unify Created Update to 7.25rem and fix legacy test assertions",
+      "userSummary": "",
+      "userHighlights": [
+        "Aligned Desk Drives Jobs Created and Update columns to HUB DIRECTORY PLAN DATE COL WIDTH and upda…"
+      ]
+    },
     {
       "version": "3.1.209",
       "date": "2026-11-18",
@@ -164,21 +179,6 @@
       "userSummary": "",
       "userHighlights": [
         "Automatic patch bump after completed P0001 task."
-      ]
-    },
-    {
-      "version": "3.1.189",
-      "date": "2026-11-16",
-      "at": "2026-11-16T11:24:00+07:00",
-      "title": "Clean stale renamed binaries during PE CUI subsystem check",
-      "bullets": [
-        "Auto-unlink unlocked *.cui-stale*.exe and *.gui-stale*.exe artifacts inside ensureBinaryCuiSubsystem in pc-optimizer.mjs and sync to installed Desk Console host."
-      ],
-      "kind": "improve",
-      "userTitle": "Clean stale renamed binaries during PE CUI subsystem check",
-      "userSummary": "",
-      "userHighlights": [
-        "Auto-unlink unlocked *.cui-stale*.exe and *.gui-stale*.exe artifacts inside ensure Binary Cui Sub…"
       ]
     }
   ]
