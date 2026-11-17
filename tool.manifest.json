@@ -208,8 +208,8 @@
       "asset": {
         "name": "Desk-Console-Setup-3.1.246.exe",
         "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.246/Desk-Console-Setup-3.1.246.exe",
-        "size": 124057036,
-        "sha256": "18e6d03cee35413dee113ed57f2b41369c76dedb334ac6918af8ddc331633499",
+        "size": 124057037,
+        "sha256": "36c0e916abebafb1f51d9e6fa47f062948e23800941d0a05fe8aa1117ff196c3",
         "sha512": "O2/MoWEKZKbB9fMm1qAFCaHBQ/jEnIYutGNCdX/gohDUysLbKuLhFWlOCQ3MLcuuKs2BwDf+Zf7TU+QY8khF6w==",
         "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.246/latest.yml"
       }
@@ -221,7 +221,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-17T23:22:50.506Z",
+  "manifestUpdatedAt": "2026-11-17T23:25:26.791Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
