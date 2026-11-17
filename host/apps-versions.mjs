@@ -5,26 +5,45 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { DEV_ROOT } from "./windows.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MONOREPO_ROOT = path.resolve(__dirname, "../../..");
-const INSPECTOR_PATH = path.join(
-  MONOREPO_ROOT,
-  "Tool",
-  "P0010-IDE-Console",
-  "scripts",
-  "lib",
-  "ide-installation-inspector.mjs",
-);
+
+function resolveMonorepoRoot() {
+  const candidates = [
+    DEV_ROOT,
+    path.resolve(__dirname, "../../.."),
+    "E:\\Dev",
+  ].filter(Boolean);
+  for (const root of candidates) {
+    const p = path.join(root, "Tool", "P0010-IDE-Console", "scripts", "lib", "ide-installation-inspector.mjs");
+    if (fs.existsSync(p)) return root;
+  }
+  return DEV_ROOT || path.resolve(__dirname, "../../..");
+}
+
+const MONOREPO_ROOT = resolveMonorepoRoot();
+
+function getInspectorPath() {
+  return path.join(
+    MONOREPO_ROOT,
+    "Tool",
+    "P0010-IDE-Console",
+    "scripts",
+    "lib",
+    "ide-installation-inspector.mjs",
+  );
+}
 
 let cachedMod = null;
 
 async function loadInspectorModule() {
   if (cachedMod) return cachedMod;
-  if (!fs.existsSync(INSPECTOR_PATH)) {
+  const inspectorPath = getInspectorPath();
+  if (!fs.existsSync(inspectorPath)) {
     return null;
   }
-  cachedMod = await import(pathToFileURL(INSPECTOR_PATH).href);
+  cachedMod = await import(pathToFileURL(inspectorPath).href);
   return cachedMod;
 }
 

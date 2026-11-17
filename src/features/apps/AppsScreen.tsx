@@ -88,11 +88,15 @@ export function AppsScreen() {
         const msg = res.message || res.error || `Executed ${action}`;
         appendDeskOpsLog(msg, res.ok ? "info" : "error", "runner");
         emitHubAppLog({ scope: "P0001", screen: "apps", kind: "update", message: msg });
-        toast.show({ title: "Apps & Versions", message: msg, tone: res.ok ? "emerald" : "rose" });
+        toast?.pushRichToast({
+          type: res.ok ? "success" : "error",
+          title: "Apps & Versions",
+          message: msg,
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         appendDeskOpsLog(msg, "error", "runner");
-        toast.show({ title: "Apps & Versions", message: msg, tone: "rose" });
+        toast?.pushRichToast({ type: "error", title: "Apps & Versions", message: msg });
       } finally {
         setBusyAction(null);
       }
@@ -106,16 +110,16 @@ export function AppsScreen() {
       try {
         const res = await deskApi.appsVersions({ releases: true, force });
         applyResponse(res);
-        toast.show({
+        toast?.pushRichToast({
+          type: "info",
           title: "Apps & Versions",
           message: `Checked ${res.rows?.length ?? 0} runtime(s) & ${res.releases?.length ?? 0} Antigravity release(s)`,
-          tone: "sky",
         });
       } catch (err) {
-        toast.show({
+        toast?.pushRichToast({
+          type: "error",
           title: "Apps & Versions",
           message: err instanceof Error ? err.message : String(err),
-          tone: "rose",
         });
       } finally {
         setBusyAction(null);

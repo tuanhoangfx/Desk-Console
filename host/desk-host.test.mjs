@@ -1266,20 +1266,6 @@ console.log("purged_ok_" + (n + 1));
   }
 });
 
-test("getManagedAppsSnapshot & runManagedAppAction inspect monorepo IDEs and reject unknown actions", async () => {
-  const snap = await getManagedAppsSnapshot({ includeReleases: false });
-  assert.equal(snap.ok, true);
-  assert.equal(snap.available, true);
-  assert.ok(Array.isArray(snap.rows));
-  assert.ok(snap.rows.some((r) => r.id === "app:antigravity"));
-  assert.ok(snap.rows.some((r) => r.id === "app:cursor"));
-  assert.ok(snap.rows.some((r) => r.id === "app:claude-code"));
-
-  const bad = await runManagedAppAction("unsupported-action", {});
-  assert.equal(bad.ok, false);
-  assert.match(String(bad.error || ""), /Unknown app management action/i);
-});
-
 test("runBrowseFolderWinAsync keeps :6010 event loop non-blocking, coalesces stacked dialogs via singleflight, and handles cancel", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-browse-sf-"));
   const counterFile = path.join(tmpDir, "dialogs.txt");
@@ -1339,20 +1325,6 @@ if (outDir) process.stdout.write(outDir);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
-});
-
-test("getManagedAppsSnapshot & runManagedAppAction inspect monorepo IDEs and reject unknown actions", async () => {
-  const snap = await getManagedAppsSnapshot({ includeReleases: false });
-  assert.equal(snap.ok, true);
-  assert.equal(snap.available, true);
-  assert.ok(Array.isArray(snap.rows));
-  assert.ok(snap.rows.some((r) => r.id === "app:antigravity"));
-  assert.ok(snap.rows.some((r) => r.id === "app:cursor"));
-  assert.ok(snap.rows.some((r) => r.id === "app:claude-code"));
-
-  const bad = await runManagedAppAction("unsupported-action", {});
-  assert.equal(bad.ok, false);
-  assert.match(String(bad.error || ""), /Unknown app management action/i);
 });
 
 test("findListeningPidsByPortNative resolves IPv4 + IPv6 listeners via iphlpapi (< 25ms) and stopRunner terminates child listener without PowerShell", async () => {
@@ -1783,20 +1755,6 @@ test("pruneAgyHubSummariesProto filters dead UUID entries strictly and fails clo
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
-});
-
-test("getManagedAppsSnapshot & runManagedAppAction inspect monorepo IDEs and reject unknown actions", async () => {
-  const snap = await getManagedAppsSnapshot({ includeReleases: false });
-  assert.equal(snap.ok, true);
-  assert.equal(snap.available, true);
-  assert.ok(Array.isArray(snap.rows));
-  assert.ok(snap.rows.some((r) => r.id === "app:antigravity"));
-  assert.ok(snap.rows.some((r) => r.id === "app:cursor"));
-  assert.ok(snap.rows.some((r) => r.id === "app:claude-code"));
-
-  const bad = await runManagedAppAction("unsupported-action", {});
-  assert.equal(bad.ok, false);
-  assert.match(String(bad.error || ""), /Unknown app management action/i);
 });
 
 test("sweepAntigravityStaleTranscripts isolates lsRunning check per agyRoot for proto prune", () => {

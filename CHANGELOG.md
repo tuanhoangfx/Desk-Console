@@ -1,5 +1,133 @@
 # Changelog
 
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.219`
+- Timestamp: 2026-11-18 04:08 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.218`
+- Timestamp: 2026-11-18 04:08 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Use valid Electron accelerator '.' and guard globalShortcut.register
+
+- Version: `3.1.217`
+- Timestamp: 2026-11-18 04:07 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced invalid CommandOrControl+Shift+Period fallback with CommandOrControl+Shift+. and wrapped globalShortcut.register in try/catch.
+
+### Verification
+
+- node --check electron/main.cjs + win-unpacked sync + smoke-desktop-ui desk-core
+
+---
+## 2026-11-18 - Add Apps & Versions management screen and Host APIs
+
+- Version: `3.1.216`
+- Timestamp: 2026-11-18 04:04 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Centralize local IDE app version inspection, auto-update pins, ACL locks, GCS release vault, portable SxS builds, state snapshots, and VSIX vault in P0001 Desk Console.
+
+### Verification
+
+- hub-ui-preflight, typecheck, 59/59 host tests, deadcode, Vite build
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.215`
+- Timestamp: 2026-11-18 04:03 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.214`
+- Timestamp: 2026-11-18 04:02 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.213`
+- Timestamp: 2026-11-18 04:00 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.212`
+- Timestamp: 2026-11-18 04:00 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
 ## 2026-11-18 - Set sandbox:false for Electron preload and use smokePort 6019
 
 - Version: `3.1.211`

@@ -57,7 +57,7 @@ const DEFAULT_HOTKEYS = {
   picker: "CommandOrControl+Shift+Q",
 };
 
-const PICKER_FALLBACKS = ["CommandOrControl+Shift+Q", "CommandOrControl+Shift+Period"];
+const PICKER_FALLBACKS = ["CommandOrControl+Shift+Q", "CommandOrControl+Shift+."];
 
 let mainWindow = null;
 let pickerWindow = null;
@@ -872,10 +872,16 @@ function registerPickerShortcut(preferred) {
   const candidates = [preferred, ...PICKER_FALLBACKS].filter((acc) => acc && skipRetired(acc));
   const seen = new Set();
   for (const acc of candidates) {
-    const key = String(acc);
+    const key = String(acc).replace(/\+Period$/i, "+.");
     if (seen.has(key.toLowerCase())) continue;
     seen.add(key.toLowerCase());
-    if (globalShortcut.register(key, togglePicker)) {
+    let registered = false;
+    try {
+      registered = globalShortcut.register(key, togglePicker);
+    } catch {
+      registered = false;
+    }
+    if (registered) {
       boundPickerAccel = key;
       if (key !== preferred) {
         console.warn(`[desk] picker shortcut ${preferred} unavailable — bound ${key}`);

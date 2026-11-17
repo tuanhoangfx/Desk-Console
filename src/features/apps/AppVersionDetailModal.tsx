@@ -203,8 +203,8 @@ export function AppVersionDetailModal({
                   })}
                 >
                   <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
-                    <DeskDetailReadonlyField label="Status" headerEmoji="🚦" valueLayout="inline">
-                      <DeskStatusKpiLabel status={row.status} variant="detail" />
+                    <DeskDetailReadonlyField label="Status" headerEmoji="🚦">
+                      <DeskStatusKpiLabel status={row.status} />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Installed Version" headerEmoji="🏷️">
                       {row.version ? `v${row.version}` : "Not installed"}
@@ -214,12 +214,10 @@ export function AppVersionDetailModal({
                     </DeskDetailReadonlyField>
                   </div>
                   <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
-                    <DeskDetailReadonlyField label="Executable / Home" headerEmoji="📁" valueLayout="inline">
+                    <DeskDetailReadonlyField label="Executable / Home" headerEmoji="📁">
                       {row.exePath || row.isolatedHomeDir ? (
                         <HubDirectoryReadonlyCopyText
                           value={row.exePath || row.isolatedHomeDir || ""}
-                          toastLabel="Path copied"
-                          truncate
                         />
                       ) : (
                         "—"
@@ -255,6 +253,7 @@ export function AppVersionDetailModal({
                         <HubBulkActionButton
                           icon={<ShieldCheck size={12} aria-hidden />}
                           label="Pin Updates OFF & Purge"
+                          title="Pin auto-updates OFF and purge staged pending installers"
                           tone="emerald"
                           variant="filled"
                           disabled={busy}
@@ -270,6 +269,7 @@ export function AppVersionDetailModal({
                         <HubBulkActionButton
                           icon={<ShieldOff size={12} aria-hidden />}
                           label="Allow Updates"
+                          title="Re-enable automatic IDE updates and unlock pending ACL"
                           tone="amber"
                           variant="filled"
                           disabled={busy}
@@ -286,6 +286,7 @@ export function AppVersionDetailModal({
                           <HubBulkActionButton
                             icon={row.aclLocked ? <Unlock size={12} aria-hidden /> : <Lock size={12} aria-hidden />}
                             label={row.aclLocked ? "Unlock Updater ACL" : "Hard-Lock Updater ACL"}
+                            title={row.aclLocked ? "Restore write ACL on pending updater folder" : "Deny write ACL on pending updater folder"}
                             tone={row.aclLocked ? "neutral" : "rose"}
                             variant="filled"
                             disabled={busy}
@@ -333,6 +334,7 @@ export function AppVersionDetailModal({
                             <HubBulkActionButton
                               icon={<Download size={12} aria-hidden />}
                               label={busyAction === `fetch:${selectedReleaseVer}` ? "Downloading..." : "Fetch Release"}
+                              title="Download selected Antigravity release into .tools/ide-installers"
                               tone="emerald"
                               variant="filled"
                               disabled={busy || !selectedReleaseVer}
@@ -368,6 +370,7 @@ export function AppVersionDetailModal({
                                   <HubBulkActionButton
                                     icon={<Layers size={12} aria-hidden />}
                                     label={`SxS v${item.version}`}
+                                    title={`Extract or launch Side-by-Side portable Antigravity v${item.version}`}
                                     tone="indigo"
                                     variant="filled"
                                     disabled={busy}
@@ -377,6 +380,7 @@ export function AppVersionDetailModal({
                                 <HubBulkActionButton
                                   icon={<Package size={12} aria-hidden />}
                                   label={row.version === item.version ? "Reinstall" : "Install"}
+                                  title={`Snapshot current state and launch ${row.product} v${item.version} setup`}
                                   tone="amber"
                                   variant="filled"
                                   disabled={busy}
@@ -416,6 +420,7 @@ export function AppVersionDetailModal({
                         <HubBulkActionButton
                           icon={<Layers size={12} aria-hidden />}
                           label={row.isRunning ? `Focus SxS v${row.version}` : `Launch SxS v${row.version}`}
+                          title={row.isRunning ? `Focus SxS v${row.version}` : `Launch SxS v${row.version}`}
                           tone="indigo"
                           variant="filled"
                           disabled={busy}
@@ -425,6 +430,7 @@ export function AppVersionDetailModal({
                           <HubBulkActionButton
                             icon={<RotateCcw size={12} aria-hidden />}
                             label="Relaunch"
+                            title={`Restart SxS Antigravity v${row.version}`}
                             tone="amber"
                             variant="filled"
                             disabled={busy}
@@ -434,6 +440,7 @@ export function AppVersionDetailModal({
                         <HubBulkActionButton
                           icon={<Link2 size={12} aria-hidden />}
                           label="Create / Refresh .lnk Shortcuts"
+                          title="Create Desktop and Start Menu .lnk shortcuts for this SxS build"
                           tone="neutral"
                           variant="filled"
                           disabled={busy}
@@ -461,6 +468,7 @@ export function AppVersionDetailModal({
                         <HubBulkActionButton
                           icon={<History size={12} aria-hidden />}
                           label="Snapshot Now"
+                          title={`Capture backup snapshot of ${row.product} globalStorage`}
                           tone="sky"
                           variant="filled"
                           disabled={busy}
@@ -482,6 +490,7 @@ export function AppVersionDetailModal({
                               <HubBulkActionButton
                                 icon={<RotateCcw size={12} aria-hidden />}
                                 label="Restore"
+                                title={`Restore snapshot ${snap.id}`}
                                 tone="amber"
                                 variant="filled"
                                 disabled={busy}
@@ -514,6 +523,7 @@ export function AppVersionDetailModal({
                         <HubBulkActionButton
                           icon={<RefreshCw size={12} aria-hidden />}
                           label="Sync VSIX Vault"
+                          title="Scan and archive installed IDE VSIX extensions"
                           tone="sky"
                           variant="filled"
                           disabled={busy}
@@ -535,6 +545,7 @@ export function AppVersionDetailModal({
                               <HubBulkActionButton
                                 icon={<Package size={12} aria-hidden />}
                                 label="Install VSIX"
+                                title={`Install ${ext.id} v${ext.version} into ${row.product}`}
                                 tone="emerald"
                                 variant="filled"
                                 disabled={busy}
