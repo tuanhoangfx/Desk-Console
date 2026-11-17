@@ -26,7 +26,7 @@ const lane = createDesktopSmokeLaneProfile({
   userDataId: "desk-console",
   prodPort: 6010,
   devPort: 6011,
-  smokePort: 6012,
+  smokePort: 6019,
   prodExe,
   portEnvKey: "DESK_API_PORT",
 });

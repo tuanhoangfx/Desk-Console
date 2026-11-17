@@ -16,6 +16,7 @@ export const SCREEN_LABELS: Record<AppScreen, string> = {
   drives: "Drives",
   runners: "Runners",
   cron: "Cron",
+  apps: "Apps",
 };
 
 export function readAppScreen(): AppScreen {
@@ -24,7 +25,7 @@ export function readAppScreen(): AppScreen {
   if (fromPath) return fromPath;
   const legacy = new URLSearchParams(window.location.search).get("screen");
   if (legacy === "captures") return "clips";
-  if (legacy === "dashboard" || legacy === "jobs" || legacy === "drives" || legacy === "runners" || legacy === "cron") return legacy;
+  if (legacy === "dashboard" || legacy === "jobs" || legacy === "drives" || legacy === "runners" || legacy === "cron" || legacy === "apps") return legacy;
   if (legacy === "system") return "dashboard";
   if (legacy === "tasks") return "cron";
   if (legacy === "ops") return "runners";

@@ -497,4 +497,68 @@ export const deskApi = {
       `/api/siblings/${encodeURIComponent(code)}/open`,
       { method: "POST" },
     ),
+  appsVersions: (opts?: { releases?: boolean; force?: boolean }) => {
+    const params = new URLSearchParams();
+    if (opts?.releases) params.set("releases", "1");
+    if (opts?.force) params.set("force", "1");
+    const q = params.toString();
+    return req<ManagedAppsResponse>(`/api/apps/versions${q ? `?${q}` : ""}`);
+  },
+  appsAction: (action: string, payload: Record<string, unknown> = {}) =>
+    req<{ ok: boolean; message?: string; error?: string; appsState?: ManagedAppsResponse }>("/api/apps/action", {
+      method: "POST",
+      body: JSON.stringify({ action, ...payload }),
+      signal: AbortSignal.timeout(45000),
+    }),
+};
+
+export type ManagedAppRow = {
+  id: string;
+  name: string;
+  product: "antigravity" | "cursor" | "claudeCode";
+  kind: "primary" | "sxs" | "cli";
+  version: string | null;
+  previousUsedVersion?: string | null;
+  commit?: string | null;
+  installed: boolean;
+  isRunning?: boolean;
+  runningPids?: number[];
+  status: string;
+  updatePinned: boolean;
+  extensionsPinned?: boolean;
+  aclLocked: boolean;
+  pendingUpdatePresent: boolean;
+  pendingFileName?: string | null;
+  exePath: string | null;
+  visualTheme?: string;
+  boundEmail?: string | null;
+  boundTier?: string | null;
+  desktopShortcutExists?: boolean;
+  startMenuShortcutExists?: boolean;
+  isolatedHomeDir?: string | null;
+  installerItems?: Array<{ version: string; fileName: string; path: string; sizeBytes?: number; mtimeIso?: string }>;
+  stateSnapshots?: Array<{ id: string; product: string; createdAt: string; reason: string; sizeBytes?: number }>;
+  vsixExtensions?: Array<{ id: string; fileName: string; version: string; scope: string; path: string; sizeBytes?: number }>;
+  detail: string;
+  log: string;
+  updated: string;
+};
+
+export type ManagedAppReleaseItem = {
+  version: string;
+  executionId?: string;
+  downloadUrl?: string | null;
+  archived: boolean;
+  fileName: string;
+  sizeBytes?: number;
+};
+
+export type ManagedAppsResponse = {
+  ok: boolean;
+  available: boolean;
+  error?: string;
+  checkedAt?: string;
+  rows: ManagedAppRow[];
+  releases?: ManagedAppReleaseItem[];
+  snapshot?: Record<string, unknown> | null;
 };

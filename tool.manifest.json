@@ -200,7 +200,7 @@
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.210",
+    "version": "3.1.211",
     "latestPublished": {
       "tag": "v3.1.210",
       "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.210",
@@ -221,7 +221,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-17T20:53:24.755Z",
+  "manifestUpdatedAt": "2026-11-17T20:59:13.959Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -247,6 +247,6 @@
   },
   "versions": {
     "latestPublished": "3.1.210",
-    "current": "3.1.210"
+    "current": "3.1.211"
   }
 }

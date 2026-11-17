@@ -4,7 +4,8 @@
 .hub-main.hub-main--jobs,
 .hub-main.hub-main--drives,
 .hub-main.hub-main--runners,
-.hub-main.hub-main--cron {
+.hub-main.hub-main--cron,
+.hub-main.hub-main--apps {
   padding-bottom: 0;
   scroll-padding-top: 0;
   scrollbar-gutter: auto;
@@ -17,11 +18,13 @@
 .hub-main--drives .hub-split-workspace > div,
 .hub-main--runners .hub-split-workspace > div,
 .hub-main--cron .hub-split-workspace > div,
+.hub-main--apps .hub-split-workspace > div,
 .hub-main--clips .hub-tab-chrome-stack,
 .hub-main--jobs .hub-tab-chrome-stack,
 .hub-main--drives .hub-tab-chrome-stack,
 .hub-main--runners .hub-tab-chrome-stack,
-.hub-main--cron .hub-tab-chrome-stack {
+.hub-main--cron .hub-tab-chrome-stack,
+.hub-main--apps .hub-tab-chrome-stack {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
@@ -31,7 +34,8 @@
 .hub-main--jobs .hub-tab-content-zone,
 .hub-main--drives .hub-tab-content-zone,
 .hub-main--runners .hub-tab-content-zone,
-.hub-main--cron .hub-tab-content-zone {
+.hub-main--cron .hub-tab-content-zone,
+.hub-main--apps .hub-tab-content-zone {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -44,7 +48,8 @@
 .hub-main--jobs .hub-split-workspace .app-tab-header,
 .hub-main--drives .hub-split-workspace .app-tab-header,
 .hub-main--runners .hub-split-workspace .app-tab-header,
-.hub-main--cron .hub-split-workspace .app-tab-header {
+.hub-main--cron .hub-split-workspace .app-tab-header,
+.hub-main--apps .hub-split-workspace .app-tab-header {
   margin-bottom: 0;
 }
 
@@ -57,7 +62,8 @@
 .hub-main--jobs .hub-split-workspace .hub-tab-body-zone--split,
 .hub-main--drives .hub-split-workspace .hub-tab-body-zone--split,
 .hub-main--runners .hub-split-workspace .hub-tab-body-zone--split,
-.hub-main--cron .hub-split-workspace .hub-tab-body-zone--split {
+.hub-main--cron .hub-split-workspace .hub-tab-body-zone--split,
+.hub-main--apps .hub-split-workspace .hub-tab-body-zone--split {
   margin-top: 0;
   display: flex;
   flex: 1 1 0;
@@ -130,7 +136,8 @@
 .hub-main.hub-main--jobs > .desk-tab-panel--active,
 .hub-main.hub-main--drives > .desk-tab-panel--active,
 .hub-main.hub-main--runners > .desk-tab-panel--active,
-.hub-main.hub-main--cron > .desk-tab-panel--active {
+.hub-main.hub-main--cron > .desk-tab-panel--active,
+.hub-main.hub-main--apps > .desk-tab-panel--active {
   position: relative;
   z-index: 1;
   display: flex !important;
@@ -142,7 +149,7 @@
   visibility: visible;
 }
 
-.hub-main:not(.hub-main--clips):not(.hub-main--jobs):not(.hub-main--drives):not(.hub-main--runners):not(.hub-main--cron) > .desk-tab-panel--active {
+.hub-main:not(.hub-main--clips):not(.hub-main--jobs):not(.hub-main--drives):not(.hub-main--runners):not(.hub-main--cron):not(.hub-main--apps) > .desk-tab-panel--active {
   position: relative;
   z-index: 1;
   display: flex !important;

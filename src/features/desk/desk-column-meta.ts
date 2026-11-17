@@ -39,6 +39,7 @@ const SCREEN_STATUS_HINT_LINES: Record<DeskDirectoryScreen, HubDirectoryColumnHi
   cron: buildStatusHintLines(["Active", "Running", "Disabled", "Failed"]),
   runners: buildStatusHintLines(["Up", "Starting", "Running", "Stopping", "Down"]),
   clips: buildStatusHintLines(["History", "Sample"]),
+  apps: buildStatusHintLines(["Up", "Pending", "Disabled", "Down"]),
 };
 
 const FORMAT_HINT_LINES: HubDirectoryColumnHintLine[] = [

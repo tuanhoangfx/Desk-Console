@@ -37,6 +37,7 @@ import {
   dataRoot,
 } from "./store.mjs";
 import { hotkeysPayload, resetHotkeys, writeHotkeys } from "./hotkeys.mjs";
+import { getManagedAppsSnapshot, runManagedAppAction } from "./apps-versions.mjs";
 import { sampleHostMetrics } from "./host-metrics.mjs";
 import {
   listRunners,
@@ -1689,6 +1690,26 @@ async function handle(req, res) {
       pid,
     });
     return json(res, 200, { ok: true, pid, code, mode });
+  }
+
+  if (method === "GET" && pathname === "/api/apps/versions") {
+    const includeReleases = url.searchParams.get("releases") === "1";
+    const forceReleases = url.searchParams.get("force") === "1";
+    return json(res, 200, await getManagedAppsSnapshot({ includeReleases, forceReleases }));
+  }
+  if (method === "POST" && pathname === "/api/apps/action") {
+    const body = await readBody(req).catch(() => ({}));
+    const out = await runManagedAppAction(body?.action, body || {});
+    if (out?.message || out?.error) {
+      appendOpsHistory({
+        kind: "apps",
+        targetId: String(body?.version || body?.product || "ide-apps"),
+        action: String(body?.action || "action"),
+        ok: Boolean(out.ok),
+        message: String(out.message || out.error || ""),
+      });
+    }
+    return json(res, out?.ok === false ? 400 : 200, out);
   }
 
   if (method === "GET" && pathname === "/api/tasks") {

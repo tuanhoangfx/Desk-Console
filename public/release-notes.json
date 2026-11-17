@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-11-17T20:53:23.017Z",
+  "generatedAt": "2026-11-17T20:59:39.106Z",
   "entries": [
+    {
+      "version": "3.1.211",
+      "date": "2026-11-18",
+      "at": "2026-11-18T03:59:00+07:00",
+      "title": "Set sandbox:false for Electron preload and use smokePort 6019",
+      "bullets": [
+        "Added sandbox:false to main/picker webPreferences so preload.cjs can load ./lib/desktop-host-kit.cjs, and moved P0001 smokePort from 6012 to 6019."
+      ],
+      "kind": "improve",
+      "userTitle": "Set sandbox:false for Electron preload and use smoke Port 6019",
+      "userSummary": "",
+      "userHighlights": [
+        "Added sandbox:false to main picker web Preferences so can load . , and moved P0001 smoke Port fro…"
+      ]
+    },
     {
       "version": "3.1.210",
       "date": "2026-11-18",
@@ -164,21 +179,6 @@
       "userSummary": "",
       "userHighlights": [
         "Convert unbracketed Tailwind v3 opacity utilities to bracketed [0.xx] syntax"
-      ]
-    },
-    {
-      "version": "3.1.191",
-      "date": "2026-11-16",
-      "at": "2026-11-16T18:51:00+07:00",
-      "title": "Patch bump for completed agent task",
-      "bullets": [
-        "Automatic patch bump after completed P0001 task."
-      ],
-      "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
-      "userSummary": "",
-      "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
       ]
     }
   ]

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-18 - Set sandbox:false for Electron preload and use smokePort 6019
+
+- Version: `3.1.211`
+- Timestamp: 2026-11-18 03:59 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Added sandbox:false to main/picker webPreferences so preload.cjs can load ./lib/desktop-host-kit.cjs, and moved P0001 smokePort from 6012 to 6019.
+
+### Verification
+
+- node --check electron/main.cjs, check-desktop-ui-smoke-ssot.mjs, host unit tests
+
+---
 ## 2026-11-18 - Unify Created/Update to 7.25rem and fix legacy test assertions
 
 - Version: `3.1.210`

@@ -147,4 +147,20 @@ export const SCREEN_DISPLAY_PREFS: Partial<
     defaultChartKeys: [],
     defaultFilterKeys: ["status", "project"],
   },
+  apps: {
+    kpis: [
+      { key: "total", label: "Total" },
+      { key: "up", label: "Active" },
+      { key: "pinned", label: "Pinned" },
+      { key: "down", label: "Offline" },
+    ],
+    charts: [],
+    filters: [
+      { key: "status", label: "Status", emoji: "🚦" },
+      { key: "project", label: "Product", emoji: "📁" },
+    ],
+    defaultKpiKeys: ["total", "up", "pinned", "down"],
+    defaultChartKeys: [],
+    defaultFilterKeys: ["status", "project"],
+  },
 };

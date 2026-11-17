@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import { flatMapNavScreenItems, type NavStructureEntry } from "@tool-workspace/hub-ui";
-import { CalendarClock, ClipboardList, Cloud, FolderKanban, PlayCircle, TrendingUp } from "lucide-react";
+import { Boxes, CalendarClock, ClipboardList, Cloud, FolderKanban, PlayCircle, TrendingUp } from "lucide-react";
 import type { AppScreen } from "./app-screen";
 
-/** Sidebar nav SSOT — Dashboard · Drive Sync (Jobs · Drives) · Clips · Runners · Cron. */
+/** Sidebar nav SSOT — Dashboard · Drive Sync (Jobs · Drives) · Clips · Runners · Cron · Apps. */
 export const NAV_SUBNAV_PREFIX = "p0001";
 
 export const NAV_GROUP_IDS = ["drive-sync"] as const;
@@ -27,6 +27,7 @@ export const NAV_STRUCTURE: NavStructureEntry<AppScreen, (typeof NAV_GROUP_IDS)[
   { kind: "screen", screen: "clips", label: "Clips", icon: ClipboardList, iconTone: "emerald" },
   { kind: "screen", screen: "runners", label: "Runners", icon: PlayCircle, iconTone: "amber" },
   { kind: "screen", screen: "cron", label: "Cron", icon: CalendarClock, iconTone: "cyan" },
+  { kind: "screen", screen: "apps", label: "Apps", icon: Boxes, iconTone: "violet" },
 ];
 
 const NAV_TONE_CLASS: Record<string, string> = {
@@ -35,6 +36,7 @@ const NAV_TONE_CLASS: Record<string, string> = {
   sky: "text-sky-300",
   amber: "text-amber-300",
   cyan: "text-cyan-300",
+  violet: "text-violet-300",
 };
 
 /** One icon for the sidebar row and the tab header. */

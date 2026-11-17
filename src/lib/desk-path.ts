@@ -4,7 +4,7 @@
  * - Electron `file://` + `base: './'` → `index.html?screen=dashboard`
  */
 
-export type AppScreen = "dashboard" | "clips" | "jobs" | "drives" | "runners" | "cron";
+export type AppScreen = "dashboard" | "clips" | "jobs" | "drives" | "runners" | "cron" | "apps";
 
 export const DESK_SCREEN_PATH: Record<AppScreen, string> = {
   dashboard: "/dashboard",
@@ -13,6 +13,7 @@ export const DESK_SCREEN_PATH: Record<AppScreen, string> = {
   drives: "/drives",
   runners: "/runners",
   cron: "/cron",
+  apps: "/apps",
 };
 
 const LEGACY_SCREEN_MAP: Record<string, AppScreen> = {
@@ -23,6 +24,7 @@ const LEGACY_SCREEN_MAP: Record<string, AppScreen> = {
   drives: "drives",
   runners: "runners",
   cron: "cron",
+  apps: "apps",
   tasks: "cron",
   ops: "runners",
   system: "dashboard",
@@ -44,6 +46,7 @@ export function pathnameToAppScreen(pathname: string): AppScreen | null {
   if (normalized === "/drives" || normalized.startsWith("/drives/")) return "drives";
   if (normalized === "/runners" || normalized.startsWith("/runners/")) return "runners";
   if (normalized === "/cron" || normalized.startsWith("/cron/")) return "cron";
+  if (normalized === "/apps" || normalized.startsWith("/apps/")) return "apps";
   if (normalized === "/tasks" || normalized.startsWith("/tasks/")) return "cron";
   if (normalized === "/ops" || normalized.startsWith("/ops/")) return "runners";
   if (normalized === "/system" || normalized.startsWith("/system/")) return "dashboard";

@@ -335,6 +335,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   });
   attachMainWindowForUpdater(mainWindow);
@@ -440,6 +441,7 @@ function createPicker() {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
       backgroundThrottling: false,
     },
   });

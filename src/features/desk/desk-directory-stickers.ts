@@ -74,6 +74,7 @@ export function deskStatusKpiDetail(status: string): string {
   if (key === "starting") return "Service spawn initiated; awaiting health probe.";
   if (key === "stopping") return "Graceful stop requested for the target process.";
   if (key === "disabled" || key === "stopped") return "Paused / disabled — will not auto-trigger until enabled.";
+  if (key === "pending") return "Pending update installer staged — lock & purge recommended.";
   if (key === "failed" || key === "error") return "Last execution exited with a non-zero error code.";
   if (key === "down") return "Target port is not listening (stopped or offline).";
   if (key === "history") return "Captured automatically from Windows clipboard watch.";
@@ -89,4 +90,5 @@ export const DESK_SCREEN_TITLE_EMOJI = {
   drives: "☁️",
   runners: "▶️",
   cron: "🕒",
+  apps: "📦",
 } as const;

@@ -12,6 +12,7 @@ import toolManifest from "../tool.manifest.json";
 import { DeskSidebar } from "./components/DeskSidebar";
 import { DeskVisitedTabPanel } from "./components/DeskVisitedTabPanel";
 import { ClipPickerPage } from "./features/clips/ClipPickerPage";
+import { AppsScreen } from "./features/apps/AppsScreen";
 import { ClipsScreen } from "./features/clips/ClipsScreen";
 import { CronScreen } from "./features/cron/CronScreen";
 import { DashboardScreen } from "./features/dashboard/DashboardScreen";
@@ -24,7 +25,7 @@ import { deskApi } from "./lib/api";
 import { setDeskActiveScreen } from "./lib/desk-active-screen";
 import { fetchJobs, fetchRemotes } from "./lib/sync-api";
 
-const SCREENS: AppScreen[] = ["dashboard", "clips", "jobs", "drives", "runners", "cron"];
+const SCREENS: AppScreen[] = ["dashboard", "clips", "jobs", "drives", "runners", "cron", "apps"];
 
 function isPastePicker() {
   return new URLSearchParams(window.location.search).get("picker") === "1";
@@ -40,6 +41,7 @@ const DeskScreenSlot = memo(function DeskScreenSlot({ id }: { id: AppScreen }) {
   if (id === "drives") return <DrivesScreen />;
   if (id === "runners") return <RunnersScreen />;
   if (id === "cron") return <CronScreen />;
+  if (id === "apps") return <AppsScreen />;
   return <ClipsScreen />;
 });
 
@@ -51,6 +53,7 @@ const SCREEN_SLOTS: Record<AppScreen, ReactElement> = {
   drives: <DeskScreenSlot id="drives" />,
   runners: <DeskScreenSlot id="runners" />,
   cron: <DeskScreenSlot id="cron" />,
+  apps: <DeskScreenSlot id="apps" />,
 };
 
 export default function App() {
@@ -148,7 +151,7 @@ function DeskApp() {
 
   const visited = useHubVisitedTabsLru(screen, {
     maxMounted: 5,
-    pinned: ["dashboard", "clips", "jobs", "drives", "runners", "cron"],
+    pinned: ["dashboard", "clips", "jobs", "drives", "runners", "cron", "apps"],
   });
 
   useLayoutEffect(() => {

@@ -8,9 +8,9 @@ import type { AppScreen } from "../../lib/app-screen";
 
 export type DeskCol = "created" | "updated" | "name" | "format" | "run" | "schedule" | "status" | "extra" | "log";
 
-export type DeskDirectoryScreen = Extract<AppScreen, "clips" | "runners" | "cron">;
+export type DeskDirectoryScreen = Extract<AppScreen, "clips" | "runners" | "cron" | "apps">;
 
-export const DESK_DIRECTORY_SCREENS: readonly DeskDirectoryScreen[] = ["clips", "runners", "cron"];
+export const DESK_DIRECTORY_SCREENS: readonly DeskDirectoryScreen[] = ["clips", "runners", "cron", "apps"];
 
 export const DESK_COL_ITEMS = [
   { key: "created" as const, label: "Created" },
@@ -57,6 +57,14 @@ export const DESK_DIRECTORY_DISPLAY_PREFS_MANIFEST = {
     scope: "Cron split directory — Run/Stop row + ops rail",
     columnStorageKey: "p0001_cron_directory_columns",
     presetsStorageKey: "p0001_cron_directory_column_presets",
+    displayPanelVariant: "panel",
+    panelFillRows: "pageSize",
+    partialPagePad: "invisible",
+  },
+  apps: {
+    scope: "Apps & Versions directory — IDE builds, SxS, update guard & VSIX",
+    columnStorageKey: "p0001_apps_directory_columns",
+    presetsStorageKey: "p0001_apps_directory_column_presets",
     displayPanelVariant: "panel",
     panelFillRows: "pageSize",
     partialPagePad: "invisible",
@@ -150,7 +158,7 @@ const prefsCache = new Map<DeskDirectoryScreen, DirectoryTableColumnPrefs<DeskCo
 const presetsCache = new Map<DeskDirectoryScreen, DirectoryTableColumnPresetManager<DeskCol>>();
 
 export function deskDirectoryScreenOrClips(screen: AppScreen): DeskDirectoryScreen {
-  return screen === "runners" || screen === "cron" || screen === "clips" ? screen : "clips";
+  return screen === "runners" || screen === "cron" || screen === "clips" || screen === "apps" ? screen : "clips";
 }
 
 export function deskTablePrefsFor(screen: DeskDirectoryScreen) {
