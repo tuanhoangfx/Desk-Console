@@ -203,16 +203,16 @@
   "release": {
     "version": "3.1.267",
     "latestPublished": {
-      "tag": "v3.1.256",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.256",
-      "publishedAt": "2026-11-18T11:53:04Z",
+      "tag": "v3.1.267",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.267",
+      "publishedAt": "2026-11-26T22:26:37Z",
       "asset": {
-        "name": "Desk-Console-Setup-3.1.256.exe",
-        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.256/Desk-Console-Setup-3.1.256.exe",
-        "size": 125359374,
-        "sha256": "6de44bb20e631076853c095d054b0f2a7e7fe4db7b990ee876b21903a7a53420",
-        "sha512": "BcFqpbH6uk02XzWjPh75lALjkOL+a1SiVpO1KERekAl9pMsYuepizZdGAtudfY6S+kTtm+G9BUTdO6spkZeL6A==",
-        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.256/latest.yml"
+        "name": "Desk-Console-Setup-3.1.267.exe",
+        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.267/Desk-Console-Setup-3.1.267.exe",
+        "size": 120131540,
+        "sha256": "63b02f784628210f3d293d2cb66ed81d6f533788b75e686cab7edf03eb070c3e",
+        "sha512": "qa1nXkwdfiy61ZqMnHP3EB9D9/PqBzIxJNtmghIwUAQeMPpqPmLKbZEkKOYCkJIzawBv+rXhIDoiP89dFpraaQ==",
+        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.267/latest.yml"
       }
     }
   },
@@ -222,7 +222,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-26T22:20:40.843Z",
+  "manifestUpdatedAt": "2026-11-26T22:28:47.682Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -247,7 +247,29 @@
     "syncedAt": "2026-10-28T17:14:22.333Z"
   },
   "versions": {
-    "latestPublished": "3.1.256",
+    "latestPublished": "3.1.267",
     "current": "3.1.267"
+  },
+  "areas": {
+    "packaging": {
+      "paths": [
+        "scripts/**",
+        "build/**",
+        "electron/after-pack.cjs",
+        "electron/lib/electron-builder-pack-guard.cjs",
+        "electron/lib/desktop-host-kit.cjs"
+      ],
+      "note": "Desktop packaging, NSIS/install-lock, and smoke scripts"
+    },
+    "shared": {
+      "paths": [
+        "package.json",
+        "tool.manifest.json",
+        "public/tool.manifest.json",
+        "CHANGELOG.md",
+        "src/App.tsx",
+        "src/lib/**"
+      ]
+    }
   }
 }
