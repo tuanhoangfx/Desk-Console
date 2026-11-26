@@ -17,6 +17,7 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { DEV_ROOT, listDevTasks, runTask } from "./windows.mjs";
+import { readPcBackupStatus } from "./pc-backup.mjs";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -1099,6 +1100,7 @@ export async function diagnosePcHost() {
   const ramUsedBytes = Math.max(0, ramTotalBytes - ramFreeBytes);
   const antigravityBrain = readAntigravityBrainStats(false, scan);
   const storageIo = readStorageAndIoTelemetry();
+  const backupStatus = await readPcBackupStatus();
 
   if (storageIo.volumes.length > 0) {
     const volText = storageIo.volumes
@@ -1109,6 +1111,16 @@ export async function diagnosePcHost() {
       severity: storageIo.ioStalled || storageIo.underPressure ? "warn" : "info",
       title: `NVMe Storage & I/O Telemetry: ${storageIo.totalUsedGB} / ${storageIo.totalCapacityGB} GB used · Max I/O Latency ${storageIo.maxLatencyMs} ms`,
       detail: `${volText}. Status: ${storageIo.ioStalled ? "SLC Cache / I/O Contention Detected" : "Healthy (<15ms latency)"}.`,
+      action: "prune-junk",
+    });
+  }
+
+  if (backupStatus.health === "unconfigured" || backupStatus.health === "overdue" || backupStatus.health === "warning") {
+    alerts.push({
+      id: "pc-backup-health",
+      severity: backupStatus.health === "warning" ? "critical" : "warn",
+      title: `PC Workstation Backup: ${backupStatus.phaseLabel}`,
+      detail: `Target D:\\Backups-PC + Google Drive + Home Server (100.88.80.113). Last success: ${backupStatus.lastSuccessAt || "never"}.`,
       action: "prune-junk",
     });
   }
@@ -1144,6 +1156,15 @@ export async function diagnosePcHost() {
       adaptiveThrottle,
       antigravityBrain,
       storageIo,
+      backupStatus: {
+        status: backupStatus.status,
+        health: backupStatus.health,
+        percent: backupStatus.percent,
+        lastSuccessAt: backupStatus.lastSuccessAt,
+        localArchiveCount: backupStatus.localArchiveCount,
+        offsiteGdriveOk: backupStatus.offsiteGdriveOk,
+        offsiteLenovoOk: backupStatus.offsiteLenovoOk,
+      },
       suppressedConsolePopups: totalSuppressedConsolePopups,
     },
     farmSupervisor,
@@ -1655,7 +1676,6 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
         if (!evkStopped) {
           try {
             const endChild = spawn("schtasks.exe", ["/End", "/TN", "\\EVKey - Vietnamese Keyboard"], {
-              detached: true,
               stdio: "ignore",
               windowsHide: true,
             });
@@ -1670,7 +1690,6 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
             setTimeout(() => {
               try {
                 const schChild = spawn("schtasks.exe", ["/Run", "/TN", "\\EVKey - Vietnamese Keyboard"], {
-                  detached: true,
                   stdio: "ignore",
                   windowsHide: true,
                 });
@@ -1865,13 +1884,30 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
             const leanScript = path.join(DEV_ROOT, "Tool", "scripts", "ensure-dev-lean.cjs");
             if (fs.existsSync(nodeCuiBin) && fs.existsSync(leanScript)) {
               try {
-                const child = spawn(nodeCuiBin, [leanScript, code, "--vite-only", "--force"], {
-                  cwd: DEV_ROOT,
-                  detached: true,
-                  stdio: "ignore",
-                  windowsHide: true,
-                });
-                child.unref();
+                const winShellPath = path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs");
+                let usedHelper = false;
+                if (fs.existsSync(winShellPath)) {
+                  const { startHiddenDetachedProcessAsync } = require(winShellPath);
+                  if (typeof startHiddenDetachedProcessAsync === "function") {
+                    void Promise.resolve(
+                      startHiddenDetachedProcessAsync({
+                        command: nodeCuiBin,
+                        args: [leanScript, code, "--vite-only", "--force"],
+                        cwd: DEV_ROOT,
+                      }),
+                    ).catch(() => undefined);
+                    usedHelper = true;
+                  }
+                }
+                if (!usedHelper) {
+                  const child = spawn(nodeCuiBin, [leanScript, code, "--vite-only", "--force"], {
+                    cwd: DEV_ROOT,
+                    detached: process.platform !== "win32",
+                    stdio: "ignore",
+                    windowsHide: true,
+                  });
+                  child.unref();
+                }
               } catch {
                 /* ignore */
               }
@@ -1887,7 +1923,9 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
       }
     }
   }
-  // Deduplicate wireproxy.exe tunnels: keep at most 1 (newest PID) per country:port slot
+  // Deduplicate wireproxy.exe tunnels: keep at most 1 (newest PID) per country:port slot,
+  // and cap ephemeral non-warm-pool tunnels (ports outside 51400..51434) at max 16 / max age 25m.
+  const ephemeralWireproxyList = [];
   for (const [, wpList] of wireproxyByCountry.entries()) {
     if (wpList.length > 1) {
       wpList.sort((a, b) => b.pid - a.pid);
@@ -1897,11 +1935,13 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
           for (const chPid of conhostChildrenByParent.get(dup.pid) || []) {
             terminatePidNative(api, chPid);
           }
-          if (dup.confPath && dup.confPath !== keepConf && fs.existsSync(dup.confPath)) {
-            try {
-              fs.unlinkSync(dup.confPath);
-            } catch {
-              /* ignore */
+          if (dup.confPath && dup.confPath !== keepConf) {
+            for (const fp of [dup.confPath, `${dup.confPath}.pid`]) {
+              try {
+                if (fs.existsSync(fp)) fs.unlinkSync(fp);
+              } catch {
+                /* ignore */
+              }
             }
           }
           healed.push({
@@ -1909,6 +1949,46 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
             name: dup.name,
             handles: dup.handles,
             action: "killed-duplicate-wireproxy-tunnel",
+          });
+        }
+      }
+    }
+    const survivor = wpList[0];
+    if (survivor) {
+      const portMatch = String(survivor.confPath || "").match(/wireproxy-[a-z]{2}-(\d+)\.conf/i);
+      const portNum = portMatch ? Number(portMatch[1]) : 0;
+      const isWarmPoolSlot = portNum >= 51400 && portNum <= 51440;
+      if (!isWarmPoolSlot) {
+        const ageMs = getProcessAgeMsNative(api, survivor.pid);
+        ephemeralWireproxyList.push({ ...survivor, portNum, ageMs });
+      }
+    }
+  }
+  if (ephemeralWireproxyList.length > 0) {
+    ephemeralWireproxyList.sort((a, b) => a.ageMs - b.ageMs); // newest first (smallest ageMs)
+    const maxEphemeralTunnels = 16;
+    const maxEphemeralAgeMs = 25 * 60_000;
+    for (let idx = 0; idx < ephemeralWireproxyList.length; idx += 1) {
+      const wp = ephemeralWireproxyList[idx];
+      if (idx >= maxEphemeralTunnels || wp.ageMs > maxEphemeralAgeMs) {
+        if (terminatePidNative(api, wp.pid)) {
+          for (const chPid of conhostChildrenByParent.get(wp.pid) || []) {
+            terminatePidNative(api, chPid);
+          }
+          if (wp.confPath) {
+            for (const fp of [wp.confPath, `${wp.confPath}.pid`]) {
+              try {
+                if (fs.existsSync(fp)) fs.unlinkSync(fp);
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+          healed.push({
+            pid: wp.pid,
+            name: wp.name,
+            handles: wp.handles,
+            action: idx >= maxEphemeralTunnels ? "reaped-excess-ephemeral-wireproxy" : `reaped-stale-ephemeral-wireproxy-${Math.round(wp.ageMs / 60_000)}m`,
           });
         }
       }
@@ -2069,7 +2149,7 @@ function resolveFarmCuiNodeExe() {
  * Spawn a background farm daemon using standard CUI `node.exe` + `detached: true` + `windowsHide: true`
  * (`DETACHED_PROCESS`, 0 `conhost.exe`, 0 `IDC_APPSTARTING` blue spinning cursor — never `nodew.exe`!).
  */
-function spawnFarmJobClean(job) {
+async function spawnFarmJobClean(job) {
   if (!job?.scriptRelPath) return null;
   const scriptAbs = path.join(DEV_ROOT, job.scriptRelPath);
   if (!fs.existsSync(scriptAbs)) return null;
@@ -2082,10 +2162,26 @@ function spawnFarmJobClean(job) {
   const pidFile = path.join(logDir, `farm-${job.id}.pid`);
   try {
     fs.mkdirSync(logDir, { recursive: true });
+    const winShellPath = path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs");
+    if (process.platform === "win32" && fs.existsSync(winShellPath)) {
+      const { startHiddenDetachedProcessAsync } = require(winShellPath);
+      if (typeof startHiddenDetachedProcessAsync === "function") {
+        const startedPid = await startHiddenDetachedProcessAsync({
+          command: nodeBin,
+          args: [scriptAbs, ...jobArgs],
+          cwd: DEV_ROOT,
+          logFile,
+          pidFile,
+          writePid: (fp, pidVal) => fs.writeFileSync(fp, `${pidVal}\n`, "utf8"),
+          env: { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" },
+        });
+        if (startedPid) return startedPid;
+      }
+    }
     const outFd = fs.openSync(logFile, "a");
     const child = spawn(nodeBin, [scriptAbs, ...jobArgs], {
       cwd: DEV_ROOT,
-      detached: true,
+      detached: process.platform !== "win32",
       stdio: ["ignore", outFd, outFd],
       windowsHide: true,
       env: { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" },
@@ -2317,7 +2413,7 @@ export async function runFarmSupervisorTick(existingScan = null) {
   // Stagger at most 1 heavy daemon launch per tick to prevent simultaneous Chromium process storms
   for (const job of missingAutoJobs.slice(0, 1)) {
     farmLastSpawnAttemptByJob.set(job.id, nowMs);
-    const pid = spawnFarmJobClean(job);
+    const pid = await spawnFarmJobClean(job);
     if (pid) {
       resumedJobs.push({ jobId: job.id, pid });
       const idx = cfg.jobs.findIndex((j) => j.id === job.id);
@@ -2367,7 +2463,7 @@ export async function controlFarmSupervisor(payload = {}) {
         const liveJob = curStatus.jobs.find((j) => j.id === jobId);
         if (!liveJob?.running) {
           farmLastSpawnAttemptByJob.set(jobId, Date.now());
-          const pid = spawnFarmJobClean(cfg.jobs[idx]);
+          const pid = await spawnFarmJobClean(cfg.jobs[idx]);
           if (pid) cfg.jobs[idx].lastStartedAt = new Date().toISOString();
         }
       }
@@ -2594,12 +2690,13 @@ export async function runNightlyDeepMaintenance(options = {}) {
           }
         }
       }
-      // Also sweep leaked playwright* / scoped_dir* / chromium* / p0019-* / desk-console* temp entries (>2h old) in os.tmpdir() and D:\Temp
+      // Also sweep leaked playwright* / scoped_dir* / chromium* / p0019-* / vlab_muse_prof_* / UUID .tmp entries (>2h old) in os.tmpdir() and D:\Temp
       const tmpRoots = Array.from(new Set([os.tmpdir(), "D:\\Temp"].filter((d) => d && fs.existsSync(d))));
       const twoHoursMs = 2 * 3600_000;
       for (const tmpDir of tmpRoots) {
         for (const ent of fs.readdirSync(tmpDir, { withFileTypes: true })) {
-          if (!/^(playwright|scoped_dir|puppeteer|chromium|chrome_BITS_|p0003-ck-|p0019-commen|desk-console|p0019-campai|audit-hist-|stealth-prof|p0009-|p0002-cp-|desk-picker-)/i.test(ent.name)) continue;
+          const isUuidTmpFile = ent.isFile() && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/i.test(ent.name);
+          if (!isUuidTmpFile && !/^(playwright|scoped_dir|puppeteer|chromium|chrome_BITS_|p0003-ck-|p0019-commen|desk-console|p0019-campai|audit-hist-|stealth-prof|p0009-|p0002-cp-|desk-picker-|vlab_muse_prof_)/i.test(ent.name)) continue;
           const fullTmp = path.join(tmpDir, ent.name);
           try {
             const st = fs.statSync(fullTmp);
@@ -2951,6 +3048,18 @@ export function resolveAntigravityRoots(options = {}) {
     return options.agyRoots.map((r) => path.resolve(r));
   }
   const roots = [path.join(os.homedir(), ".gemini", "antigravity")];
+  try {
+    const sysDrive = process.env.SystemDrive || "C:";
+    const username = os.userInfo()?.username || process.env.USERNAME || "";
+    if (username) {
+      const realHomeRoot = path.join(`${sysDrive}\\Users`, username, ".gemini", "antigravity");
+      if (fs.existsSync(realHomeRoot) && !roots.includes(realHomeRoot)) {
+        roots.push(realHomeRoot);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
   const sxsBase = options.sxsBaseDir || (DEV_ROOT ? path.join(DEV_ROOT, ".tools", "antigravity-sxs") : "");
   if (sxsBase && fs.existsSync(sxsBase)) {
     try {
@@ -2974,7 +3083,12 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
   // Scans both primary ~/.gemini/antigravity and all side-by-side (.tools/antigravity-sxs/home-*) roots.
   const idleSessionMaxAgeMs = Number(options.idleSessionMaxAgeMs) || 48 * 3600_000;
   const subagentMaxAgeMs = Number(options.subagentMaxAgeMs) || 6 * 3600_000;
-  const taskStepMaxAgeMs = Number(options.taskStepMaxAgeMs) || 24 * 3600_000; // 24h for closed session task/step files
+  const taskStepMaxAgeMs = Number(options.taskStepMaxAgeMs) || 6 * 3600_000; // 6h for completed task/step output logs
+  const scratchBinaryMaxAgeMs = Number(options.scratchBinaryMaxAgeMs) || 24 * 3600_000;
+  const scratchIsolatedProfileMaxAgeMs = Number(options.scratchIsolatedProfileMaxAgeMs) || 2 * 3600_000;
+  const scratchBinaryMinBytes = Number(options.scratchBinaryMinBytes) || 25 * 1024 * 1024;
+  const SCRATCH_STALE_DIR_RE = /^(?:sxs-.*-smoke|ag-isolated-.*|iso_\d+_[0-9a-z_]+|itunes_extract)$/i;
+  const SCRATCH_STALE_BIN_RE = /\.(?:exe|msi|tipa|ipa|apk|xz|tar\.gz|tgz|zip|7z|rar|iso|dmg)$/i;
   const agyRoots = resolveAntigravityRoots(options);
   const now = Number(options.nowMs) || Date.now();
   let removedSessions = 0;
@@ -3176,22 +3290,56 @@ export function sweepAntigravityStaleTranscripts(options = {}) {
             continue;
           }
           activeIds.add(id);
-          // Never touch brain/<id>/scratch or any files in open/active conversations.
-          // Only prune .system_generated/tasks or steps from a closed conversation idle > 24h.
-          if (!isOpenInIde && now - effectiveLastActiveMs > 24 * 3600_000) {
-            for (const sub of ["tasks", "steps"]) {
-              const subDir = path.join(full, ".system_generated", sub);
-              if (!fs.existsSync(subDir)) continue;
-              for (const item of fs.readdirSync(subDir)) {
-                const itemPath = path.join(subDir, item);
+          // Prune stale (>24h) heavy binary installers/archives (>=25MB) and (>2h) unpacked SxS/isolated profile dirs inside brain/<id>/scratch,
+          // while preserving all source scripts (.mjs/.py/.ts), SQL/DB files, and recent scratch artifacts.
+          const scratchDir = path.join(full, "scratch");
+          if (fs.existsSync(scratchDir)) {
+            try {
+              for (const item of fs.readdirSync(scratchDir)) {
+                const itemPath = path.join(scratchDir, item);
                 try {
                   const ist = fs.statSync(itemPath);
-                  if (now - ist.mtimeMs > taskStepMaxAgeMs && removeCounting(itemPath)) {
+                  if (ist.isDirectory() && SCRATCH_STALE_DIR_RE.test(item)) {
+                    const dirMaxAge = /^iso_\d+_/i.test(item) ? scratchIsolatedProfileMaxAgeMs : scratchBinaryMaxAgeMs;
+                    if (now - ist.mtimeMs <= dirMaxAge) continue;
+                    const dirBytes = measurePathBytes(itemPath);
+                    if (forceRemoveDir(itemPath, brainDir)) {
+                      prunedArtifacts += 1;
+                      reclaimedBytes += dirBytes;
+                    }
+                  } else if (
+                    ist.isFile() &&
+                    now - ist.mtimeMs > scratchBinaryMaxAgeMs &&
+                    ist.size >= scratchBinaryMinBytes &&
+                    SCRATCH_STALE_BIN_RE.test(item) &&
+                    removeCounting(itemPath)
+                  ) {
                     prunedArtifacts += 1;
                   }
                 } catch {
                   /* ignore */
                 }
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+          // Prune stale .system_generated/tasks and steps logs (> 6h idle, or bloated task logs > 10 MB untouched for > 15m)
+          // even in multi-day open conversations so background daemon logs never bloat brain/<id> to 500+ MB.
+          for (const sub of ["tasks", "steps"]) {
+            const subDir = path.join(full, ".system_generated", sub);
+            if (!fs.existsSync(subDir)) continue;
+            for (const item of fs.readdirSync(subDir)) {
+              const itemPath = path.join(subDir, item);
+              try {
+                const ist = fs.statSync(itemPath);
+                const idleMs = now - ist.mtimeMs;
+                const isBloatedTaskLog = sub === "tasks" && ist.isFile() && ist.size > 10 * 1048576 && idleMs > 15 * 60_000;
+                if ((idleMs > taskStepMaxAgeMs || isBloatedTaskLog) && removeCounting(itemPath)) {
+                  prunedArtifacts += 1;
+                }
+              } catch {
+                /* ignore */
               }
             }
           }

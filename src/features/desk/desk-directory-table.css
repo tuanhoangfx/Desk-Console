@@ -2,11 +2,14 @@
  * Fixed tracks do not shift across pager pages; Detail grows when pane is wider than min-width. */
 
 table.hub-users-table.hub-directory-frame-table.hub-users-table--desk-directory {
-  width: 100%;
-  min-width: calc(36px + 57.25rem);
+  width: max-content;
+  min-width: 100%;
   table-layout: fixed;
 }
 
+table.hub-users-table--desk-directory[data-hub-directory-select] col.hub-users-col--select,
+table.hub-users-table--desk-directory[data-hub-directory-select] th.hub-users-col--select,
+table.hub-users-table--desk-directory[data-hub-directory-select] td.hub-users-col--select,
 table.hub-users-table--desk-directory col.hub-users-col--select,
 table.hub-users-table--desk-directory th.hub-users-col--select,
 table.hub-users-table--desk-directory td.hub-users-col--select {
@@ -36,9 +39,9 @@ table.hub-users-table--desk-directory td.hub-desk-col--format {
 table.hub-users-table--desk-directory col.hub-desk-col--run,
 table.hub-users-table--desk-directory th.hub-desk-col--run,
 table.hub-users-table--desk-directory td.hub-desk-col--run {
-  width: 6.5rem;
-  min-width: 6.5rem;
-  max-width: 6.5rem;
+  width: 7.25rem;
+  min-width: 7.25rem;
+  max-width: 7.25rem;
   text-align: center;
 }
 
@@ -63,7 +66,7 @@ table.hub-users-table--desk-directory td.hub-desk-col--status {
 table.hub-users-table--desk-directory col.hub-desk-col--detail,
 table.hub-users-table--desk-directory th.hub-desk-col--detail,
 table.hub-users-table--desk-directory td.hub-desk-col--detail {
-  width: auto;
+  width: 18rem;
   min-width: 18rem;
   text-align: left;
 }

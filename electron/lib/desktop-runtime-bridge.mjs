@@ -8,6 +8,7 @@
  */
 
 import { spawn } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
@@ -318,6 +319,325 @@ export function createSovereignRuntimeBridge(config) {
     return { apiUrl: origin, serviceRoleKey: key, origin, url: origin, key };
   }
 
+  const hubSessionFile = path.join(appHomeDir, "hub-session.json");
+
+  function readHubUserSession() {
+    const raw = readValidJsonState(
+      hubSessionFile,
+      (d) => Boolean(d && typeof d === "object" && typeof d.accessToken === "string" && d.accessToken.trim()),
+    );
+    return raw || null;
+  }
+
+  function saveHubUserSession(payload) {
+    if (!payload || typeof payload !== "object" || !String(payload.accessToken || "").trim()) {
+      clearHubUserSession();
+      return null;
+    }
+    const next = {
+      accessToken: String(payload.accessToken).trim(),
+      refreshToken: String(payload.refreshToken || "").trim(),
+      expiresAt: typeof payload.expiresAt === "number" ? payload.expiresAt : null,
+      userId: payload.userId ? String(payload.userId).trim() : null,
+      email: payload.email ? String(payload.email).trim() : null,
+      updatedAt: new Date().toISOString(),
+    };
+    writeJsonStateAtomic(hubSessionFile, next);
+    return next;
+  }
+
+  function clearHubUserSession() {
+    try {
+      if (fs.existsSync(hubSessionFile)) fs.unlinkSync(hubSessionFile);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const hubAuthTelemetryFile = path.join(appHomeDir, "hub-auth-telemetry.json");
+
+  function readHubAuthTelemetry() {
+    const raw = readValidJsonState(
+      hubAuthTelemetryFile,
+      (d) => Boolean(d && typeof d === "object" && typeof d.code === "string" && typeof d.totalMs === "number"),
+    );
+    return raw || null;
+  }
+
+  function saveHubAuthTelemetry(payload) {
+    if (!payload || typeof payload !== "object" || !String(payload.code || "").trim()) {
+      return null;
+    }
+    const numOrNull = (v) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
+    const next = {
+      code: String(payload.code).trim().toUpperCase(),
+      outcome: String(payload.outcome || "app").trim(),
+      initialCached: Boolean(payload.initialCached),
+      initialExpired: Boolean(payload.initialExpired),
+      policyMs: numOrNull(payload.policyMs),
+      sessionMs: numOrNull(payload.sessionMs),
+      accessCheckMs: numOrNull(payload.accessCheckMs),
+      totalMs: numOrNull(payload.totalMs) ?? 0,
+      timedOut: Boolean(payload.timedOut),
+      expiredCleared: Boolean(payload.expiredCleared),
+      startedAtIso: payload.startedAtIso ? String(payload.startedAtIso) : null,
+      settledAtIso: payload.settledAtIso ? String(payload.settledAtIso) : null,
+      ...(payload.errorMessage ? { errorMessage: String(payload.errorMessage).slice(0, 400) } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+    writeJsonStateAtomic(hubAuthTelemetryFile, next);
+    return next;
+  }
+
+  /** Decode and validate Hub Supabase JWT structure + expiry without external deps. */
+  function decodeHubJwtClaims(rawToken, { nowSec = Math.floor(Date.now() / 1000), skewSec = 60 } = {}) {
+    const token = String(rawToken || "").trim();
+    if (!token) return { ok: false, error: "empty_token" };
+    const parts = token.split(".");
+    if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) {
+      return { ok: false, error: "malformed_jwt" };
+    }
+    try {
+      const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
+      const payload = JSON.parse(Buffer.from(`${b64}${pad}`, "base64").toString("utf8"));
+      if (!payload || typeof payload !== "object") {
+        return { ok: false, error: "invalid_jwt_payload" };
+      }
+      const sub = typeof payload.sub === "string" ? payload.sub.trim() : "";
+      if (!sub) return { ok: false, error: "missing_sub" };
+      const exp = typeof payload.exp === "number" ? payload.exp : Number(payload.exp);
+      if (Number.isFinite(exp) && exp > 0 && exp + skewSec < nowSec) {
+        return { ok: false, error: "token_expired", exp };
+      }
+      return {
+        ok: true,
+        claims: payload,
+        user: {
+          id: sub,
+          email: typeof payload.email === "string" ? payload.email.trim() || null : null,
+          role: typeof payload.role === "string" ? payload.role : null,
+          exp: Number.isFinite(exp) ? exp : null,
+        },
+      };
+    } catch {
+      return { ok: false, error: "invalid_jwt_encoding" };
+    }
+  }
+
+  /**
+   * Verify HTTP request Hub authentication via:
+   * 1. Explicit `Authorization: Bearer <jwt>` (ALWAYS rejected on invalid/expired JWT), OR
+   * 2. Active persisted non-expired `hub-session.json` when no Bearer header was provided.
+   */
+  function verifyHubRequestAuth(req, { requireAuth = false, skewSec = 60 } = {}) {
+    const authHeader = String(req?.headers?.authorization || "").trim();
+    const xHubToken = String(req?.headers?.["x-hub-token"] || "").trim();
+    if (authHeader || xHubToken) {
+      let bearer = xHubToken;
+      if (authHeader) {
+        const m = /^Bearer\s+(.+)$/i.exec(authHeader);
+        if (!m || !m[1].trim()) {
+          return {
+            ok: false,
+            status: 401,
+            error: "Invalid Authorization header format (expected Bearer token)",
+            code: "invalid_auth_header",
+            source: "bearer",
+            hubUser: null,
+          };
+        }
+        bearer = m[1].trim();
+      }
+      const decoded = decodeHubJwtClaims(bearer, { skewSec });
+      if (!decoded.ok) {
+        return {
+          ok: false,
+          status: 401,
+          error: decoded.error === "token_expired" ? "Hub session expired" : "Invalid Hub Bearer token",
+          code: decoded.error,
+          source: "bearer",
+          hubUser: null,
+        };
+      }
+      return { ok: true, status: 200, source: "bearer", hubUser: decoded.user, token: bearer };
+    }
+
+    const sess = readHubUserSession();
+    if (sess?.accessToken) {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const exp = typeof sess.expiresAt === "number" ? sess.expiresAt : Number(sess.expiresAt);
+      const decoded = decodeHubJwtClaims(sess.accessToken, { nowSec, skewSec });
+      if (decoded.ok || (!Number.isFinite(exp) || exp === 0 || exp + skewSec >= nowSec)) {
+        // Reject explicitly expired persisted sessions when JWT has exp in the past
+        if (decoded.error === "token_expired" || (Number.isFinite(exp) && exp > 0 && exp + skewSec < nowSec)) {
+          return {
+            ok: !requireAuth,
+            status: requireAuth ? 401 : 200,
+            error: "Persisted Hub session expired",
+            code: "session_expired",
+            source: "session-file",
+            hubUser: null,
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          source: "session-file",
+          hubUser: {
+            id: sess.userId || decoded.user?.id || null,
+            email: sess.email || decoded.user?.email || null,
+            exp: Number.isFinite(exp) && exp > 0 ? exp : decoded.user?.exp ?? null,
+          },
+          token: sess.accessToken,
+        };
+      }
+    }
+
+    if (requireAuth) {
+      return {
+        ok: false,
+        status: 401,
+        error: "Hub authentication required",
+        code: "hub_auth_required",
+        source: "none",
+        hubUser: null,
+      };
+    }
+    return { ok: true, status: 200, source: "none", hubUser: null };
+  }
+
+  const _hubOnlineCache = new Map();
+
+  function resolveHubSupabaseAuthConfig() {
+    const candidates = [
+      path.join(productRoot, ".env.local"),
+      path.join(monorepoRoot, ".env.shared"),
+      "E:\\Dev\\.env.shared",
+    ];
+    const readKey = (keys) => {
+      for (const k of keys) {
+        const direct = String(process.env[k] || "").trim();
+        if (direct) return direct;
+      }
+      for (const fp of candidates) {
+        if (!fp || !fs.existsSync(fp)) continue;
+        try {
+          const content = fs.readFileSync(fp, "utf8");
+          for (const k of keys) {
+            const m = content.match(new RegExp(`^${k}=(.+)$`, "m"));
+            if (m?.[1]?.trim()) return m[1].trim().replace(/^["']|["']$/g, "");
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      return "";
+    };
+    const url = (
+      readKey(["HUB_SUPABASE_URL", "VITE_HUB_SUPABASE_URL"]) || "https://hub-api.infi28.com"
+    ).replace(/\/+$/, "");
+    const anonKey = readKey(["HUB_SUPABASE_ANON_KEY", "VITE_HUB_SUPABASE_ANON_KEY"]);
+    return { url, anonKey };
+  }
+
+  async function verifyHubTokenOnline(
+    rawToken,
+    { ttlMs = 5 * 60 * 1000, timeoutMs = 4000, fetchFn = globalThis.fetch } = {},
+  ) {
+    const token = String(rawToken || "").trim();
+    if (!token) return { ok: false, status: 401, error: "Empty Bearer token", code: "empty_token" };
+    const cfg = resolveHubSupabaseAuthConfig();
+    if (!cfg.url || !cfg.anonKey || typeof fetchFn !== "function") {
+      return { ok: true, verifiedOnline: false, skipped: true };
+    }
+    const cacheKey = `${cfg.url}|${crypto.createHash("sha256").update(token).digest("hex")}`;
+    const now = Date.now();
+    const cached = _hubOnlineCache.get(cacheKey);
+    if (cached && cached.expiresAtMs > now) {
+      return { ...cached.result, cached: true };
+    }
+    try {
+      const res = await fetchFn(`${cfg.url}/auth/v1/user`, {
+        method: "GET",
+        headers: {
+          apikey: cfg.anonKey,
+          Authorization: `Bearer ${token}`,
+        },
+        signal: typeof AbortSignal?.timeout === "function" ? AbortSignal.timeout(timeoutMs) : undefined,
+      });
+      if (res.status === 401 || res.status === 403) {
+        const result = {
+          ok: false,
+          status: 401,
+          verifiedOnline: true,
+          error: "Hub rejected Bearer token",
+          code: "token_rejected_by_hub",
+          hubUser: null,
+        };
+        _hubOnlineCache.set(cacheKey, { expiresAtMs: now + 60_000, result });
+        return result;
+      }
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        const result = {
+          ok: true,
+          status: 200,
+          verifiedOnline: true,
+          user: {
+            id: typeof data?.id === "string" ? data.id : null,
+            email: typeof data?.email === "string" ? data.email : null,
+          },
+        };
+        _hubOnlineCache.set(cacheKey, { expiresAtMs: now + ttlMs, result });
+        return result;
+      }
+      return { ok: true, verifiedOnline: false, httpStatus: res.status };
+    } catch {
+      if (process.env.HUB_JWT_STRICT_ONLINE === "1") {
+        return {
+          ok: false,
+          status: 401,
+          verifiedOnline: false,
+          error: "Hub online verification unreachable",
+          code: "hub_online_unreachable",
+          hubUser: null,
+        };
+      }
+      return { ok: true, verifiedOnline: false, offlineFallback: true };
+    }
+  }
+
+  async function verifyHubRequestAuthAsync(req, { requireAuth = false, skewSec = 60, verifyOnline = true, fetchFn } = {}) {
+    const base = verifyHubRequestAuth(req, { requireAuth, skewSec });
+    if (!base.ok || base.source === "none" || !verifyOnline || !base.token) {
+      return base;
+    }
+    const online = await verifyHubTokenOnline(base.token, { fetchFn });
+    if (!online.ok) {
+      return {
+        ok: false,
+        status: online.status || 401,
+        error: online.error || "Hub rejected Bearer token",
+        code: online.code || "token_rejected_by_hub",
+        source: base.source,
+        verifiedOnline: true,
+        hubUser: null,
+      };
+    }
+    return {
+      ...base,
+      verifiedOnline: Boolean(online.verifiedOnline),
+      hubUser: online.user?.id
+        ? {
+            id: online.user.id,
+            email: online.user.email || base.hubUser?.email || null,
+            exp: base.hubUser?.exp ?? null,
+          }
+        : base.hubUser,
+    };
+  }
+
   return {
     productRoot,
     monorepoRoot,
@@ -329,6 +649,15 @@ export function createSovereignRuntimeBridge(config) {
     acquireSingletonLockSafe,
     spawnHiddenNodeSafe,
     resolveDataboxAuthSafe,
+    readHubUserSession,
+    saveHubUserSession,
+    clearHubUserSession,
+    readHubAuthTelemetry,
+    saveHubAuthTelemetry,
+    decodeHubJwtClaims,
+    verifyHubRequestAuth,
+    verifyHubTokenOnline,
+    verifyHubRequestAuthAsync,
     readValidJsonState,
     writeJsonStateAtomic,
     pickAvailablePort: (startPort, options) => pickAvailablePort(startPort, options),

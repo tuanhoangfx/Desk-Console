@@ -11,7 +11,7 @@ import {
   compactIconSize,
   formatHubTimestampFull,
 } from "@tool-workspace/hub-ui";
-import { deskApi, type OpsConsoleEntry, type OpsHistoryEntry } from "../../lib/api";
+import { deskApi, formatDiskBytesLabel, type OpsConsoleEntry, type OpsHistoryEntry } from "../../lib/api";
 import {
   appendDeskOpsLog,
   clearDeskOpsLogs,
@@ -209,19 +209,27 @@ function DeskOpsHistoryPanel({
 
   const rows = useMemo(
     () =>
-      entries.map((entry) => ({
-        id: entry.id,
-        leading: <HistoryStatusIcon ok={entry.ok} />,
-        primaryRow: (
-          <span className="hub-runtime-history-list__line">
-            <span className="hub-runtime-history-profile-chip">{entry.action}</span>
-            <span className="hub-runtime-history-list__task truncate">{entry.message}</span>
-            <span className="hub-runtime-history-list__meta-inline">
-              <HubActivityTimestampLabel at={entry.at} title={formatHubTimestampFull(entry.at) || undefined} />
+      entries.map((entry) => {
+        const diskBadge = formatDiskBytesLabel(entry.reclaimedBytes);
+        return {
+          id: entry.id,
+          leading: <HistoryStatusIcon ok={entry.ok} />,
+          primaryRow: (
+            <span className="hub-runtime-history-list__line">
+              <span className="hub-runtime-history-profile-chip">{entry.action}</span>
+              {diskBadge ? (
+                <span className="shrink-0 rounded border border-emerald-400/30 bg-emerald-500/15 px-1 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-300">
+                  +{diskBadge}
+                </span>
+              ) : null}
+              <span className="hub-runtime-history-list__task truncate">{entry.message}</span>
+              <span className="hub-runtime-history-list__meta-inline">
+                <HubActivityTimestampLabel at={entry.at} title={formatHubTimestampFull(entry.at) || undefined} />
+              </span>
             </span>
-          </span>
-        ),
-      })),
+          ),
+        };
+      }),
     [entries],
   );
 

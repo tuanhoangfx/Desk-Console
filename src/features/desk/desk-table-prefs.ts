@@ -17,7 +17,7 @@ export const DESK_COL_ITEMS = [
   { key: "updated" as const, label: "Update" },
   { key: "name" as const, label: "Name", required: true },
   { key: "format" as const, label: "Format" },
-  { key: "run" as const, label: "Start" },
+  { key: "run" as const, label: "Action" },
   { key: "schedule" as const, label: "Schedule" },
   { key: "status" as const, label: "Status" },
   { key: "extra" as const, label: "Detail" },
@@ -28,6 +28,22 @@ export const DESK_COL_KEYS = DESK_COL_ITEMS.map((item) => item.key);
 export const DESK_DEFAULT_COLS = new Set<DeskCol>(["created", "updated", "name", "run", "status", "extra", "log"]);
 export const DESK_CRON_DEFAULT_COLS = new Set<DeskCol>(["created", "updated", "name", "run", "schedule", "status", "extra", "log"]);
 export const DESK_CLIPS_DEFAULT_COLS = new Set<DeskCol>(["created", "updated", "name", "format", "status", "extra", "log"]);
+
+const SCREEN_COL_KEYS: Record<DeskDirectoryScreen, readonly DeskCol[]> = {
+  clips: ["created", "updated", "name", "format", "status", "extra", "log"],
+  runners: ["created", "updated", "name", "run", "status", "extra", "log"],
+  cron: ["created", "updated", "name", "run", "schedule", "status", "extra", "log"],
+  apps: ["created", "updated", "name", "run", "status", "extra", "log"],
+};
+
+export function deskColumnKeysFor(screen: DeskDirectoryScreen): readonly DeskCol[] {
+  return SCREEN_COL_KEYS[screen] ?? SCREEN_COL_KEYS.clips;
+}
+
+export function deskColItemsFor(screen: DeskDirectoryScreen) {
+  const allowed = new Set(deskColumnKeysFor(screen));
+  return DESK_COL_ITEMS.filter((item) => allowed.has(item.key));
+}
 
 const LEGACY_COLUMNS_KEY = "p0001_desk_directory_columns";
 const LEGACY_PRESETS_KEY = "p0001_desk_directory_column_presets";
@@ -166,9 +182,10 @@ export function deskTablePrefsFor(screen: DeskDirectoryScreen) {
   if (hit) return hit;
   const manifest = DESK_DIRECTORY_DISPLAY_PREFS_MANIFEST[screen];
   migrateLegacyStorage(manifest.columnStorageKey, manifest.presetsStorageKey, screen);
+  const items = deskColItemsFor(screen);
   const prefs = createDirectoryTableColumnPrefs<DeskCol>({
     storageKey: manifest.columnStorageKey,
-    items: DESK_COL_ITEMS,
+    items,
     defaultKeys: defaultColsFor(screen),
     changeEvent: `p0001-${screen}-columns`,
   });
@@ -184,7 +201,7 @@ export function deskColumnPresetsFor(screen: DeskDirectoryScreen) {
   const presets = createDirectoryTableColumnPresetManager<DeskCol>({
     prefs,
     presetsStorageKey: manifest.presetsStorageKey,
-    itemKeys: DESK_COL_KEYS,
+    itemKeys: [...deskColumnKeysFor(screen)],
     defaultVisible: defaultColsFor(screen),
   });
   presetsCache.set(screen, presets);

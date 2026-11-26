@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { KeyRound } from "lucide-react";
 import { HubAdmClickFilterField, HubBulkActionButton, HubDetailFieldRow, type FilterOption } from "@tool-workspace/hub-ui";
 import {
   formatDriveAccountOptionLabel,
@@ -108,7 +107,7 @@ export function DriveAccountNotice({
             No Google Drive account is signed in yet.
           </p>
           <HubBulkActionButton
-            icon={<KeyRound size={12} aria-hidden />}
+            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔑</span>}
             label="Sign in Drive"
             title="Sign in a Google Drive account now"
             tone="indigo"
@@ -134,7 +133,7 @@ export function DriveAccountNotice({
             Drive account <strong>{matched?.code || name}</strong> is not signed in or its token expired.
           </p>
           <HubBulkActionButton
-            icon={<KeyRound size={12} aria-hidden />}
+            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔑</span>}
             label={`Sign in ${matched?.code || name}`}
             title={`Re-authenticate ${matched?.code || name} with Google`}
             tone="indigo"

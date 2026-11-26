@@ -6,6 +6,7 @@ import {
   HUB_DIRECTORY_LOG_COL_WIDTH,
   HUB_DIRECTORY_PLAN_DATE_COL_WIDTH,
   HUB_DIRECTORY_PLAN_DUE_COL_WIDTH,
+  hubDirectoryRunToggleHintLines,
   withDirectoryColumnStickers,
   type HubDirectoryColumnHintLine,
 } from "@tool-workspace/hub-ui";
@@ -51,10 +52,11 @@ const FORMAT_HINT_LINES: HubDirectoryColumnHintLine[] = [
   { emoji: "📁", label: "Path", detail: "Local file or directory path." },
 ];
 
-const RUN_HINT_LINES: HubDirectoryColumnHintLine[] = [
-  { emoji: "▶️", label: "Start / Run", detail: "Trigger immediate execution or start the service." },
-  { emoji: "⏹️", label: "Stop / Disable", detail: "Stop the running service or disable scheduled trigger." },
-];
+const RUN_HINT_LINES: HubDirectoryColumnHintLine[] = hubDirectoryRunToggleHintLines({
+  start: "Trigger immediate execution or start the service.",
+  stop: "Stop the running service or disable scheduled trigger.",
+  pending: "Action in progress — waiting for process state change.",
+});
 
 const SCHEDULE_HINT_LINES: HubDirectoryColumnHintLine[] = [
   { emoji: "🔄", label: "Interval / Cycle", detail: "Automatic recurrence interval (e.g. Every 10 min, Every 6 hours)." },
@@ -76,12 +78,14 @@ const baseMeta = withDirectoryColumnStickers(
     format: col("Format", "hub-desk-col--format", "kind", "col.directory.status", "8.5rem", {
       columnKind: "compact",
     }),
-    run: col("Run", "hub-desk-col--run", "tools", "col.directory.status", "6.5rem"),
+    run: col("Action", "hub-desk-col--run", "status", "col.directory.status", "7.25rem", {
+      columnKind: "compact",
+    }),
     schedule: col("Schedule", "hub-desk-col--schedule", "period", "col.directory.updated", "10.5rem", {
       columnKind: "code",
     }),
     status: col("Status", "hub-desk-col--status", "status", "col.directory.status", "9rem"),
-    extra: col("Detail", "hub-desk-col--detail", "email", "col.directory.email", "18rem", {
+    extra: col("Detail", "hub-desk-col--detail", "notes", "col.directory.notes", "18rem", {
       columnKind: "code",
     }),
     log: col("Log", "hub-desk-col--log", "log", "log.panel", HUB_DIRECTORY_LOG_COL_WIDTH, {
@@ -127,7 +131,7 @@ export const DESK_COLUMN_META = {
   },
   run: {
     ...baseMeta.run,
-    headerHint: { title: "Run", lines: RUN_HINT_LINES },
+    headerHint: { title: "Action", lines: RUN_HINT_LINES },
   },
   schedule: {
     ...baseMeta.schedule,

@@ -49,6 +49,7 @@ async function loadInspectorModule() {
 
 function resolveProductStatus(item) {
   if (!item?.installed) return "Down";
+  if (item?.primaryLockConflict) return "Conflict";
   if (item?.pendingUpdatePresent) return "Pending";
   return "Up";
 }
@@ -56,6 +57,32 @@ function resolveProductStatus(item) {
 function resolveSxsStatus(inst) {
   if (!inst?.exePath) return "Down";
   return inst?.isRunning ? "Up" : "Disabled";
+}
+
+function formatRamUsage(memoryBytes, memoryMb) {
+  const mb =
+    Number.isFinite(Number(memoryMb)) && Number(memoryMb) > 0
+      ? Math.round(Number(memoryMb))
+      : Number.isFinite(Number(memoryBytes)) && Number(memoryBytes) > 0
+        ? Math.round(Number(memoryBytes) / (1024 * 1024))
+        : 0;
+  if (mb <= 0) return "";
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+  return `${mb} MB`;
+}
+
+function statCreatedAtIso(targetPath, fallbackIso) {
+  if (!targetPath) return fallbackIso;
+  try {
+    if (fs.existsSync(targetPath)) {
+      const st = fs.statSync(targetPath);
+      const ts = st.birthtimeMs > 0 ? st.birthtimeMs : st.mtimeMs;
+      if (Number.isFinite(ts) && ts > 0) return new Date(ts).toISOString();
+    }
+  } catch {
+    /* ignore */
+  }
+  return fallbackIso;
 }
 
 export async function getManagedAppsSnapshot({ includeReleases = false, forceReleases = false } = {}) {
@@ -90,25 +117,29 @@ export async function getManagedAppsSnapshot({ includeReleases = false, forceRel
   const rows = [
     {
       id: "app:antigravity",
-      name: `Antigravity Desktop${agDesk.version ? ` v${agDesk.version}` : ""}`,
+      name: `Antigravity Vault${agDesk.version ? ` (v${agDesk.version})` : ""}`,
       product: "antigravity",
       kind: "primary",
       version: agDesk.version || null,
       previousUsedVersion: agDesk.previousUsedVersion || null,
       installed: Boolean(agDesk.installed),
-      status: resolveProductStatus(agDesk),
+      isRunning: false,
+      runningPids: agDesk.primaryRunningPids || [],
+      status: !agDesk?.installed ? "Down" : agDesk?.pendingUpdatePresent ? "Pending" : "Up",
       updatePinned: Boolean(agDesk.updatePinned),
       extensionsPinned: Boolean(agIde.extensionsPinned),
       aclLocked: Boolean(agDesk.pendingAclLocked),
       pendingUpdatePresent: Boolean(agDesk.pendingUpdatePresent),
       pendingFileName: agDesk.pendingFileName || null,
+      primaryLockConflict: null,
+      brokenTaskbarPins: agDesk.brokenTaskbarPins || [],
       exePath: agDesk.exePath || null,
       installerItems: agDesk.installerItems || [],
       stateSnapshots: agDesk.stateSnapshots || [],
       vsixExtensions: vsixExtensions.filter((x) => x.scope === "shared" || x.scope === "antigravity"),
       detail: [
         agDesk.version
-          ? `v${agDesk.version}`
+          ? `Base v${agDesk.version}`
           : agDesk.installed
             ? (agDesk.previousUsedVersion ? `Installed (v${agDesk.previousUsedVersion})` : "Installed")
             : "Not installed",
@@ -117,42 +148,55 @@ export async function getManagedAppsSnapshot({ includeReleases = false, forceRel
       ]
         .filter(Boolean)
         .join(" · "),
-      log: agDesk.pendingUpdatePresent
-        ? `Pending updater staged: ${agDesk.pendingFileName || "installer"}`
-        : `${(agDesk.installerItems || []).length} archived installer(s) · ${(agDesk.stateSnapshots || []).length} state snapshot(s)`,
+      log: Array.isArray(agDesk.brokenTaskbarPins) && agDesk.brokenTaskbarPins.length > 0
+        ? `${agDesk.brokenTaskbarPins.length} Taskbar shortcut(s) missing --launch-sxs (click Repair Taskbar)`
+        : agDesk.pendingUpdatePresent
+          ? `Pending updater staged: ${agDesk.pendingFileName || "installer"}`
+          : `${(agDesk.installerItems || []).length} archived installer(s) · ${(agDesk.sxsInstances || []).length} versioned runtime(s) · ${(agDesk.stateSnapshots || []).length} state snapshot(s)`,
+      createdAt: statCreatedAtIso(agDesk.exePath, checkedAt),
       updated: checkedAt,
     },
-    ...(agDesk.sxsInstances || []).map((inst) => ({
-      id: `sxs:${inst.version}`,
-      name: `Antigravity SxS v${inst.version}`,
-      product: "antigravity",
-      kind: "sxs",
-      version: inst.version,
-      installed: Boolean(inst.exePath),
-      isRunning: Boolean(inst.isRunning),
-      runningPids: inst.runningPids || [],
-      status: resolveSxsStatus(inst),
-      updatePinned: true,
-      aclLocked: false,
-      pendingUpdatePresent: false,
-      exePath: inst.exePath || null,
-      visualTheme: inst.visualTheme || "SxS",
-      boundEmail: inst.boundEmail || null,
-      boundTier: inst.boundTier || null,
-      desktopShortcutExists: Boolean(inst.desktopShortcutExists),
-      startMenuShortcutExists: Boolean(inst.startMenuShortcutExists),
-      isolatedHomeDir: inst.isolatedHomeDir || null,
-      sxsInstance: inst,
-      detail: [
-        `v${inst.version}`,
-        inst.visualTheme || "SxS",
-        inst.boundEmail ? `Bound: ${inst.boundEmail}` : "Unbound",
-      ].join(" · "),
-      log: inst.isRunning
-        ? `Running (PID ${(inst.runningPids || []).join(", ") || "live"}) · ${inst.desktopShortcutExists ? ".lnk ready" : "No .lnk"}`
-        : `Stopped · ${inst.desktopShortcutExists ? "Desktop + Start Menu .lnk ready" : "No .lnk shortcut"}`,
-      updated: inst.boundAt || checkedAt,
-    })),
+    ...(agDesk.sxsInstances || []).map((inst) => {
+      const pidCount = (inst.runningPids || []).length;
+      const ramLabel = inst.isRunning ? formatRamUsage(inst.memoryBytes, inst.memoryMb) : "";
+      return {
+        id: `sxs:${inst.version}`,
+        name: `Antigravity v${inst.version}`,
+        product: "antigravity",
+        kind: "sxs",
+        version: inst.version,
+        installed: Boolean(inst.exePath),
+        isRunning: Boolean(inst.isRunning),
+        runningPids: inst.runningPids || [],
+        memoryBytes: Number(inst.memoryBytes) || 0,
+        memoryMb: Number(inst.memoryMb) || 0,
+        status: resolveSxsStatus(inst),
+        updatePinned: true,
+        aclLocked: false,
+        pendingUpdatePresent: false,
+        exePath: inst.exePath || null,
+        visualTheme: inst.visualTheme || "SxS",
+        boundEmail: inst.boundEmail || null,
+        boundTier: inst.boundTier || null,
+        desktopShortcutExists: Boolean(inst.desktopShortcutExists),
+        startMenuShortcutExists: Boolean(inst.startMenuShortcutExists),
+        isolatedHomeDir: inst.isolatedHomeDir || null,
+        sxsInstance: inst,
+        detail: [
+          `v${inst.version}`,
+          inst.isRunning
+            ? [ramLabel || `${pidCount} procs`, ramLabel ? `${pidCount} procs` : ""].filter(Boolean).join(" · ")
+            : "Stopped",
+          inst.visualTheme || "SxS",
+          inst.boundEmail ? `Bound: ${inst.boundEmail}` : "Unbound",
+        ].join(" · "),
+        log: inst.isRunning
+          ? `Running (${ramLabel ? `RAM ${ramLabel} · ` : ""}PID ${(inst.runningPids || []).join(", ") || "live"}) · ${inst.desktopShortcutExists ? ".lnk ready" : "No .lnk"}`
+          : `Stopped · ${inst.desktopShortcutExists ? "Desktop + Start Menu .lnk ready" : "No .lnk shortcut"}`,
+        createdAt: statCreatedAtIso(inst.exePath || inst.isolatedHomeDir, inst.boundAt || checkedAt),
+        updated: inst.boundAt || checkedAt,
+      };
+    }),
     {
       id: "app:cursor",
       name: `Cursor Desktop${cursorInst.version ? ` v${cursorInst.version}` : ""}`,
@@ -177,6 +221,10 @@ export async function getManagedAppsSnapshot({ includeReleases = false, forceRel
         cursorInst.extensionsPinned ? "Ext Auto-Update OFF" : "Ext Auto-Update ON",
       ].join(" · "),
       log: `${(cursorInst.installerItems || []).length} archived installer(s) · ${(cursorInst.stateSnapshots || []).length} state snapshot(s)`,
+      createdAt:
+        cursorInst.stateSnapshots?.[0]?.createdAt ||
+        cursorInst.installerItems?.[0]?.mtimeIso ||
+        checkedAt,
       updated: checkedAt,
     },
     {
@@ -206,6 +254,7 @@ export async function getManagedAppsSnapshot({ includeReleases = false, forceRel
         : claudeInst.hasCredentials
           ? "~/.claude/.credentials.json linked"
           : "Run npm install -g @anthropic-ai/claude-code",
+      createdAt: checkedAt,
       updated: checkedAt,
     },
   ];
@@ -250,16 +299,40 @@ export async function runManagedAppAction(action, payload = {}) {
         version: payload.version,
         force: Boolean(payload.force),
       }),
+    "fetch-all-releases": async () =>
+      mod.fetchAllPublicAntigravityReleases({
+        monorepoRoot: MONOREPO_ROOT,
+        limit: typeof payload.limit === "number" ? payload.limit : 50,
+        unpackLatestCount: typeof payload.unpackLatestCount === "number" ? payload.unpackLatestCount : 0,
+        dryRun: Boolean(payload.dryRun),
+      }),
     "launch-sxs": async () =>
       mod.launchSideBySideAntigravity({
         monorepoRoot: MONOREPO_ROOT,
         version: payload.version,
         relaunch: Boolean(payload.relaunch),
       }),
+    "stop-sxs": async () =>
+      mod.stopSideBySideAntigravity({
+        monorepoRoot: MONOREPO_ROOT,
+        version: payload.version,
+      }),
+    "launch-primary": async () =>
+      mod.launchPrimaryAntigravity({
+        monorepoRoot: MONOREPO_ROOT,
+        dryRun: Boolean(payload.dryRun),
+      }),
+    "repair-taskbar-pins": async () =>
+      mod.repairBrokenSxsTaskbarShortcuts({
+        monorepoRoot: MONOREPO_ROOT,
+        version: payload.version || null,
+        useExeIcon: payload.useBadgeIcon !== true,
+      }),
     "create-shortcut": async () =>
       mod.ensureSideBySideShortcuts({
         monorepoRoot: MONOREPO_ROOT,
         version: payload.version,
+        useExeIcon: payload.useBadgeIcon !== true,
       }),
     snapshot: async () =>
       mod.snapshotIdeUserState({
@@ -292,7 +365,9 @@ export async function runManagedAppAction(action, payload = {}) {
   }
 
   const result = await fn();
-  const refreshed = await getManagedAppsSnapshot({ includeReleases: action === "fetch-release" });
+  const refreshed = await getManagedAppsSnapshot({
+    includeReleases: action === "fetch-release" || action === "fetch-all-releases",
+  });
   return {
     ...result,
     ok: result?.ok !== false,

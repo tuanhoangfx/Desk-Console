@@ -49,11 +49,17 @@ function attachElectronDevBootRecovery(win, opts = {}) {
     }
     let hasBootError;
     try {
-      hasBootError = Boolean(
-        await win.webContents.executeJavaScript(
-          `Boolean(typeof document !== "undefined" && document.querySelector('#hub-boot-loader[role="alert"]'))`,
-        ),
+      const probe = await win.webContents.executeJavaScript(
+        `(() => {
+          if (typeof document === "undefined") return false;
+          if (document.querySelector('#hub-boot-loader[role="alert"], #hub-boot-crash')) return true;
+          const root = document.getElementById("root");
+          const hasApp = Boolean((root && root.childElementCount > 0) || document.querySelector(".auth-gate-root"));
+          const hasSpinner = Boolean(document.querySelector("#hub-boot-loader"));
+          return !hasApp && !hasSpinner;
+        })()`,
       );
+      hasBootError = Boolean(probe);
     } catch {
       return { action: "noop" };
     }
@@ -86,6 +92,9 @@ function attachElectronDevBootRecovery(win, opts = {}) {
 
     if (attempts <= maxReloadAttempts) {
       try {
+        if (typeof win.webContents.invalidate === "function") {
+          win.webContents.invalidate();
+        }
         win.webContents.reloadIgnoringCache();
       } catch {
         /* ignore reload race */

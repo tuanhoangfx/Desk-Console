@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Boxes,
-  Download,
-  History,
   Layers,
   Link2,
   Lock,
-  Package,
   RefreshCw,
-  RotateCcw,
   ShieldCheck,
-  ShieldOff,
+  Square,
   Unlock,
 } from "lucide-react";
 import {
@@ -141,6 +137,15 @@ export function AppVersionDetailModal({
                     }
                   />
                 ) : null}
+                {isAntigravity && row.kind === "primary" && (row.brokenTaskbarPins?.length ?? 0) > 0 ? (
+                  <HubToolDetailModalSecondaryAction
+                    label={`Repair Taskbar (${row.brokenTaskbarPins?.length ?? 0})`}
+                    icon={Link2}
+                    tone="amber"
+                    disabled={busy}
+                    onClick={() => void onAction("repair-taskbar-pins")}
+                  />
+                ) : null}
                 {isAntigravity && row.kind === "primary" ? (
                   <HubToolDetailModalSecondaryAction
                     label={row.aclLocked ? "Unlock ACL" : "Hard-Lock ACL"}
@@ -158,13 +163,24 @@ export function AppVersionDetailModal({
                   />
                 ) : null}
                 {isSxs && row.version ? (
-                  <HubToolDetailModalSecondaryAction
-                    label={row.isRunning ? "Relaunch SxS" : "Launch SxS"}
-                    icon={Layers}
-                    tone="emerald"
-                    disabled={busy}
-                    onClick={() => void onAction("launch-sxs", { version: row.version, relaunch: row.isRunning })}
-                  />
+                  <>
+                    <HubToolDetailModalSecondaryAction
+                      label={row.isRunning ? `Relaunch v${row.version}` : `Launch v${row.version}`}
+                      icon={Layers}
+                      tone="emerald"
+                      disabled={busy}
+                      onClick={() => void onAction("launch-sxs", { version: row.version, relaunch: row.isRunning })}
+                    />
+                    {row.isRunning ? (
+                      <HubToolDetailModalSecondaryAction
+                        label={`Stop v${row.version}`}
+                        icon={Square}
+                        tone="rose"
+                        disabled={busy}
+                        onClick={() => void onAction("stop-sxs", { version: row.version })}
+                      />
+                    ) : null}
+                  </>
                 ) : null}
                 <HubToolDetailModalSecondaryAction
                   label="Refresh Feed"
@@ -236,6 +252,20 @@ export function AppVersionDetailModal({
                       {row.pendingUpdatePresent ? row.pendingFileName || "Staged updater detected" : "Clean (None)"}
                     </DeskDetailReadonlyField>
                   </div>
+                  {row.primaryLockConflict ? (
+                    <div className="mt-2 rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                      Shared lock conflict: v{row.primaryLockConflict.version} (PID {row.primaryLockConflict.pid}) launched without{" "}
+                      <code className="font-mono">--user-data-dir</code> is holding{" "}
+                      <code className="font-mono">%APPDATA%\Antigravity\lockfile</code>.
+                    </div>
+                  ) : null}
+                  {(row.brokenTaskbarPins?.length ?? 0) > 0 ? (
+                    <div className="mt-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                      {row.brokenTaskbarPins?.length} Taskbar SxS shortcut(s) point directly to <code className="font-mono">Antigravity.exe</code> without{" "}
+                      <code className="font-mono">--launch-sxs</code> ({row.brokenTaskbarPins?.map((p) => `${p.fileName} -> v${p.version}`).join(", ")}). Click{" "}
+                      <strong>Repair Taskbar</strong> below to route them safely through isolated SxS profiles.
+                    </div>
+                  ) : null}
                 </HubAdmSectionBlock>
 
                 {isPrimaryIde ? (
@@ -253,7 +283,7 @@ export function AppVersionDetailModal({
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
                         <HubBulkActionButton
-                          icon={<ShieldCheck size={12} aria-hidden />}
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🛡️</span>}
                           label="Pin Updates OFF & Purge"
                           title="Pin auto-updates OFF and purge staged pending installers"
                           tone="emerald"
@@ -269,7 +299,7 @@ export function AppVersionDetailModal({
                           }
                         />
                         <HubBulkActionButton
-                          icon={<ShieldOff size={12} aria-hidden />}
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔓</span>}
                           label="Allow Updates"
                           title="Re-enable automatic IDE updates and unlock pending ACL"
                           tone="amber"
@@ -286,7 +316,7 @@ export function AppVersionDetailModal({
                         />
                         {isAntigravity ? (
                           <HubBulkActionButton
-                            icon={row.aclLocked ? <Unlock size={12} aria-hidden /> : <Lock size={12} aria-hidden />}
+                            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>{row.aclLocked ? "🔓" : "🔒"}</span>}
                             label={row.aclLocked ? "Unlock Updater ACL" : "Hard-Lock Updater ACL"}
                             title={row.aclLocked ? "Restore write ACL on pending updater folder" : "Deny write ACL on pending updater folder"}
                             tone={row.aclLocked ? "neutral" : "rose"}
@@ -334,13 +364,22 @@ export function AppVersionDetailModal({
                               triggerFormat="value"
                             />
                             <HubBulkActionButton
-                              icon={<Download size={12} aria-hidden />}
+                              icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📥</span>}
                               label={busyAction === `fetch:${selectedReleaseVer}` ? "Downloading..." : "Fetch Release"}
                               title="Download selected Antigravity release into .tools/ide-installers"
                               tone="emerald"
                               variant="filled"
                               disabled={busy || !selectedReleaseVer}
                               onClick={() => void onAction("fetch-release", { version: selectedReleaseVer })}
+                            />
+                            <HubBulkActionButton
+                              icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📥</span>}
+                              label={busyAction === "fetch-all-releases" ? "Archiving..." : "Archive All Public"}
+                              title="Archive all public Antigravity releases from GCS into installer vault (with free-disk safety guard)"
+                              tone="indigo"
+                              variant="filled"
+                              disabled={busy}
+                              onClick={() => void onAction("fetch-all-releases", { limit: 50 })}
                             />
                           </div>
                         </div>
@@ -362,7 +401,7 @@ export function AppVersionDetailModal({
                                 <div className="font-mono font-semibold text-[var(--text)]">
                                   v{item.version}{" "}
                                   {row.version === item.version ? (
-                                    <span className="ml-1 text-[10px] text-emerald-300">(Installed Primary)</span>
+                                    <span className="ml-1 text-[10px] text-emerald-300">(System Install)</span>
                                   ) : null}
                                 </div>
                                 <div className="font-mono text-[10px] text-[var(--muted)]">{item.fileName}</div>
@@ -370,9 +409,9 @@ export function AppVersionDetailModal({
                               <div className="flex flex-wrap items-center gap-1.5">
                                 {isAntigravity ? (
                                   <HubBulkActionButton
-                                    icon={<Layers size={12} aria-hidden />}
-                                    label={`SxS v${item.version}`}
-                                    title={`Extract or launch Side-by-Side portable Antigravity v${item.version}`}
+                                    icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🖥️</span>}
+                                    label={`Run v${item.version}`}
+                                    title={`Extract or launch isolated Antigravity v${item.version}`}
                                     tone="indigo"
                                     variant="filled"
                                     disabled={busy}
@@ -380,7 +419,7 @@ export function AppVersionDetailModal({
                                   />
                                 ) : null}
                                 <HubBulkActionButton
-                                  icon={<Package size={12} aria-hidden />}
+                                  icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📦</span>}
                                   label={row.version === item.version ? "Reinstall" : "Install"}
                                   title={`Snapshot current state and launch ${row.product} v${item.version} setup`}
                                   tone="amber"
@@ -415,12 +454,22 @@ export function AppVersionDetailModal({
                       <div className="text-[11px] text-[var(--muted)]">
                         Bound quota account in P0010:{" "}
                         <span className="font-mono text-emerald-300">{row.boundEmail || "Unbound"}</span>
-                        {row.boundTier ? ` (${row.boundTier})` : ""} · Shortcuts:{" "}
+                        {row.boundTier ? ` (${row.boundTier})` : ""} · Runtime:{" "}
+                        <span className="font-mono text-[var(--text)]">
+                          {row.isRunning
+                            ? `${(row.runningPids || []).length} PIDs${
+                                row.memoryMb && row.memoryMb > 0
+                                  ? ` · ${row.memoryMb >= 1024 ? `${(row.memoryMb / 1024).toFixed(2)} GB` : `${row.memoryMb} MB`} RAM`
+                                  : ""
+                              }`
+                            : "Stopped"}
+                        </span>{" "}
+                        · Shortcuts:{" "}
                         {row.desktopShortcutExists && row.startMenuShortcutExists ? "Desktop + Start Menu Ready" : "Missing"}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <HubBulkActionButton
-                          icon={<Layers size={12} aria-hidden />}
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🖥️</span>}
                           label={row.isRunning ? `Focus SxS v${row.version}` : `Launch SxS v${row.version}`}
                           title={row.isRunning ? `Focus SxS v${row.version}` : `Launch SxS v${row.version}`}
                           tone="indigo"
@@ -430,7 +479,7 @@ export function AppVersionDetailModal({
                         />
                         {row.isRunning ? (
                           <HubBulkActionButton
-                            icon={<RotateCcw size={12} aria-hidden />}
+                            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔄</span>}
                             label="Relaunch"
                             title={`Restart SxS Antigravity v${row.version}`}
                             tone="amber"
@@ -440,7 +489,7 @@ export function AppVersionDetailModal({
                           />
                         ) : null}
                         <HubBulkActionButton
-                          icon={<Link2 size={12} aria-hidden />}
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔗</span>}
                           label="Create / Refresh .lnk Shortcuts"
                           title="Create Desktop and Start Menu .lnk shortcuts for this SxS build"
                           tone="neutral"
@@ -468,7 +517,7 @@ export function AppVersionDetailModal({
                           Backup and restore <code className="font-mono text-[var(--text)]">globalStorage</code> state before upgrades or rollbacks.
                         </span>
                         <HubBulkActionButton
-                          icon={<History size={12} aria-hidden />}
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📸</span>}
                           label="Snapshot Now"
                           title={`Capture backup snapshot of ${row.product} globalStorage`}
                           tone="sky"
@@ -490,7 +539,7 @@ export function AppVersionDetailModal({
                                 {snap.id} · {snap.reason}
                               </span>
                               <HubBulkActionButton
-                                icon={<RotateCcw size={12} aria-hidden />}
+                                icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>♻️</span>}
                                 label="Restore"
                                 title={`Restore snapshot ${snap.id}`}
                                 tone="amber"
@@ -523,7 +572,7 @@ export function AppVersionDetailModal({
                           Offline VSIX extensions stored in <code className="font-mono text-[var(--text)]">.tools/ide-installers/extensions</code>
                         </span>
                         <HubBulkActionButton
-                          icon={<RefreshCw size={12} aria-hidden />}
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔄</span>}
                           label="Sync VSIX Vault"
                           title="Scan and archive installed IDE VSIX extensions"
                           tone="sky"
@@ -545,7 +594,7 @@ export function AppVersionDetailModal({
                                 {ext.id} v{ext.version}
                               </span>
                               <HubBulkActionButton
-                                icon={<Package size={12} aria-hidden />}
+                                icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📦</span>}
                                 label="Install VSIX"
                                 title={`Install ${ext.id} v${ext.version} into ${row.product}`}
                                 tone="emerald"

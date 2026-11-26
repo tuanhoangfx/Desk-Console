@@ -1,19 +1,19 @@
-{
-  "schemaVersion": 1,
-  "label": "stable-2.1.1",
-  "version": "2.1.1",
-  "gitCommit": "7f9f5da6f56e6054814be00a6394ba88045c18cf",
-  "gitTag": "v2.1.1-stable",
-  "productType": "Desktop",
-  "backup": {
-    "dir": "dist-desktop/known-good",
-    "capturedAt": "2026-09-04T12:05:35.011Z",
-    "note": "Run pnpm desktop:dist then snapshot-known-good.mjs --with-artifacts"
-  },
-  "notes": "Restore: git checkout v0.1.8-stable · pnpm install · pnpm dev",
-  "restore": {
-    "gitCheckout": "v2.1.1-stable",
-    "verify": "node host/desk-host.test.mjs",
-    "purgeRuntime": null
-  }
+﻿{
+    "schemaVersion":  1,
+    "label":  "stable-2.1.1",
+    "version":  "2.1.1",
+    "gitCommit":  "7f9f5da6f56e6054814be00a6394ba88045c18cf",
+    "gitTag":  "v2.1.1-stable",
+    "productType":  "Desktop",
+    "backup":  {
+                   "dir":  "D:/DevStore/known-good/P0001",
+                   "capturedAt":  "2026-09-04T12:05:35.011Z",
+                   "note":  "Run pnpm desktop:dist then snapshot-known-good.mjs --with-artifacts"
+               },
+    "notes":  "Restore: git checkout v0.1.8-stable Â· pnpm install Â· pnpm dev",
+    "restore":  {
+                    "gitCheckout":  "v2.1.1-stable",
+                    "verify":  "node host/desk-host.test.mjs",
+                    "purgeRuntime":  null
+                }
 }

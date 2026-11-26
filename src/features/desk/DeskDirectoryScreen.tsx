@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Play, RotateCcw, Trash2, Eye, Square, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { deskBulkActionIcon } from "./desk-bulk-action-icons";
 import {
   hubDirectoryListResetKey,
@@ -92,7 +92,7 @@ type Props = {
   onRowFocus?: (id: string) => void;
   onPinToggle?: (id: string, nextPinned: boolean) => void;
   opsHandlers?: import("./desk-directory-cells").DeskOpsCellHandlers;
-  bulkActions?: { label: string; tone?: "rose" | "neutral" | "emerald" | "amber"; icon?: LucideIcon; onClick: (ids: string[]) => void }[];
+  bulkActions?: { label: string; tone?: "rose" | "neutral" | "emerald" | "amber"; icon?: string; onClick: (ids: string[]) => void }[];
   lifecycleMode?: HubDirectoryLifecycleMode;
   onLifecycleModeChange?: (mode: HubDirectoryLifecycleMode) => void;
   crudBulk?: {
@@ -220,7 +220,10 @@ export function DeskDirectoryScreen({
       if (!matchesDeskFormatFilter(row, filterValues)) return false;
       if (!matchesDeskProjectFilter(row, filterValues)) return false;
       if (!q) return true;
-      return searchTextIncludes(`${row.name} ${row.schedule || ""} ${row.status} ${row.extra} ${row.project || ""}`, q);
+      return searchTextIncludes(
+        `${row.name} ${row.schedule || ""} ${row.status} ${row.extra} ${row.log || ""} ${row.project || ""}`,
+        q,
+      );
     });
     next.sort((a, b) => compareDeskDirectoryRows(a, b, sortKey, sortDir));
     return next;
@@ -515,11 +518,11 @@ export function DeskDirectoryScreen({
   const legacyBulkButtons =
     !crudBulk && selection.selectedIds.size > 0 && bulkActions?.length
       ? bulkActions.map((a) => {
-          const Icon = a.icon ?? deskBulkActionIcon(a.label);
+          const emoji = a.icon ?? deskBulkActionIcon(a.label);
           return (
             <HubBulkActionButton
               key={a.label}
-              icon={<Icon size={14} />}
+              icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>{emoji}</span>}
               label={a.label}
               title={a.label}
               tone={a.tone ?? (a.label === "Delete" || a.label === "Stop" ? "rose" : "neutral")}

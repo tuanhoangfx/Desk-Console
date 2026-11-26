@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { RefreshCw, ShieldCheck } from "lucide-react";
 import { HubBulkActionButton, emitHubAppLog, useHubToast } from "@tool-workspace/hub-ui";
 import {
   deskApi,
@@ -32,7 +31,7 @@ function toDeskRow(row: ManagedAppRow): DeskRow {
     log: row.log,
     project: productLabel(row),
     pinned: row.updatePinned,
-    createdAt: row.updated,
+    createdAt: row.createdAt || row.updated,
     updated: row.updated,
     opsKind: row.kind === "sxs" ? "runner" : undefined,
     opsUp: Boolean(row.isRunning),
@@ -137,7 +136,11 @@ export function AppsScreen() {
         return;
       }
       setPendingIds((prev) => new Set(prev).add(id));
-      void runAction("launch-sxs", { version: raw.version, relaunch: false }).finally(() => {
+      const nextAction = raw.isRunning ? "stop-sxs" : "launch-sxs";
+      const nextPayload = raw.isRunning
+        ? { version: raw.version }
+        : { version: raw.version, relaunch: false };
+      void runAction(nextAction, nextPayload).finally(() => {
         setPendingIds((prev) => {
           const next = new Set(prev);
           next.delete(id);
@@ -178,7 +181,7 @@ export function AppsScreen() {
         toolbarActions={
           <div className="flex flex-wrap items-center gap-1.5">
             <HubBulkActionButton
-              icon={<ShieldCheck size={13} aria-hidden />}
+              icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🛡️</span>}
               label="Lock & Purge Updates"
               title="Pin Antigravity & Cursor auto-updates OFF and lock pending folder ACL"
               tone="emerald"
@@ -194,7 +197,7 @@ export function AppsScreen() {
               }
             />
             <HubBulkActionButton
-              icon={<RefreshCw size={13} aria-hidden />}
+              icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔄</span>}
               label="Refresh Feed"
               title="Re-scan installed app versions, SxS builds, and GCS Antigravity releases"
               tone="sky"
@@ -213,6 +216,30 @@ export function AppsScreen() {
           />
         }
         bulkActions={[
+          {
+            label: "Launch SxS",
+            tone: "emerald",
+            onClick: (ids) => {
+              for (const id of ids) {
+                const raw = rawRowsRef.current.find((r) => r.id === id);
+                if (raw?.kind === "sxs" && raw.version && !raw.isRunning) {
+                  void runAction("launch-sxs", { version: raw.version, relaunch: false });
+                }
+              }
+            },
+          },
+          {
+            label: "Stop SxS",
+            tone: "amber",
+            onClick: (ids) => {
+              for (const id of ids) {
+                const raw = rawRowsRef.current.find((r) => r.id === id);
+                if (raw?.kind === "sxs" && raw.version && raw.isRunning) {
+                  void runAction("stop-sxs", { version: raw.version });
+                }
+              }
+            },
+          },
           {
             label: "Lock Updates",
             tone: "emerald",

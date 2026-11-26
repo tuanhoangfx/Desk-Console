@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Play, PowerOff, CheckCircle2 } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import {
   HubAccountDetailAdmScaffold,
   HubAccountDetailHeaderSearch,
@@ -369,7 +369,7 @@ export function CronDetailModal({ row, busy = false, onRun, onToggleEnable, onUp
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <HubBulkActionButton
-                      icon={<Play size={13} aria-hidden />}
+                      icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>▶️</span>}
                       label="Run Now"
                       title="Trigger immediate execution of this cron task"
                       tone="emerald"
@@ -377,7 +377,7 @@ export function CronDetailModal({ row, busy = false, onRun, onToggleEnable, onUp
                       onClick={() => onRun(row.id)}
                     />
                     <HubBulkActionButton
-                      icon={isDisabled ? <CheckCircle2 size={13} aria-hidden /> : <PowerOff size={13} aria-hidden />}
+                      icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>{isDisabled ? "✅" : "⏻"}</span>}
                       label={isDisabled ? "Enable Immediately" : "Disable Immediately"}
                       title={
                         isDisabled

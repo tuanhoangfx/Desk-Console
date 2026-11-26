@@ -1238,6 +1238,7 @@ app.on("second-instance", (_event, argv) => {
 });
 
 app.whenReady().then(async () => {
+  if (!gotLock) return;
   bindStagedAsarSwapOnWillQuit(app);
   hotReloadBridge = createDesktopHotReloadControlBridge({
     app,

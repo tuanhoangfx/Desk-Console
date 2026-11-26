@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import {
   DirectoryTableBodyCell,
   HUB_DIRECTORY_ICON_CELL_HIT_EXPAND_CLASS,
@@ -7,6 +6,7 @@ import {
   HubDirectoryEmptyCell,
   HubDirectoryLogCell,
   HubDirectoryRowPinButton,
+  HubDirectoryRunToggle,
   HubDirectoryTimestampTooltipCell,
   HubDirectoryValuePopover,
   compactIconSize,
@@ -15,7 +15,7 @@ import {
   type HubEntityLogFieldMeta,
   type HubUsersStatusTone,
 } from "@tool-workspace/hub-ui";
-import { Loader2, Play, Square } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { clipFormatEmoji } from "../clips/clip-picker-filters";
 import type { DeskCol } from "./desk-table-prefs";
 import { DeskStatusKpiLabel } from "./DeskStatusKpiLabel";
@@ -47,7 +47,6 @@ export type DeskRow = {
   project?: string;
   clipFormat?: string;
   pinned?: boolean;
-  updatedKind?: "activity" | "text";
   statusTone?: HubUsersStatusTone;
   opsKind?: "task" | "runner";
   opsUp?: boolean;
@@ -79,53 +78,14 @@ function formatOpsElapsed(startedAt?: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function OpsIconButton({
-  label,
-  tone,
-  icon,
-  onClick,
-  disabled = false,
-}: {
-  label: string;
-  tone: "emerald" | "rose" | "amber" | "neutral";
-  icon: ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  const toneClass =
-    tone === "emerald"
-      ? "text-emerald-400"
-      : tone === "rose"
-        ? "text-rose-400"
-        : tone === "amber"
-          ? "text-amber-300"
-          : "text-hub-muted";
-  const shortLabel = label.startsWith("Restart ")
-    ? "Restart"
-    : label.startsWith("Disable ") || label.startsWith("Stop ")
-      ? "Stop"
-      : label.startsWith("Start ") || label.startsWith("Run ")
-        ? "Start"
-        : label.split(" ")[0];
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      className={`hub-directory-icon-cell ${HUB_DIRECTORY_ICON_CELL_HIT_EXPAND_CLASS} shrink-0 rounded-md border-0 bg-transparent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45`}
-      aria-label={label}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-    >
-      <span className={`hub-directory-icon-cell__icon ${toneClass}`}>{icon}</span>
-      <span className="hub-directory-icon-cell__label">{shortLabel}</span>
-    </button>
-  );
-}
-
 function renderOpsRunCell(row: DeskRow, col: HubDirectoryColumnDef<DeskCol>, opsHandlers?: DeskOpsCellHandlers) {
+  if (!row.opsKind) {
+    return (
+      <DirectoryTableBodyCell key="run" colClass={col.colClass}>
+        <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
+      </DirectoryTableBodyCell>
+    );
+  }
   const label = row.name;
   const pending = Boolean(opsHandlers?.pendingIds?.has(row.id)) || Boolean(row.opsAction);
   const runnerUp = row.opsKind === "runner" && row.opsUp === true;
@@ -159,40 +119,41 @@ function renderOpsRunCell(row: DeskRow, col: HubDirectoryColumnDef<DeskCol>, ops
     );
   }
 
+  const showStop = runnerUp || taskRunning;
+  const stopAction = opsHandlers?.onStop ?? opsHandlers?.onDisable;
+
   return (
     <DirectoryTableBodyCell key="run" colClass={col.colClass}>
-      <div className="flex min-w-0 items-center gap-0.5">
-        {runnerUp || taskRunning ? (
-          opsHandlers?.onStop ? (
-            <OpsIconButton
-              label={`Stop ${label}`}
-              tone="rose"
+      <div className="flex min-w-0 items-center justify-center gap-0.5">
+        {showStop ? (
+          stopAction ? (
+            <HubDirectoryRunToggle
+              kind="stop"
+              label="Stop"
+              ariaLabel={`Stop ${label}`}
+              title={`Stop ${label}`}
               disabled={pending}
-              icon={<Square size={compactIconSize(11)} fill="currentColor" aria-hidden />}
-              onClick={() => focusAnd(opsHandlers.onStop)}
+              pending={pending}
+              onClick={(event) => {
+                event.stopPropagation();
+                focusAnd(stopAction);
+              }}
             />
-          ) : opsHandlers?.onDisable ? (
-            <OpsIconButton
-              label={`Stop ${label}`}
-              tone="rose"
-              disabled={pending}
-              icon={<Square size={compactIconSize(11)} fill="currentColor" aria-hidden />}
-              onClick={() => focusAnd(opsHandlers.onDisable)}
-            />
-          ) : null
+          ) : (
+            <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
+          )
         ) : (
-          <OpsIconButton
-            label={`Start ${label}`}
-            tone="emerald"
+          <HubDirectoryRunToggle
+            kind="start"
+            label="Start"
+            ariaLabel={`Start ${label}`}
+            title={`Start ${label}`}
             disabled={pending}
-            icon={
-              pending ? (
-                <Loader2 size={compactIconSize(11)} className="animate-spin" aria-hidden />
-              ) : (
-                <Play size={compactIconSize(11)} fill="currentColor" aria-hidden />
-              )
-            }
-            onClick={() => focusAnd(opsHandlers?.onRun)}
+            pending={pending}
+            onClick={(event) => {
+              event.stopPropagation();
+              focusAnd(opsHandlers?.onRun);
+            }}
           />
         )}
       </div>
@@ -244,15 +205,11 @@ export function renderDeskDirectoryBodyCell(
   if (key === "updated") {
     return (
       <DirectoryTableBodyCell key={key} colClass={col.colClass}>
-        {row.updatedKind === "text" ? (
-          row.updated ? (
-            <span className="truncate">{row.updated}</span>
-          ) : (
-            <HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />
-          )
-        ) : (
-          <HubDirectoryTimestampTooltipCell at={row.updated} title="Updated" />
-        )}
+        <HubDirectoryTimestampTooltipCell
+          at={row.updated}
+          title="Update"
+          fallback={<HubDirectoryEmptyCell className="hub-users-directory-body-text hub-users-cell-muted" />}
+        />
       </DirectoryTableBodyCell>
     );
   }
@@ -345,7 +302,7 @@ export function renderDeskDirectoryBodyCell(
       <DirectoryTableBodyCell key={key} colClass={col.colClass}>
         <div className="flex min-w-0 w-full items-center gap-1.5">
           <div className="min-w-0 flex-1">
-            <HubDirectoryCopyText value={value} copyToastLabel="Name copied" />
+            <HubDirectoryCopyText value={value} copyToastLabel="Name copied" className="hub-users-name-title" />
           </div>
           <HubDirectoryRowPinButton
             pinned={Boolean(row.pinned)}
@@ -362,6 +319,7 @@ export function renderDeskDirectoryBodyCell(
         <HubDirectoryCopyText
           value={value}
           copyToastLabel={key === "name" ? "Name copied" : "Detail copied"}
+          className={key === "name" ? "hub-users-name-title" : undefined}
         />
       </DirectoryTableBodyCell>
     );

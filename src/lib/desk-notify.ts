@@ -1,4 +1,9 @@
-import type { HubNotifyAlert, HubNotifyPanelProps } from "@tool-workspace/hub-ui";
+import type { DesktopAuthBootTelemetry } from "@tool-workspace/hub-identity";
+import {
+  buildHubDesktopAuthNotifyAlert,
+  type HubNotifyAlert,
+  type HubNotifyPanelProps,
+} from "@tool-workspace/hub-ui";
 
 export const DESK_NOTIFY_CHANGE = "p0001-desk-notify-change";
 const SCOPE_KEY = "p0001-desk-console-notify";
@@ -27,6 +32,7 @@ export function clearDeskNotifyAlert(id: string) {
 export type DeskHealth = {
   ok: boolean;
   cursorRunning?: boolean;
+  authTelemetry?: DesktopAuthBootTelemetry | null;
   error?: string;
 };
 
@@ -42,6 +48,9 @@ export function buildDeskNotifyProps(health: DeskHealth | null): HubNotifyPanelP
       meta: { kind: "critical" },
     });
   }
+
+  const authAlert = buildHubDesktopAuthNotifyAlert(health?.authTelemetry, "P0001");
+  if (authAlert) alerts.push(authAlert);
 
   if (health?.cursorRunning) {
     alerts.push({

@@ -13,7 +13,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(path.join(root, "package.json"));
 const electronBin = require("electron");
 const viteBin = path.join(root, "node_modules", "vite", "bin", "vite.js");
-const { spawnInteractiveDesktopProcess } = require(path.join(root, "..", "scripts", "lib", "win-shell-env.cjs"));
+const { spawnInteractiveDesktopProcess, startHiddenDetachedProcess } = require(
+  path.join(root, "..", "scripts", "lib", "win-shell-env.cjs"),
+);
 const replaceRunning = process.argv.includes("--replace");
 const env = deskElectronEnv({ VITE_DEV_SERVER_URL: `http://127.0.0.1:${DESK_VITE_PORT}/` });
 
@@ -41,12 +43,20 @@ if (replaceRunning && process.platform === "win32") {
 
 if (!(await isPortListening(DESK_VITE_PORT))) {
   console.log(`[open-dev-electron-window] Vite :${DESK_VITE_PORT} not listening — starting Vite dev server...`);
-  const viteChild = spawn(
-    process.execPath,
-    [viteBin, "--host", "127.0.0.1", "--port", String(DESK_VITE_PORT), "--strictPort"],
-    winSpawnOpts({ cwd: root, detached: true, stdio: "ignore" }),
-  );
-  viteChild.unref();
+  if (process.platform === "win32") {
+    startHiddenDetachedProcess({
+      command: process.execPath,
+      args: [viteBin, "--host", "127.0.0.1", "--port", String(DESK_VITE_PORT), "--strictPort"],
+      cwd: root,
+    });
+  } else {
+    const viteChild = spawn(
+      process.execPath,
+      [viteBin, "--host", "127.0.0.1", "--port", String(DESK_VITE_PORT), "--strictPort"],
+      winSpawnOpts({ cwd: root, detached: true, stdio: "ignore" }),
+    );
+    viteChild.unref();
+  }
   await waitForPort(DESK_VITE_PORT, 20_000).catch((err) => {
     console.warn(`[open-dev-electron-window] Vite wait warning: ${err.message}`);
   });

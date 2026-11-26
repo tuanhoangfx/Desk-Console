@@ -3,6 +3,7 @@
   [ValidateSet("", "patch", "minor", "major")]
   [string]$Bump = "",
   [switch]$Publish,
+  [switch]$InstallProd,
   [switch]$SkipInstall,
   [switch]$SkipWorker,
   [switch]$Fast,
@@ -17,8 +18,15 @@ Set-Location $RepoRoot
 $wall = [System.Diagnostics.Stopwatch]::StartNew()
 
 if ($Bump) {
-  node ../../../Tool/scripts/bump-product-patch.mjs --code P0001 2>$null
+  node (Join-Path $PSScriptRoot "..\..\scripts\bump-product-patch.mjs") --code P0001
+  if ($LASTEXITCODE -ne 0) { throw "bump-product-patch P0001 failed" }
 }
+
+$ToolScripts = (Resolve-Path (Join-Path $PSScriptRoot "..\..\scripts")).Path
+$pkgVersion = (Get-Content -Raw (Join-Path $RepoRoot "package.json") | ConvertFrom-Json).version
+. (Join-Path $ToolScripts "lib\packaging-area-claim.ps1")
+$packagingClaim = Enter-DesktopPackagingClaim -Code P0001 -ToolScripts $ToolScripts -Version $pkgVersion
+try {
 
 # P0003 Fast contract: no third pipeline. Local Windows test = -Dir (unpacked).
 # User Publish: DESKTOP_RELEASE_SIGN=1 + DESKTOP_RELEASE_FAST=0 → no --fast (Authenticode).
@@ -29,7 +37,7 @@ if ($Publish -and $env:DESKTOP_RELEASE_SIGN -eq "1") {
   $useFast = $false
   Write-Host "[P0001] User signed Publish - Fast off (Authenticode)"
 }
-if ($Dir -or ($useFast -and -not $Publish)) { $pkgArgs += "--dir" }
+if ($Dir -or ($useFast -and -not $Publish -and -not $InstallProd)) { $pkgArgs += "--dir" }
 if ($useFast) { $pkgArgs += "--fast" }
 if ($Publish) { $pkgArgs += "--publish"; $pkgArgs += "always" }
 else { $pkgArgs += "--publish"; $pkgArgs += "never" }
@@ -43,10 +51,12 @@ Write-Host "[P0001] smoke-packaged-shell-icon"
 node (Join-Path $PSScriptRoot "smoke-packaged-shell-icon.mjs")
 if ($LASTEXITCODE -ne 0) { throw "smoke-packaged-shell-icon failed" }
 
-$ToolScripts = (Resolve-Path (Join-Path $PSScriptRoot "..\..\scripts")).Path
 if ($Publish) {
-  $pkgVersion = (Get-Content -Raw (Join-Path $RepoRoot "package.json") | ConvertFrom-Json).version
+  Assert-PackageVersionUnchanged -Expected $pkgVersion -Step "before P0001 post-release sync" -RepoRoot $RepoRoot
   $tag = "v$pkgVersion"
+  Write-Host "[P0001] Snapshot known-good (installer backup)"
+  node (Join-Path $PSScriptRoot "snapshot-known-good.mjs") --label "v$pkgVersion-stable"
+  if ($LASTEXITCODE -ne 0) { throw "snapshot-known-good failed" }
   Write-Host "[P0001] Sync release metadata (post-gh-release $tag)"
   node (Join-Path $ToolScripts "post-gh-release.mjs") --product-root $RepoRoot --tag $tag
   if ($LASTEXITCODE -ne 0) { throw "post-gh-release failed" }
@@ -60,6 +70,11 @@ if ($Publish) {
   node (Join-Path $ToolScripts "prune-dist-desktop.mjs") --product-root $RepoRoot
 }
 
+if ($InstallProd -and -not $Dir) {
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ToolScripts "install-desktop-exe.ps1") -Code P0001 -LaunchAfter
+  if ($LASTEXITCODE -ne 0) { throw "install-desktop-exe.ps1 P0001 failed" }
+}
+
 if ($Smoke) {
   $scenarios = if ($SmokeScenarios.Trim()) { $SmokeScenarios.Trim() } else { "shell-walk" }
   Write-Host "[P0001] Desktop UI smoke ($scenarios)"
@@ -70,6 +85,9 @@ if ($Smoke) {
   if ($LASTEXITCODE -ne 0) {
     throw "desktop UI smoke failed - see SMOKE FAIL evidence path above (card desktop-ui-smoke)"
   }
+}
+} finally {
+  Exit-DesktopPackagingClaim -Code P0001 -ClaimState $packagingClaim
 }
 
 $wall.Stop()

@@ -1,20 +1,34 @@
 #!/usr/bin/env node
 /**
- * Smoke — Desk host runners/tasks API + Stealth UI tabs (agent pool 9990–9999).
+ * Smoke — Desk host runners/tasks API + headless Stealth UI tabs (dynamic agent pool 9xxx).
  *
  *   node scripts/smoke-runners-tasks.mjs
  *   node scripts/smoke-runners-tasks.mjs --host-only
  *   DESK_API_ORIGIN=http://127.0.0.1:6011 node scripts/smoke-runners-tasks.mjs
  */
 import { spawnSync } from "node:child_process";
-import { stealthBrowser } from "../../scripts/lib/stealth-browser-client.mjs";
-import { openStealthCdpSession, cdpEvaluate } from "../../scripts/lib/stealth-cdp-session.mjs";
+import { connectStealthHeadless } from "../../scripts/lib/stealth-headless-cdp.mjs";
 
 process.env.STEALTH_AGENT_SMOKE = "1";
 process.env.STEALTH_HEADLESS_SMOKE = "1";
 
 const hostOnly = process.argv.includes("--host-only");
 const UI_BASE = (process.env.DESK_UI_ORIGIN || "http://127.0.0.1:5180").replace(/\/$/, "");
+
+function assignAgentProfile() {
+  const assign = spawnSync(process.execPath, ["Tool/scripts/assign-agent-stealth-profile.mjs", "--json"], {
+    cwd: "E:/Dev",
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 15_000,
+  });
+  const parsed = JSON.parse(assign.stdout || "{}");
+  const profile = String(parsed.profile || "").trim();
+  if (!profile) {
+    throw new Error(`assign-agent-stealth-profile failed: ${assign.stderr || assign.stdout || "empty"}`);
+  }
+  return profile;
+}
 
 async function resolveHostBase() {
   const candidates = [
@@ -58,69 +72,96 @@ async function probeHost(base) {
   };
 }
 
-async function probeUiTab(send, tab, titleRe) {
-  await send("Page.navigate", { url: `${UI_BASE}/${tab}` });
-  await new Promise((r) => setTimeout(r, 3500));
-  return cdpEvaluate(
-    send,
-    `(() => {
-      const text = document.body?.innerText || "";
-      const hasTitle = ${titleRe}.test(text);
-      const hasTable = Boolean(document.querySelector("table.hub-directory-frame-table, .hub-users-table--desk-directory"));
-      const hasSplit = Boolean(document.querySelector(".desk-ops-workflow-rail, .hub-runtime-rail-surface"));
-      const hasSearch = Boolean(document.querySelector("input[placeholder*='Search' i], .hub-filter-bar"));
-      const overlay = Boolean(document.querySelector("vite-error-overlay"));
-      return { ok: hasTitle && hasTable && hasSplit && hasSearch && !overlay, hasTitle, hasTable, hasSplit, hasSearch, overlay, href: location.href };
-    })()`,
-  );
+async function probeUiTab(page, tab, titlePattern) {
+  await page.goto(`${UI_BASE}/${tab}?_s=${Date.now()}`, {
+    waitUntil: "domcontentloaded",
+    timeout: 30_000,
+  });
+  await page
+    .waitForFunction(
+      (src) => {
+        const re = new RegExp(src, "i");
+        return (
+          re.test(document.body?.innerText || "") &&
+          Boolean(document.querySelector("table.hub-directory-frame-table, .hub-users-table"))
+        );
+      },
+      titlePattern.source,
+      { timeout: 15_000 },
+    )
+    .catch(() => null);
+  await page.waitForTimeout(600);
+
+  return page.evaluate((src) => {
+    const titleRe = new RegExp(src, "i");
+    const text = document.body?.innerText || "";
+    const hasTitle = titleRe.test(text);
+    const table = document.querySelector("table.hub-directory-frame-table, .hub-users-table--desk-directory");
+    const hasTable = Boolean(table);
+    const hasSplit = Boolean(document.querySelector(".desk-ops-workflow-rail, .hub-runtime-rail-surface"));
+    const hasSearch = Boolean(document.querySelector("input[placeholder*='Search' i], .hub-filter-bar"));
+    const overlay = Boolean(document.querySelector("vite-error-overlay"));
+    const ths = [...(table?.querySelectorAll("thead th") || [])];
+    const dataRow = table?.querySelector("tbody tr:not(.hub-users-row--pad)");
+    const tds = [...(dataRow?.querySelectorAll("td") || [])];
+    const widthMismatches = [];
+    if (ths.length && tds.length === ths.length) {
+      for (let i = 0; i < ths.length; i += 1) {
+        const thW = Math.round(ths[i].getBoundingClientRect().width);
+        const tdW = Math.round(tds[i].getBoundingClientRect().width);
+        if (Math.abs(thW - tdW) > 1) {
+          widthMismatches.push({
+            index: i,
+            header: (ths[i].textContent || "").trim(),
+            thW,
+            tdW,
+          });
+        }
+      }
+    }
+    return {
+      ok: hasTitle && hasTable && hasSplit && hasSearch && !overlay && widthMismatches.length === 0,
+      hasTitle,
+      hasTable,
+      hasSplit,
+      hasSearch,
+      overlay,
+      widthMismatches,
+      href: location.href,
+    };
+  }, titlePattern.source);
 }
 
 async function probeUi() {
-  const assign = spawnSync(process.execPath, ["Tool/scripts/assign-agent-stealth-profile.mjs", "--json"], {
-    cwd: "E:/Dev",
-    encoding: "utf8",
-    windowsHide: true,
-    timeout: 15_000,
+  const profile = assignAgentProfile();
+  const pageErrors = [];
+  const session = await connectStealthHeadless(profile, {
+    viewport: { width: 1440, height: 900 },
   });
-  const profile = JSON.parse(assign.stdout || "{}").profile || "9990";
-  const raw = await stealthBrowser.listProfiles();
-  const list = Array.isArray(raw) ? raw : raw?.profiles || [];
-  const hit = list.find((p) => String(p.name || "").trim() === profile);
-  if (!hit) throw new Error(`Stealth profile missing ${profile}`);
-
-  await stealthBrowser.launch(String(hit.id)).catch(() => null);
-  const { send, close } = await openStealthCdpSession(profile, { relaunch: false, timeoutMs: 45_000 });
+  const { page, close } = session;
+  page.on("pageerror", (err) => pageErrors.push(String(err?.message || err)));
   try {
-    const runners = await probeUiTab(send, "runners", /runners/i);
+    const runners = await probeUiTab(page, "runners", /runners/i);
     if (!runners?.ok) throw new Error(`runners UI probe failed: ${JSON.stringify(runners)}`);
-    const cron = await probeUiTab(send, "cron", /cron/i);
+    const cron = await probeUiTab(page, "cron", /cron/i);
     if (!cron?.ok) throw new Error(`cron UI probe failed: ${JSON.stringify(cron)}`);
-    return { profile, runners, cron };
+    if (pageErrors.length > 0) {
+      throw new Error(`UI pageerrors: ${pageErrors.join("; ")}`);
+    }
+    return { profile, runners, cron, pageErrors: pageErrors.length };
   } finally {
     await close();
   }
 }
 
-const hostBase = await resolveHostBase();
-const hostResult = await probeHost(hostBase);
-console.log("[host]", JSON.stringify({ base: hostBase, ...hostResult }));
-
-if (hostOnly) {
-  console.log("SMOKE_OK host-only");
-  process.exit(0);
+async function main() {
+  const base = await resolveHostBase();
+  const host = await probeHost(base);
+  const ui = hostOnly ? null : await probeUi();
+  console.log(JSON.stringify({ ok: true, base, uiBase: UI_BASE, host, ui }, null, 2));
 }
 
-let uiResult = null;
-try {
-  const uiProbe = await fetch(`${UI_BASE}/`, { signal: AbortSignal.timeout(3000) });
-  if (!uiProbe.ok) throw new Error(`UI ${UI_BASE} → ${uiProbe.status}`);
-  uiResult = await probeUi();
-  console.log("[ui]", JSON.stringify(uiResult));
-} catch (err) {
-  console.warn("[ui] skipped —", err instanceof Error ? err.message : String(err));
-  console.log("SMOKE_OK host-only (UI down)");
-  process.exit(0);
-}
-
-console.log("SMOKE_OK runners+tasks");
-process.exit(0);
+main().catch((err) => {
+  console.error(err?.stack || String(err));
+  process.exit(1);
+});

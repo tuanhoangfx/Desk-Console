@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, KeyRound, Save } from "lucide-react";
+import { AlertTriangle, Save } from "lucide-react";
 import {
   HUB_ACCOUNT_DETAIL_JOB_EMOJI,
   HubAccountDetailAdmScaffold,
@@ -233,7 +233,7 @@ export function JobDetailModal({ job, onClose, onSaved }: Props) {
                         </span>
                       </div>
                       <HubBulkActionButton
-                        icon={<KeyRound size={13} aria-hidden />}
+                        icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔑</span>}
                         label={`Sign in ${jobDriveAccount?.code || jobRemoteName}`}
                         title={`Re-authenticate ${jobDriveAccount?.code || jobRemoteName} with Google Drive`}
                         tone="indigo"
@@ -276,7 +276,7 @@ export function JobDetailModal({ job, onClose, onSaved }: Props) {
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <HubBulkActionButton
-                                  icon={<Check className="h-3 w-3 shrink-0" aria-hidden />}
+                                  icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>✅</span>}
                                   label="Keep Local"
                                   title="Keep current local target file and delete the conflict copy"
                                   tone="emerald"
@@ -285,7 +285,7 @@ export function JobDetailModal({ job, onClose, onSaved }: Props) {
                                   onClick={() => void handleResolveConflict(c.conflictRelPath, "keep-local")}
                                 />
                                 <HubBulkActionButton
-                                  icon={<Check className="h-3 w-3 shrink-0" aria-hidden />}
+                                  icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>✅</span>}
                                   label="Keep Drive Copy"
                                   title="Overwrite target file with the conflict copy"
                                   tone="sky"

@@ -8,7 +8,7 @@ import type { AppScreen } from "../../lib/app-screen";
 import { SCREEN_DISPLAY_PREFS } from "../../lib/display-prefs-registry";
 import { deskDefaultSortRowsFor, deskPrimaryDefaultSort } from "./desk-display-sort";
 import {
-  DESK_COL_ITEMS,
+  deskColItemsFor,
   deskColumnPresetsFor,
   deskDirectoryScreenOrClips,
   deskTablePrefsFor,
@@ -19,6 +19,7 @@ export function useDeskDisplayPanelConfig(screen: AppScreen): HubDirectoryDispla
   const tableScreen = deskDirectoryScreenOrClips(screen);
   const tablePrefs = deskTablePrefsFor(tableScreen);
   const columnPresets = deskColumnPresetsFor(tableScreen);
+  const columnItems = useMemo(() => deskColItemsFor(tableScreen), [tableScreen]);
   return useMemo(() => {
     if (!defs) return null;
     return {
@@ -34,7 +35,7 @@ export function useDeskDisplayPanelConfig(screen: AppScreen): HubDirectoryDispla
       tablePanel: (
         <DirectoryTableLegacyDisplaySettings
           id={tableScreen}
-          items={DESK_COL_ITEMS}
+          items={columnItems}
           prefs={tablePrefs}
           primaryDefault={deskPrimaryDefaultSort(screen)}
           sortRows={deskDefaultSortRowsFor(screen)}
@@ -42,5 +43,5 @@ export function useDeskDisplayPanelConfig(screen: AppScreen): HubDirectoryDispla
         />
       ),
     };
-  }, [columnPresets, defs, screen, tablePrefs, tableScreen]);
+  }, [columnItems, columnPresets, defs, screen, tablePrefs, tableScreen]);
 }

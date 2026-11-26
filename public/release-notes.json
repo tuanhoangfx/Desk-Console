@@ -1,10 +1,145 @@
 {
-  "generatedAt": "2026-11-17T23:15:26.747Z",
+  "generatedAt": "2026-11-26T22:06:20.141Z",
   "entries": [
     {
-      "version": "3.1.245",
-      "date": "2026-11-18",
-      "at": "2026-11-18T06:15:00+07:00",
+      "version": "3.1.266",
+      "date": "2026-11-27",
+      "at": "2026-11-27T05:05:00+07:00",
+      "title": "fix(host): enforce non-blocking async spawns across HTTP host modules",
+      "bullets": [
+        "Switch remaining startHiddenDetachedProcess/startDetached calls in pc-optimizer.mjs, windows.mjs, and server.mjs to async non-blocking helpers and add a host regression test forbidding sync spawn calls in HTTP host runtime modules."
+      ],
+      "kind": "fix",
+      "userTitle": "Enforce non-blocking async spawns across HTTP host modules",
+      "userSummary": "",
+      "userHighlights": [
+        "Switch remaining start Hidden Detached Process start Detached calls in , , and to async non-block…"
+      ]
+    },
+    {
+      "version": "3.1.265",
+      "date": "2026-11-27",
+      "at": "2026-11-27T04:39:00+07:00",
+      "title": "fix(runners): non-blocking async spawn and worker target routing",
+      "bullets": [
+        "Switch startRunner to startHiddenDetachedProcessAsync with scalar PID return so :6010 never freezes past 8s and triggers Cron/Runner timeouts; route worker:P0020_QUOTA and worker targets cleanly via raw.id and extend runnerAction timeout."
+      ],
+      "kind": "fix",
+      "userTitle": "Non-blocking async spawn and worker target routing",
+      "userSummary": "",
+      "userHighlights": [
+        "Switch start Runner to start Hidden Detached Process Async with scalar PID return so :6010 never…"
+      ]
+    },
+    {
+      "version": "3.1.264",
+      "date": "2026-11-27",
+      "at": "2026-11-27T03:40:00+07:00",
+      "title": "SSOT smoke: headless Stealth CDP + DOM column/date verification",
+      "bullets": [
+        "Upgrade smoke-runners-tasks.mjs and verify-desk-parity-visual.mjs from raw profile 9990 WebSocket CDP to dynamic agent pool + connectStealthHeadless with live th===td and Created/Update assertions."
+      ],
+      "kind": "improve",
+      "userTitle": "Shared UI smoke: headless Stealth CDP + DOM column date verification",
+      "userSummary": "",
+      "userHighlights": [
+        "Upgrade and from raw profile 9990 Web Socket CDP to dynamic agent pool + connect Stealth Headless…"
+      ]
+    },
+    {
+      "version": "3.1.263",
+      "date": "2026-11-27",
+      "at": "2026-11-27T03:04:00+07:00",
+      "title": "Fix Desk directory Update/Created/Action column parity & SSOT gates",
+      "bullets": [
+        "Replace Runners Update URL text hack with real activity timestamps, derive real Created timestamps on host runners/tasks/apps, standardize Action header/toggle, scope Desk columns per screen, and fix P0001 directory SSOT inventory + gates"
+      ],
+      "kind": "fix",
+      "userTitle": "Fix Desk directory Update Created Action column parity & shared UI gates",
+      "userSummary": "",
+      "userHighlights": [
+        "Replace Runners Update URL text hack with real activity timestamps, derive real Created timestamp…"
+      ]
+    },
+    {
+      "version": "3.1.262",
+      "date": "2026-11-26",
+      "at": "2026-11-26T20:46:00+07:00",
+      "title": "Add +3.3V history chart mode and AVCC rail check",
+      "bullets": [
+        "Added Power +3.3V chart series and inline sparkline to P0001 Dashboard plus motherboard AVCC_UNDERVOLTAGE warning."
+      ],
+      "kind": "improve",
+      "userTitle": "Add +3.3 V history chart mode and AVCC rail check",
+      "userSummary": "",
+      "userHighlights": [
+        "Added Power +3.3 V chart series and inline sparkline to P0001 Dashboard plus motherboard AVCC UND…"
+      ]
+    },
+    {
+      "version": "3.1.261",
+      "date": "2026-11-26",
+      "at": "2026-11-26T18:30:00+07:00",
+      "title": "Add +3.3V undervoltage telemetry and Dashboard alert",
+      "bullets": [
+        "Exposed v33/v33MinRecent from pc-sensors CSV and LHM, added V33_UNDERVOLTAGE critical alert and Dashboard +3.3V status pill."
+      ],
+      "kind": "improve",
+      "userTitle": "Add +3.3 V undervoltage telemetry and Dashboard alert",
+      "userSummary": "",
+      "userHighlights": [
+        "Exposed v33 v33 Min Recent from pc-sensors CSV and LHM, added V33 UNDERVOLTAGE critical alert and…"
+      ]
+    },
+    {
+      "version": "3.1.260",
+      "date": "2026-11-26",
+      "at": "2026-11-26T17:49:00+07:00",
+      "title": "Strip NUL bytes in pc-sensors CSV reader",
+      "bullets": [
+        "Hardened readPcSensorCsvHistory against NTFS power-loss NUL tail padding and added unit regression test."
+      ],
+      "kind": "improve",
+      "userTitle": "Strip NUL bytes in pc-sensors CSV reader",
+      "userSummary": "",
+      "userHighlights": [
+        "Hardened read Pc Sensor Csv History against NTFS power-loss NUL tail padding and added unit regre…"
+      ]
+    },
+    {
+      "version": "3.1.259",
+      "date": "2026-11-26",
+      "at": "2026-11-26T16:35:00+07:00",
+      "title": "Hardware 2s CSV telemetry and stability history integration",
+      "bullets": [
+        "Integrate pc-sensors.csv 2s stream, NVMe watchdog temp/max, cpuMaxPct tuning pill, and 20 stability events into P0001 HardwareHealthPanel and Hardware Temps chart"
+      ],
+      "kind": "improve",
+      "userTitle": "Hardware 2s CSV telemetry and stability history integration",
+      "userSummary": "",
+      "userHighlights": [
+        "Integrate pc-sensors.csv 2s stream, NVMe watchdog temp max, cpu Max Pct tuning pill, and 20 stabi…"
+      ]
+    },
+    {
+      "version": "3.1.258",
+      "date": "2026-11-22",
+      "at": "2026-11-22T19:31:00+07:00",
+      "title": "Sync desktop-host-kit S4U non-interactive self-eviction & interactive relaunch",
+      "bullets": [
+        "Synced packages/hub-desktop-host-kit S4U non-interactive detection (cursorPt.x < -100000) and install-desktop-exe.ps1 Prod upgrade pipeline"
+      ],
+      "kind": "improve",
+      "userTitle": "Sync desktop-host-kit S4 U non-interactive self-eviction & interactiv…",
+      "userSummary": "",
+      "userHighlights": [
+        "Synced packages hub-desktop-host-kit S4 U non-interactive detection and install-desktop-exe.ps1 P…"
+      ]
+    },
+    {
+      "version": "3.1.257",
+      "date": "2026-11-19",
+      "at": "2026-11-19T18:11:00+07:00",
       "title": "Patch bump for completed agent task",
       "bullets": [
         "Automatic patch bump after completed P0001 task."
@@ -17,168 +152,33 @@
       ]
     },
     {
-      "version": "3.1.243",
+      "version": "3.1.254",
       "date": "2026-11-18",
-      "at": "2026-11-18T05:28:00+07:00",
-      "title": "Track reclaimedBytes in sweepAntigravityStaleTranscripts & resolve debt audit SSOT root",
+      "at": "2026-11-18T18:02:00+07:00",
+      "title": "Surface PC-Optimizer reclaimedBytes in Dashboard & History",
       "bullets": [
-        "Measure and return reclaimedBytes across sweepAntigravityStaleTranscripts and display disk/RAM freed on Dashboard Purge AGY & Deep Maintenance toasts; update directory-table-debt-audit.mjs to scan active Tool/P00xx-* roots and accept tablePrefs.read (P0001 debt = 0)."
+        "Display PC-Optimizer reclaimed disk bytes in Dashboard Cron & PC Hygiene card and DeskOpsRuntimeRail History rows."
       ],
       "kind": "improve",
-      "userTitle": "Track reclaimed Bytes in sweep Antigravity Stale Transcripts & resolv…",
+      "userTitle": "Surface PC-Optimizer reclaimed Bytes in Dashboard & History",
       "userSummary": "",
       "userHighlights": [
-        "Measure and return reclaimed Bytes across sweep Antigravity Stale Transcripts and display disk RA…"
+        "Display PC-Optimizer reclaimed disk bytes in Dashboard Cron & PC Hygiene card and Desk Ops Runtim…"
       ]
     },
     {
-      "version": "3.1.242",
+      "version": "3.1.253",
       "date": "2026-11-18",
-      "at": "2026-11-18T05:27:00+07:00",
-      "title": "Patch bump for completed agent task",
+      "at": "2026-11-18T16:50:00+07:00",
+      "title": "Antigravity multi-version vault controls, Stop v* button & Archive All Public",
       "bullets": [
-        "Automatic patch bump after completed P0001 task."
+        "Replaced Antigravity Primary status/actions with version-first Antigravity Vault labels, added Stop v* runtime action and Archive All Public GCS installer button in AppVersionDetailModal."
       ],
       "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
+      "userTitle": "Antigravity multi-version vault controls, Stop v* button & Archive Al…",
       "userSummary": "",
       "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
-      ]
-    },
-    {
-      "version": "3.1.241",
-      "date": "2026-11-18",
-      "at": "2026-11-18T05:20:00+07:00",
-      "title": "Expand SxS stopped cache cleanup (>7d), update debt audit SSOT regex, and run desktop CDP smoke",
-      "bullets": [
-        "Rename cleanAntigravitySxsLogsDir to cleanAntigravitySxsUserCaches covering logs/Code Cache/GPUCache/Cache/Dawn/CachedData (>7d) on stopped SxS instances, recognize HubDirectoryEmptyCell in directory-table-debt-audit.mjs, and verify full desk-core CDP smoke."
-      ],
-      "kind": "improve",
-      "userTitle": "Expand Sx S stopped cache cleanup , update debt audit shared UI regex…",
-      "userSummary": "",
-      "userHighlights": [
-        "Rename clean Antigravity Sxs Logs Dir to clean Antigravity Sxs User Caches covering logs Code Cac…"
-      ]
-    },
-    {
-      "version": "3.1.240",
-      "date": "2026-11-18",
-      "at": "2026-11-18T05:19:00+07:00",
-      "title": "Patch bump for completed agent task",
-      "bullets": [
-        "Automatic patch bump after completed P0001 task."
-      ],
-      "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
-      "userSummary": "",
-      "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
-      ]
-    },
-    {
-      "version": "3.1.239",
-      "date": "2026-11-18",
-      "at": "2026-11-18T05:12:00+07:00",
-      "title": "Unify HubDirectoryEmptyCell SSOT, prune SxS >7d logs, and wire ConnectRPC post-sync smoke",
-      "bullets": [
-        "Replace remaining DirectoryEmptyDash in jobs/drives with HubDirectoryEmptyCell, add cleanAntigravitySxsLogsDir (>7d) for stopped SxS userdata logs, and add Antigravity ConnectRPC sweep smoke check to run-electron-package.mjs and desktop-desk-core.mjs."
-      ],
-      "kind": "improve",
-      "userTitle": "Unify Hub Directory Empty Cell shared UI, prune Sx S >7d logs, and wi…",
-      "userSummary": "",
-      "userHighlights": [
-        "Replace remaining Directory Empty Dash in jobs drives with Hub Directory Empty Cell, add clean An…"
-      ]
-    },
-    {
-      "version": "3.1.238",
-      "date": "2026-11-18",
-      "at": "2026-11-18T05:10:00+07:00",
-      "title": "Patch bump for completed agent task",
-      "bullets": [
-        "Automatic patch bump after completed P0001 task."
-      ],
-      "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
-      "userSummary": "",
-      "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
-      ]
-    },
-    {
-      "version": "3.1.237",
-      "date": "2026-11-18",
-      "at": "2026-11-18T05:02:00+07:00",
-      "title": "Unify Antigravity daemon/presence cleanup SSOT & align Desk HubDirectoryEmptyCell",
-      "bullets": [
-        "Extract cleanAntigravityDaemonDir helper (hub_*.json dead PIDs + stale ls_*.log) and stale 0-byte presence lock pruning into sweepAntigravityStaleTranscripts, sync workspace-ports snapshots to P0004, and replace leftover DirectoryEmptyDash in desk-directory-cells.tsx."
-      ],
-      "kind": "improve",
-      "userTitle": "Unify Antigravity daemon presence cleanup shared UI & align Desk Hub…",
-      "userSummary": "",
-      "userHighlights": [
-        "Extract clean Antigravity Daemon Dir helper and stale 0-byte presence lock pruning into sweep Ant…"
-      ]
-    },
-    {
-      "version": "3.1.236",
-      "date": "2026-11-18",
-      "at": "2026-11-18T05:01:00+07:00",
-      "title": "Patch bump for completed agent task",
-      "bullets": [
-        "Automatic patch bump after completed P0001 task."
-      ],
-      "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
-      "userSummary": "",
-      "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
-      ]
-    },
-    {
-      "version": "3.1.234",
-      "date": "2026-11-18",
-      "at": "2026-11-18T04:39:00+07:00",
-      "title": "Use original-fs for Antigravity Desktop version & fix JSX syntax",
-      "bullets": [
-        "Read app.asar cleanly from Electron hosts via original-fs + fallback package/product JSON, clarify Claude OAuth status label, and fix DeskDirectoryCard JSX syntax."
-      ],
-      "kind": "improve",
-      "userTitle": "Use original-fs for Antigravity Desktop version & fix JSX syntax",
-      "userSummary": "",
-      "userHighlights": [
-        "Read app.asar cleanly from Electron hosts via original-fs + fallback package product JSON, clarif…"
-      ]
-    },
-    {
-      "version": "3.1.233",
-      "date": "2026-11-18",
-      "at": "2026-11-18T04:39:00+07:00",
-      "title": "Patch bump for completed agent task",
-      "bullets": [
-        "Automatic patch bump after completed P0001 task."
-      ],
-      "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
-      "userSummary": "",
-      "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
-      ]
-    },
-    {
-      "version": "3.1.231",
-      "date": "2026-11-18",
-      "at": "2026-11-18T04:35:00+07:00",
-      "title": "Prune dead daemon/hub_*.json, tighten stopped SxS retention, and show LS ghosts in Purge AGY toast",
-      "bullets": [
-        "Clean orphan daemon/hub_*.json across primary and SxS roots, lower stopped SxS session TTL to 24h and compaction threshold to 5MB/1h (fixing 0-byte WAL check), and surface antigravityRpcSync.syncedDeleted on Dashboard Purge AGY toast."
-      ],
-      "kind": "improve",
-      "userTitle": "Prune dead daemon hub *.json, tighten stopped Sx S retention, and sho…",
-      "userSummary": "",
-      "userHighlights": [
-        "Clean orphan daemon hub *.json across primary and Sx S roots, lower stopped Sx S session TTL to 2…"
+        "Replaced Antigravity Primary status actions with version-first Antigravity Vault labels, added St…"
       ]
     }
   ]

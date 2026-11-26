@@ -7,7 +7,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { execFile, spawn, spawnSync } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
@@ -39,6 +39,7 @@ import {
 import { hotkeysPayload, resetHotkeys, writeHotkeys } from "./hotkeys.mjs";
 import { getManagedAppsSnapshot, runManagedAppAction } from "./apps-versions.mjs";
 import { sampleHostMetrics } from "./host-metrics.mjs";
+import { ensureNvidiaDrsNormalPowerMode, launchHardwareTool, readHardwareHistory, sampleHardwareSensors } from "./hardware-sensors.mjs";
 import {
   listRunners,
   readRunnerWatchdogState,
@@ -61,6 +62,15 @@ import {
   pollTaskTerminalFeedback,
 } from "./ops-terminal.mjs";
 import {
+  listPcBackupSnapshots,
+  readHasleoSystemImageStatus,
+  readPcBackupStatus,
+  runHasleoSystemImageRun,
+  runPcBackupDrill,
+  runPcBackupRestore,
+  startPcBackupRun,
+} from "./pc-backup.mjs";
+import {
   DEV_ROOT,
   captureForegroundHwnd,
   createScheduledTask,
@@ -73,7 +83,7 @@ import {
   readClipboardTextAsync,
   runTask,
   setTaskEnabled,
-  startDetached,
+  startDetachedAsync,
   updateScheduledTask,
   writeClipboardImageAsync,
   writeClipboardTextAsync,
@@ -336,7 +346,7 @@ function json(res, status, body) {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Hub-Token",
   });
   res.end(raw);
 }
@@ -681,7 +691,14 @@ async function listAllCronTasks() {
   const watchdog = readRunnerWatchdogState();
   const opsHist = readOpsHistory({ limit: 200 });
   const bootIso = new Date(Date.now() - Math.floor(process.uptime() * 1000)).toISOString();
-  const defaultCreatedAt = "2026-10-15T00:00:00.000Z";
+  let defaultCreatedAt = "2026-10-15T00:00:00.000Z";
+  try {
+    const hostStat = fs.statSync(fileURLToPath(import.meta.url));
+    const ts = hostStat.birthtimeMs > 0 ? hostStat.birthtimeMs : hostStat.mtimeMs;
+    if (Number.isFinite(ts) && ts > 0) defaultCreatedAt = new Date(ts).toISOString();
+  } catch {
+    /* keep fallback */
+  }
   const daemonRows = BUILTIN_CRON_SPECS.map((spec) => {
     const saved = state[spec.id] || {};
     const isWatchdog = spec.id === "Daemon-Runner-Watchdog";
@@ -751,7 +768,7 @@ async function listAllCronTasks() {
     return {
       ...row,
       kind: "schtask",
-      createdAt: meta.createdAt || row.createdAt || defaultCreatedAt,
+      createdAt: row.createdAt || meta.createdAt || defaultCreatedAt,
       status: normalizeCronTaskStatus(row.status, lastResult),
       lastResult,
       lastDurationMs: meta.lastDurationMs ?? null,
@@ -1281,6 +1298,169 @@ async function runJobAction(jobs, idx, action) {
 
 let devUiUp = false;
 
+let _cachedDeskBridge = null;
+async function getDeskBridgeSafe() {
+  if (_cachedDeskBridge !== null) return _cachedDeskBridge || null;
+  const bridgePath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "electron",
+    "lib",
+    "desktop-runtime-bridge.mjs",
+  );
+  if (!fs.existsSync(bridgePath)) {
+    _cachedDeskBridge = false;
+    return null;
+  }
+  try {
+    const mod = await import(pathToFileURL(bridgePath).href);
+    _cachedDeskBridge = mod.createSovereignRuntimeBridge({
+      productRoot: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
+      homeDirName: ".desk_console",
+    });
+    return _cachedDeskBridge;
+  } catch {
+    _cachedDeskBridge = false;
+    return null;
+  }
+}
+
+function fallbackHubSessionPath() {
+  return path.join(dataRoot(), "hub-session.json");
+}
+
+async function readDeskHubSession() {
+  const b = await getDeskBridgeSafe();
+  if (b) return b.readHubUserSession();
+  const p = fallbackHubSessionPath();
+  if (!fs.existsSync(p)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(p, "utf8"));
+    return raw && typeof raw.accessToken === "string" && raw.accessToken.trim() ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveDeskHubSession(payload) {
+  const b = await getDeskBridgeSafe();
+  if (b) return b.saveHubUserSession(payload);
+  const p = fallbackHubSessionPath();
+  const token = String(payload?.accessToken || "").trim();
+  if (!token) {
+    try {
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    } catch {}
+    return null;
+  }
+  const next = {
+    accessToken: token,
+    refreshToken: String(payload?.refreshToken || "").trim(),
+    expiresAt: typeof payload?.expiresAt === "number" ? payload.expiresAt : null,
+    userId: payload?.userId ? String(payload.userId).trim() : null,
+    email: payload?.email ? String(payload.email).trim() : null,
+    updatedAt: new Date().toISOString(),
+  };
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(next, null, 2), "utf8");
+  return next;
+}
+
+async function clearDeskHubSession() {
+  const b = await getDeskBridgeSafe();
+  if (b) return b.clearHubUserSession();
+  const p = fallbackHubSessionPath();
+  try {
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+  } catch {}
+}
+
+async function readDeskAuthTelemetry() {
+  const b = await getDeskBridgeSafe();
+  if (b?.readHubAuthTelemetry) return b.readHubAuthTelemetry();
+  return null;
+}
+
+async function saveDeskAuthTelemetry(payload) {
+  const b = await getDeskBridgeSafe();
+  if (b?.saveHubAuthTelemetry) return b.saveHubAuthTelemetry(payload);
+  return null;
+}
+
+function decodeDeskJwtClaimsFallback(rawToken, skewSec = 60) {
+  const token = String(rawToken || "").trim();
+  if (!token) return { ok: false, error: "empty_token" };
+  const parts = token.split(".");
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) {
+    return { ok: false, error: "malformed_jwt" };
+  }
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
+    const payload = JSON.parse(Buffer.from(`${b64}${pad}`, "base64").toString("utf8"));
+    if (!payload || typeof payload !== "object") return { ok: false, error: "invalid_jwt_payload" };
+    const sub = typeof payload.sub === "string" ? payload.sub.trim() : "";
+    if (!sub) return { ok: false, error: "missing_sub" };
+    const exp = typeof payload.exp === "number" ? payload.exp : Number(payload.exp);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (Number.isFinite(exp) && exp > 0 && exp + skewSec < nowSec) {
+      return { ok: false, error: "token_expired", exp };
+    }
+    return {
+      ok: true,
+      user: { id: sub, email: typeof payload.email === "string" ? payload.email.trim() || null : null, exp: Number.isFinite(exp) ? exp : null },
+    };
+  } catch {
+    return { ok: false, error: "invalid_jwt_encoding" };
+  }
+}
+
+async function verifyDeskHubRequest(req, { requireAuth = false } = {}) {
+  const b = await getDeskBridgeSafe();
+  if (b?.verifyHubRequestAuthAsync) {
+    return b.verifyHubRequestAuthAsync(req, { requireAuth });
+  }
+  if (b?.verifyHubRequestAuth) {
+    return b.verifyHubRequestAuth(req, { requireAuth });
+  }
+  const authHeader = String(req?.headers?.authorization || "").trim();
+  const xHub = String(req?.headers?.["x-hub-token"] || "").trim();
+  if (authHeader || xHub) {
+    let bearer = xHub;
+    if (authHeader) {
+      const m = /^Bearer\s+(.+)$/i.exec(authHeader);
+      if (!m || !m[1].trim()) {
+        return { ok: false, status: 401, error: "Invalid Authorization header format", code: "invalid_auth_header", source: "bearer", hubUser: null };
+      }
+      bearer = m[1].trim();
+    }
+    const decoded = decodeDeskJwtClaimsFallback(bearer);
+    if (!decoded.ok) {
+      return {
+        ok: false,
+        status: 401,
+        error: decoded.error === "token_expired" ? "Hub session expired" : "Invalid Hub Bearer token",
+        code: decoded.error,
+        source: "bearer",
+        hubUser: null,
+      };
+    }
+    return { ok: true, status: 200, source: "bearer", hubUser: decoded.user };
+  }
+  const sess = await readDeskHubSession();
+  if (sess?.accessToken) {
+    const decoded = decodeDeskJwtClaimsFallback(sess.accessToken);
+    if (decoded.error === "token_expired") {
+      return { ok: !requireAuth, status: requireAuth ? 401 : 200, error: "Persisted Hub session expired", code: "session_expired", source: "session-file", hubUser: null };
+    }
+    return { ok: true, status: 200, source: "session-file", hubUser: { id: sess.userId || decoded.user?.id || null, email: sess.email || decoded.user?.email || null, exp: sess.expiresAt || decoded.user?.exp || null } };
+  }
+  if (requireAuth) {
+    return { ok: false, status: 401, error: "Hub authentication required", code: "hub_auth_required", source: "none", hubUser: null };
+  }
+  return { ok: true, status: 200, source: "none", hubUser: null };
+}
+
 async function handle(req, res) {
   const url = new URL(req.url || "/", `http://${HOST}:${PORT}`);
   const { pathname } = url;
@@ -1290,7 +1470,7 @@ async function handle(req, res) {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Hub-Token",
     });
     res.end();
     return;
@@ -1304,6 +1484,7 @@ async function handle(req, res) {
   }
 
   if (method === "GET" && pathname === "/api/health") {
+    const hubSession = await readDeskHubSession();
     let cursorRunning = isProcessRunningNative("cursor.exe");
     if (typeof cursorRunning !== "boolean") {
       try {
@@ -1339,8 +1520,88 @@ async function handle(req, res) {
       rclone: { path: rclone, version },
       proxyHealth: getProxyHealthState(),
       syncPlane: "local",
+      hubUser: hubSession ? { id: hubSession.userId, email: hubSession.email } : null,
+      authTelemetry: await readDeskAuthTelemetry(),
       cursorRunning,
     });
+  }
+
+  if (pathname === "/api/hub-auth/telemetry") {
+    if (method === "GET") {
+      return json(res, 200, { ok: true, telemetry: await readDeskAuthTelemetry() });
+    }
+    if (method === "POST") {
+      const body = await readBody(req).catch(() => ({}));
+      const saved = await saveDeskAuthTelemetry(body);
+      return json(res, 200, { ok: true, telemetry: saved });
+    }
+  }
+
+  if (pathname === "/api/hub-auth/session") {
+    if (method === "GET") {
+      const check = await verifyDeskHubRequest(req, { requireAuth: false });
+      if (!check.ok) {
+        return json(res, check.status, {
+          ok: false,
+          signedIn: false,
+          hubUser: null,
+          error: check.error,
+          code: check.code,
+        });
+      }
+      const s = await readDeskHubSession();
+      const user =
+        check.source !== "none" && check.hubUser
+          ? check.hubUser
+          : s
+            ? { id: s.userId, email: s.email, expiresAt: s.expiresAt }
+            : null;
+      return json(res, 200, {
+        ok: true,
+        signedIn: Boolean(user),
+        authMethod: check.source,
+        hubUser: user,
+      });
+    }
+    if (method === "POST") {
+      const body = await readBody(req).catch(() => ({}));
+      if (body?.accessToken) {
+        const decoded = decodeDeskJwtClaimsFallback(body.accessToken);
+        if (decoded.error === "token_expired") {
+          return json(res, 401, { ok: false, error: "Expired Hub access token", code: "token_expired" });
+        }
+      }
+      const saved = await saveDeskHubSession(body);
+      return json(res, 200, {
+        ok: true,
+        signedIn: Boolean(saved?.accessToken),
+        hubUser: saved ? { id: saved.userId, email: saved.email, expiresAt: saved.expiresAt } : null,
+      });
+    }
+    if (method === "DELETE") {
+      await clearDeskHubSession();
+      return json(res, 200, { ok: true, signedIn: false, hubUser: null });
+    }
+  }
+
+  if (
+    pathname.startsWith("/api/") &&
+    pathname !== "/api/system/hot-reload" &&
+    pathname !== "/api/events" &&
+    !/^\/api\/clips\/[^/]+\/image$/.test(pathname)
+  ) {
+    const isProtectedMutation =
+      (method === "POST" || method === "DELETE") &&
+      (pathname.startsWith("/api/drives/") || pathname.startsWith("/api/optimize/purge"));
+    const enforce = String(process.env.DESK_CONSOLE_ENFORCE_HUB_AUTH || "") === "1";
+    const check = await verifyDeskHubRequest(req, { requireAuth: enforce || (isProtectedMutation && process.env.DESK_CONSOLE_ENFORCE_ROUTES === "1") });
+    if (!check.ok) {
+      return json(res, check.status, {
+        ok: false,
+        error: check.error,
+        code: check.code,
+      });
+    }
   }
 
   if (method === "POST" && pathname === "/api/system/hot-reload") {
@@ -1398,6 +1659,27 @@ async function handle(req, res) {
     return json(res, 200, sampleHostMetrics());
   }
 
+  if (method === "GET" && pathname === "/api/hardware/sensors") {
+    const force = url.searchParams.get("force") === "1";
+    return json(res, 200, await sampleHardwareSensors({ force }));
+  }
+
+  if (method === "GET" && pathname === "/api/hardware/history") {
+    return json(res, 200, { ok: true, rows: readHardwareHistory() });
+  }
+
+  if (method === "POST" && pathname === "/api/hardware/launch") {
+    const body = await readBody(req).catch(() => ({}));
+    const result = launchHardwareTool(body?.tool);
+    return json(res, result.ok ? 200 : 404, result);
+  }
+
+  if (method === "POST" && pathname === "/api/hardware/apply-tuning") {
+    const drs = ensureNvidiaDrsNormalPowerMode({ applyIfNeeded: true });
+    const snap = await sampleHardwareSensors({ force: true }).catch(() => null);
+    return json(res, drs.ok ? 200 : 500, { ok: drs.ok, drs, tuning: snap?.tuning || null });
+  }
+
   if (method === "GET" && pathname === "/api/telemetry") {
     const listed = await listDriveAccounts().catch(() => ({ ok: false, accounts: [] }));
     const snapshot = buildFolderSyncTelemetrySnapshot(readJobs(), listed.accounts || []);
@@ -1417,6 +1699,78 @@ async function handle(req, res) {
   // --- P0001 PC Optimizer & Siblings & Hotkeys & Clips & Runners & Tasks ---
   if (method === "GET" && pathname === "/api/pc/diagnostics") {
     return json(res, 200, await diagnosePcHost());
+  }
+
+  if (method === "GET" && pathname === "/api/pc/backup") {
+    await readHasleoSystemImageStatus().catch(() => null);
+    return json(
+      res,
+      200,
+      await readPcBackupStatus({
+        listTasksFn: () => listDevTasks().catch(() => []),
+      }),
+    );
+  }
+
+  if (method === "GET" && pathname === "/api/pc/backup/snapshots") {
+    const src = url.searchParams.get("source") || "all";
+    return json(res, 200, await listPcBackupSnapshots(src));
+  }
+
+  if (method === "POST" && pathname === "/api/pc/backup/restore") {
+    const body = await readBody(req).catch(() => ({}));
+    const result = await runPcBackupRestore(body);
+    appendOpsHistory({
+      target: "task:Dev-PC-Data-Backup",
+      action: `backup:restore:${body?.source || "gdrive"}`,
+      ok: Boolean(result.ok),
+      message: result.ok
+        ? `Restored ${result.criticalSnapshot || "snapshot"} -> ${result.extractedCriticalDir}`
+        : result.error || "Restore failed",
+    });
+    return json(res, result.ok ? 200 : 400, result);
+  }
+
+  if (method === "GET" && pathname === "/api/pc/backup/system-image") {
+    return json(res, 200, await readHasleoSystemImageStatus({ force: true }));
+  }
+
+  if (method === "POST" && pathname === "/api/pc/backup/system-image/run") {
+    const body = await readBody(req).catch(() => ({}));
+    return json(res, 200, await runHasleoSystemImageRun(body));
+  }
+
+  if (method === "POST" && pathname === "/api/pc/backup/run") {
+    const body = await readBody(req).catch(() => ({}));
+    const mode = String(body?.mode || "full").toLowerCase() === "critical" ? "critical" : "full";
+    const result = await startPcBackupRun({
+      mode,
+      listTasksFn: () => listDevTasks().catch(() => []),
+    });
+    if (result.started) {
+      appendOpsHistory({
+        target: "task:Dev-PC-Data-Backup",
+        action: `backup:${mode}`,
+        ok: true,
+        message: `Started Workstation PC Backup (${mode} · PID ${result.pid || "?"})`,
+      });
+    }
+    return json(res, result.ok ? 200 : 400, result);
+  }
+
+  if (method === "POST" && pathname === "/api/pc/backup/drill") {
+    const result = await runPcBackupDrill({
+      listTasksFn: () => listDevTasks().catch(() => []),
+    });
+    appendOpsHistory({
+      target: "task:Dev-PC-Backup-Health",
+      action: "backup:drill",
+      ok: Boolean(result.ok),
+      message: result.drill
+        ? `Cloud & Tar Drill: ${result.drill.drillEntries || 0} entries · cloud=${Boolean(result.drill.cloudLatestArchivePresent)}`
+        : result.error || "Cloud & Tar Drill finished",
+    });
+    return json(res, 200, result);
   }
 
   if (method === "GET" && pathname === "/api/pc/farm-supervisor") {
@@ -1706,7 +2060,8 @@ async function handle(req, res) {
       });
       return json(res, result.ok ? 200 : 404, { ok: result.ok, code, mode, ...result });
     }
-    const pid = startRunner(code, mode);
+    const rawPid = await startRunner(code, mode);
+    const pid = rawPid && typeof rawPid === "object" ? (rawPid.pid ?? null) : rawPid;
     appendTerminalLine(code, "runner", opsConsoleOk(`${mode} ${code} pid=${pid ?? "?"}`));
     appendOpsHistory({
       kind: "runner",
@@ -1941,7 +2296,7 @@ async function handle(req, res) {
       ? path.join(DEV_ROOT, "Tool", "scripts", "cursor-storage-purge-runner.mjs")
       : path.join(DEV_ROOT, ".cursor", "hooks", "purge-cursor-chats.py");
     if (body.close) {
-      const pid = startDetached([script]);
+      const pid = await startDetachedAsync([script]);
       return json(res, 200, { ok: true, detached: true, pid });
     }
     const r = await runPurgeCursorChatsAsync(script, { cwd: DEV_ROOT, timeoutMs: 600_000 });
@@ -2682,8 +3037,15 @@ if (isMain) {
     startJobWatchers({ readJobs, runSync: syncWatchedJob, onArmed: setNextSync });
     startDrivePoll({ readJobs, listRemote: listRemoteFiles, runSync: syncWatchedJob, onArmed: setNextSync });
     void captureAndPersistTelemetrySnapshot({ force: true }).catch(() => undefined);
+    try {
+      ensureNvidiaDrsNormalPowerMode({ applyIfNeeded: true });
+    } catch {
+      /* ignore NVAPI startup guard failure */
+    }
+    void sampleHardwareSensors({ force: true }).catch(() => undefined);
     const telemetryTimer = setInterval(() => {
       void captureAndPersistTelemetrySnapshot({ force: true }).catch(() => undefined);
+      void sampleHardwareSensors({ force: true }).catch(() => undefined);
     }, 15 * 60 * 1000);
     if (typeof telemetryTimer.unref === "function") telemetryTimer.unref();
   });

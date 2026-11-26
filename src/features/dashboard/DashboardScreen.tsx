@@ -33,12 +33,20 @@ import {
   type KpiTileData,
 } from "@tool-workspace/hub-ui";
 import { TabHeaderActions } from "../../components/TabHeaderActions";
+import { HardwareHealthPanel } from "./HardwareHealthPanel";
+import { PcBackupStatusPanel } from "./PcBackupStatusPanel";
+import { RestoreSnapshotsModal } from "./RestoreSnapshotsModal";
 import { useDeskDesktopUpdate } from "../../hooks/useDeskDesktopUpdate";
 import { useHostHeaderStats } from "../../hooks/useHostHeaderStats";
 import {
   deskApi,
+  formatDiskBytesLabel,
   type ClipRow,
   type DeskHostMetrics,
+  type HardwareHistoryPoint,
+  type HardwareSensorsPayload,
+  type OpsHistoryEntry,
+  type PcBackupStatusPayload,
   type PcDiagnosticsPayload,
   type PcOptimizeAction,
   type RunnerRow,
@@ -61,7 +69,7 @@ import { DESK_SCREEN_TITLE_EMOJI } from "../desk/desk-directory-stickers";
 
 type DashboardRangeKey = "7d" | "30d" | "90d" | "365d";
 type DashboardGranularityKey = "hour" | "day" | "week" | "month";
-type DashboardMetricMode = "sync-clips" | "runners-cron" | "drives-jobs" | "disk-ram";
+type DashboardMetricMode = "sync-clips" | "runners-cron" | "drives-jobs" | "disk-ram" | "hardware-temps" | "power-rail";
 type DashboardSeriesMode = "period" | "cumulative";
 type DashboardDatasetKey = "jobs" | "drives" | "clips" | "runners" | "cron";
 
@@ -86,6 +94,8 @@ const METRIC_MODE_OPTIONS: HubSegmentToggleOption<DashboardMetricMode>[] = [
   { value: "runners-cron", label: "Runners & Cron", activeTone: "amber" },
   { value: "drives-jobs", label: "Drives & Jobs", activeTone: "emerald" },
   { value: "disk-ram", label: "Disk & Memory", activeTone: "sky" },
+  { value: "hardware-temps", label: "Hardware Temps", activeTone: "amber" },
+  { value: "power-rail", label: "Power +3.3V", activeTone: "emerald" },
 ];
 
 const SERIES_MODE_OPTIONS: HubSegmentToggleOption<DashboardSeriesMode>[] = [
@@ -178,8 +188,25 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [hostMetrics, setHostMetrics] = useState<DeskHostMetrics | null>(null);
   const [pcDiag, setPcDiag] = useState<PcDiagnosticsPayload | null>(null);
+  const [pcBackup, setPcBackup] = useState<PcBackupStatusPayload | null>(null);
+  const [hwSensors, setHwSensors] = useState<HardwareSensorsPayload | null>(null);
+  const [hwHistory, setHwHistory] = useState<HardwareHistoryPoint[]>([]);
+  const [refreshingSensors, setRefreshingSensors] = useState(false);
+  const [pcOptHistory, setPcOptHistory] = useState<OpsHistoryEntry[]>([]);
   const [telemetryHistory, setTelemetryHistory] = useState<TelemetryHistoryPoint[]>([]);
   const [optimizingAction, setOptimizingAction] = useState<string | null>(null);
+  const [triggeringBackup, setTriggeringBackup] = useState<"full" | "critical" | null>(null);
+  const [verifyingDrill, setVerifyingDrill] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+
+  const refreshPcBackup = useCallback(async () => {
+    try {
+      const b = await deskApi.pcBackupStatus();
+      if (b.ok) setPcBackup(b);
+    } catch {
+      /* ignore transient poll error */
+    }
+  }, []);
 
   const loadAll = useCallback(async () => {
     const [
@@ -192,7 +219,11 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
       tasksRes,
       metricsRes,
       diagRes,
+      backupRes,
       histRes,
+      pcOptHistRes,
+      hwSensorsRes,
+      hwHistRes,
     ] = await Promise.allSettled([
       fetchJobs(),
       fetchDriveAccounts(),
@@ -203,7 +234,11 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
       deskApi.listTasks(),
       deskApi.hostMetrics(),
       deskApi.pcDiagnostics(),
+      deskApi.pcBackupStatus(),
       deskApi.telemetryHistory(),
+      deskApi.opsHistory("task:PC-Optimizer"),
+      deskApi.hardwareSensors(),
+      deskApi.hardwareHistory(),
     ]);
 
     if (jobsRes.status === "fulfilled") {
@@ -223,7 +258,17 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
     if (tasksRes.status === "fulfilled") setTasks(tasksRes.value);
     if (metricsRes.status === "fulfilled" && metricsRes.value.ok) setHostMetrics(metricsRes.value);
     if (diagRes.status === "fulfilled" && diagRes.value.ok) setPcDiag(diagRes.value);
+    if (backupRes.status === "fulfilled" && backupRes.value.ok) setPcBackup(backupRes.value);
     if (histRes.status === "fulfilled") setTelemetryHistory(histRes.value);
+    if (pcOptHistRes.status === "fulfilled") {
+      setPcOptHistory(pcOptHistRes.value.entries || []);
+    }
+    if (hwSensorsRes.status === "fulfilled" && hwSensorsRes.value.ok) {
+      setHwSensors(hwSensorsRes.value);
+    }
+    if (hwHistRes.status === "fulfilled") {
+      setHwHistory(hwHistRes.value);
+    }
   }, []);
 
   useEffect(() => {
@@ -232,6 +277,117 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
     const timer = window.setInterval(() => void loadAll(), 15_000);
     return () => window.clearInterval(timer);
   }, [loadAll, tabActive]);
+
+  useEffect(() => {
+    if (!tabActive || pcBackup?.status !== "running") return;
+    const fastTimer = window.setInterval(() => void refreshPcBackup(), 1500);
+    return () => window.clearInterval(fastTimer);
+  }, [pcBackup?.status, refreshPcBackup, tabActive]);
+
+  const handleRunPcBackup = useCallback(
+    async (mode: "full" | "critical") => {
+      setTriggeringBackup(mode);
+      try {
+        const res = await deskApi.runPcBackup(mode);
+        if (res.status) setPcBackup(res.status);
+        pushToast({
+          type: res.ok ? "success" : "error",
+          title: mode === "critical" ? "Quick Critical Backup" : "Full Workstation Backup",
+          message: res.alreadyRunning
+            ? "Backup is already in progress"
+            : res.started
+              ? "Backup started — live progress updating"
+              : res.error || "Failed to start backup",
+        });
+      } catch (err) {
+        pushToast({
+          type: "error",
+          title: "PC Backup",
+          message: err instanceof Error ? err.message : "Failed to trigger backup",
+        });
+      } finally {
+        setTriggeringBackup(null);
+      }
+    },
+    [pushToast],
+  );
+
+  const handleRunPcBackupDrill = useCallback(async () => {
+    setVerifyingDrill(true);
+    try {
+      const res = await deskApi.runPcBackupDrill();
+      if (res.status) setPcBackup(res.status);
+      pushToast({
+        type: res.ok ? "success" : "error",
+        title: "Cloud & Restore Drill",
+        message: res.drill
+          ? `${res.drill.drillOk ? "Archive verified" : "Drill alert"} (${res.drill.drillEntries.toLocaleString()} entries · Cloud ${res.drill.cloudArchiveCount} archives)`
+          : res.error || "Verification finished",
+      });
+    } catch (err) {
+      pushToast({
+        type: "error",
+        title: "Cloud & Restore Drill",
+        message: err instanceof Error ? err.message : "Verification failed",
+      });
+    } finally {
+      setVerifyingDrill(false);
+    }
+  }, [pushToast]);
+
+  const handleRefreshHwSensors = useCallback(async () => {
+    setRefreshingSensors(true);
+    try {
+      const [res, hist] = await Promise.allSettled([
+        deskApi.hardwareSensors(true),
+        deskApi.hardwareHistory(),
+      ]);
+      if (res.status === "fulfilled" && res.value.ok) setHwSensors(res.value);
+      if (hist.status === "fulfilled") setHwHistory(hist.value);
+    } catch {
+      /* ignore transient sensor poll error */
+    } finally {
+      setRefreshingSensors(false);
+    }
+  }, []);
+
+  const handleLaunchHwTool = useCallback(
+    async (tool: "lhm" | "occt" | "crystaldiskinfo") => {
+      try {
+        const res = await deskApi.launchHardwareTool(tool);
+        pushToast({
+          type: res.ok ? "success" : "error",
+          title: `Launch ${tool.toUpperCase()}`,
+          message: res.ok ? `Opened ${res.path}` : res.error || "Tool not available",
+        });
+      } catch (err) {
+        pushToast({
+          type: "error",
+          title: `Launch ${tool.toUpperCase()}`,
+          message: err instanceof Error ? err.message : "Failed to launch tool",
+        });
+      }
+    },
+    [pushToast],
+  );
+
+  const handleRunSystemImage = useCallback(async () => {
+    try {
+      const res = await deskApi.runHasleoSystemImage();
+      pushToast({
+        type: res.ok ? "success" : "error",
+        title: "Hasleo System Image (C:\\)",
+        message: res.ok ? "Triggered C: OS system image task" : res.error || "Hasleo task not ready",
+      });
+      await refreshPcBackup();
+    } catch (err) {
+      pushToast({
+        type: "error",
+        title: "Hasleo System Image",
+        message: err instanceof Error ? err.message : "Failed to trigger Hasleo task",
+      });
+    }
+  }, [pushToast, refreshPcBackup]);
 
   const handleQuickOptimize = useCallback(
     async (action: PcOptimizeAction, label: string) => {
@@ -245,13 +401,10 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
           ? Math.round(res.results.ram.freedRamBytes / (1024 * 1024))
           : 0;
         const diskFreedMB =
-          typeof agySweep?.reclaimedBytes === "number" && agySweep.reclaimedBytes > 0
-            ? agySweep.reclaimedBytes >= 1024 * 1024
-              ? `${(agySweep.reclaimedBytes / (1024 * 1024)).toFixed(1)} MB`
-              : `${Math.max(1, Math.round(agySweep.reclaimedBytes / 1024))} KB`
-            : deepMaint?.lastPassFreedMB && deepMaint.lastPassFreedMB > 0
-              ? `${deepMaint.lastPassFreedMB.toFixed(1)} MB`
-              : "";
+          formatDiskBytesLabel(agySweep?.reclaimedBytes) ||
+          (deepMaint?.lastPassFreedMB && deepMaint.lastPassFreedMB > 0
+            ? `${deepMaint.lastPassFreedMB.toFixed(1)} MB`
+            : "");
         const agyParts: string[] = [];
         if (agySweep?.removedSessions) agyParts.push(`${agySweep.removedSessions} sessions`);
         if (agySweep?.prunedArtifacts) agyParts.push(`${agySweep.prunedArtifacts} artifacts`);
@@ -548,6 +701,134 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
 
   // Build time-series growth chart points
   const chartSpec = useMemo(() => {
+    if (metricMode === "hardware-temps") {
+      const hasCpuSamples = hwHistory.some((h) => h.cpuTempC != null) || hwSensors?.cpu.packageTempC != null;
+      const leftMeta = { label: "GPU Temp (°C)", color: "#f59e0b", emoji: "🌡️" };
+      const rightMeta = hasCpuSamples
+        ? { label: "CPU Temp (°C)", color: "#22d3ee", emoji: "❄️" }
+        : { label: "SSD Temp (°C)", color: "#22d3ee", emoji: "💾" };
+
+      const liveGpu = Math.round(hwSensors?.gpu?.tempC ?? 0);
+      const liveRight = Math.round(
+        (hasCpuSamples ? hwSensors?.cpu.packageTempC : hwSensors?.storage?.[0]?.tempC) ?? 0,
+      );
+
+      let points: HubTimeSeriesLinePoint[];
+      if (granularity === "hour" && hwHistory.length >= 2) {
+        points = hwHistory.slice(-60).map((h, idx) => {
+          const d = new Date(h.ts);
+          const label = Number.isFinite(d.getTime())
+            ? `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+            : `#${idx + 1}`;
+          const rightVal = hasCpuSamples
+            ? Math.round(h.cpuTempC ?? liveRight)
+            : Math.round(h.ssdTempC ?? liveRight);
+          return {
+            key: `${h.ts}-${idx}`,
+            label,
+            left: Math.round(h.gpuTempC ?? liveGpu),
+            right: rightVal,
+          };
+        });
+      } else {
+        const buckets = buildTimeBuckets(rangeKey, granularity);
+        let lastGpu = liveGpu;
+        let lastRight = liveRight;
+        const firstKnownGpu = hwHistory.find((h) => h.gpuTempC != null)?.gpuTempC ?? liveGpu;
+        const firstKnownRight =
+          hwHistory.find((h) => (hasCpuSamples ? h.cpuTempC : h.ssdTempC) != null)?.[
+            hasCpuSamples ? "cpuTempC" : "ssdTempC"
+          ] ?? liveRight;
+        lastGpu = Math.round(firstKnownGpu);
+        lastRight = Math.round(firstKnownRight);
+
+        points = buckets.map((b, idx) => {
+          const inBucket = hwHistory.filter((h) => {
+            const ms = Date.parse(h.ts);
+            return Number.isFinite(ms) && ms >= b.startMs && ms <= b.endMs;
+          });
+          if (inBucket.length > 0) {
+            const gMax = Math.max(...inBucket.map((h) => h.gpuTempC ?? lastGpu));
+            const rMax = Math.max(
+              ...inBucket.map((h) => (hasCpuSamples ? h.cpuTempC : h.ssdTempC) ?? lastRight),
+            );
+            lastGpu = Math.round(gMax);
+            lastRight = Math.round(rMax);
+          } else if (idx === buckets.length - 1) {
+            if (liveGpu > 0) lastGpu = liveGpu;
+            if (liveRight > 0) lastRight = liveRight;
+          }
+          return { key: b.key, label: b.label, left: lastGpu, right: lastRight };
+        });
+      }
+
+      return {
+        points,
+        leftMeta,
+        rightMeta,
+        caption: `Hardware Telemetry — ${leftMeta.label} & ${rightMeta.label} (${granularity === "hour" ? "LIVE" : rangeUpper})`,
+        captionEmoji: leftMeta.emoji,
+        isHardwareTemps: true,
+        isPowerRail: false,
+      };
+    }
+
+    if (metricMode === "power-rail") {
+      const leftMeta = { label: "+3.3V Rail (V)", color: "#34d399", emoji: "⚡" };
+      const rightMeta = { label: "GPU Power (W)", color: "#f59e0b", emoji: "🔌" };
+      const liveV33Mv = Math.round(
+        ((hwSensors?.sensorLogger?.v33 ?? hwSensors?.motherboard?.voltage33V ?? 3.3) * 1000),
+      );
+      const livePwr = Math.round(hwSensors?.gpu?.powerDrawW ?? 0);
+
+      let points: HubTimeSeriesLinePoint[];
+      const v33Rows = hwHistory.filter((h) => h.v33 != null && h.v33 > 0);
+      if (granularity === "hour" && (v33Rows.length >= 2 || hwHistory.length >= 2)) {
+        let lastMv = liveV33Mv;
+        let lastPwr = livePwr;
+        points = hwHistory.slice(-60).map((h, idx) => {
+          const d = new Date(h.ts);
+          const label = Number.isFinite(d.getTime())
+            ? `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+            : `#${idx + 1}`;
+          if (h.v33 != null && h.v33 > 0) lastMv = Math.round(h.v33 * 1000);
+          if (h.gpuPowerW != null) lastPwr = Math.round(h.gpuPowerW);
+          return { key: `${h.ts}-${idx}`, label, left: lastMv, right: lastPwr };
+        });
+      } else {
+        const buckets = buildTimeBuckets(rangeKey, granularity);
+        const firstKnownV33 = v33Rows[0]?.v33;
+        let lastMv = firstKnownV33 != null ? Math.round(firstKnownV33 * 1000) : liveV33Mv;
+        let lastPwr = Math.round(hwHistory.find((h) => h.gpuPowerW != null)?.gpuPowerW ?? livePwr);
+        points = buckets.map((b, idx) => {
+          const inBucket = hwHistory.filter((h) => {
+            const ms = Date.parse(h.ts);
+            return Number.isFinite(ms) && ms >= b.startMs && ms <= b.endMs;
+          });
+          if (inBucket.length > 0) {
+            const bucketV33 = inBucket.map((h) => h.v33).filter((v): v is number => v != null && v > 0);
+            if (bucketV33.length > 0) lastMv = Math.round(Math.min(...bucketV33) * 1000);
+            const bucketPwr = inBucket.map((h) => h.gpuPowerW).filter((p): p is number => p != null);
+            if (bucketPwr.length > 0) lastPwr = Math.round(Math.max(...bucketPwr));
+          } else if (idx === buckets.length - 1) {
+            lastMv = liveV33Mv;
+            if (livePwr > 0) lastPwr = livePwr;
+          }
+          return { key: b.key, label: b.label, left: lastMv, right: lastPwr };
+        });
+      }
+
+      return {
+        points,
+        leftMeta,
+        rightMeta,
+        caption: `ATX Power Telemetry — +3.3V Rail & GPU Draw (${granularity === "hour" ? "LIVE" : rangeUpper})`,
+        captionEmoji: leftMeta.emoji,
+        isHardwareTemps: false,
+        isPowerRail: true,
+      };
+    }
+
     const buckets = buildTimeBuckets(rangeKey, granularity);
     let leftMeta = DATASET_META.jobs;
     let rightMeta = DATASET_META.clips;
@@ -628,12 +909,15 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
       rightMeta,
       caption: `${prefix} — ${leftMeta.label} & ${rightMeta.label} (${rangeUpper})`,
       captionEmoji: leftMeta.emoji,
+      isHardwareTemps: false,
     };
   }, [
     clips,
     daemonTasksCount,
     driveD?.freeBytes,
     granularity,
+    hwHistory,
+    hwSensors,
     jobs,
     metricMode,
     ramFreeBytes,
@@ -782,11 +1066,61 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
               rightName={chartSpec.rightMeta.label}
               leftColor={chartSpec.leftMeta.color}
               rightColor={chartSpec.rightMeta.color}
-              leftFloor={4}
-              rightFloor={4}
-              sharedScale={false}
+              leftFloor={chartSpec.isHardwareTemps ? 90 : chartSpec.isPowerRail ? 3350 : 4}
+              rightFloor={chartSpec.isHardwareTemps ? 90 : chartSpec.isPowerRail ? 150 : 4}
+              sharedScale={chartSpec.isHardwareTemps}
+              formatLeftTick={
+                chartSpec.isHardwareTemps
+                  ? (v) => `${Math.round(v)}°`
+                  : chartSpec.isPowerRail
+                    ? (v) => `${(v / 1000).toFixed(2)}V`
+                    : undefined
+              }
+              formatRightTick={
+                chartSpec.isHardwareTemps
+                  ? (v) => `${Math.round(v)}°`
+                  : chartSpec.isPowerRail
+                    ? (v) => `${Math.round(v)}W`
+                    : undefined
+              }
+              formatLeftValue={
+                chartSpec.isHardwareTemps
+                  ? (v) => `${Math.round(v)} °C`
+                  : chartSpec.isPowerRail
+                    ? (v) => `${(v / 1000).toFixed(3)} V`
+                    : undefined
+              }
+              formatRightValue={
+                chartSpec.isHardwareTemps
+                  ? (v) => `${Math.round(v)} °C`
+                  : chartSpec.isPowerRail
+                    ? (v) => `${Math.round(v)} W`
+                    : undefined
+              }
             />
           </HubPanel>
+
+          <PcBackupStatusPanel
+            status={pcBackup}
+            triggeringMode={triggeringBackup}
+            verifyingDrill={verifyingDrill}
+            onRunBackup={(mode) => void handleRunPcBackup(mode)}
+            onRunDrill={() => void handleRunPcBackupDrill()}
+            onOpenRestore={() => setRestoreOpen(true)}
+            onRunSystemImage={() => void handleRunSystemImage()}
+            onRefresh={() => void refreshPcBackup()}
+            onOpenCron={() => jumpTo("cron")}
+          />
+
+          <HardwareHealthPanel
+            sensors={hwSensors}
+            history={hwHistory}
+            cpuPercent={hostMetrics?.cpuReady ? hostMetrics.cpuPercent : null}
+            logicalCpus={logicalCpus}
+            refreshing={refreshingSensors}
+            onRefresh={() => void handleRefreshHwSensors()}
+            onLaunchTool={(tool) => void handleLaunchHwTool(tool)}
+          />
 
           <div className="grid grid-cols-1 gap-[var(--hub-kpi-gap)] md:grid-cols-2 xl:grid-cols-4">
             {breakdownCharts.map((chart) => (
@@ -1071,6 +1405,33 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
                         </button>
                       </div>
                     </div>
+                    {(() => {
+                      const latestSweep = pcOptHistory.find(
+                        (e) => typeof e.reclaimedBytes === "number" && e.reclaimedBytes > 0,
+                      ) || pcOptHistory[0];
+                      if (!latestSweep) return null;
+                      const totalReclaimed = pcOptHistory.reduce(
+                        (acc, e) => acc + (Number(e.reclaimedBytes || 0) > 0 ? Number(e.reclaimedBytes || 0) : 0),
+                        0,
+                      );
+                      const lastLabel = formatDiskBytesLabel(latestSweep.reclaimedBytes) || "0 KB";
+                      const totalLabel =
+                        pcOptHistory.length > 1 && totalReclaimed > Number(latestSweep.reclaimedBytes || 0)
+                          ? ` (∑ ${formatDiskBytesLabel(totalReclaimed)})`
+                          : "";
+                      return (
+                        <div
+                          className="flex flex-wrap items-center justify-between gap-1.5 border-t border-cyan-500/15 pt-1 text-[10px] text-emerald-300/90"
+                          data-testid="pc-opt-reclaimed-badge"
+                          title={latestSweep.message}
+                        >
+                          <span className="truncate font-medium">
+                            Last Sweep ({latestSweep.action}): {lastLabel} freed{totalLabel}
+                          </span>
+                          <HubChromeActivityAge at={latestSweep.at} className="shrink-0 text-[var(--muted)]" />
+                        </div>
+                      );
+                    })()}
                     {pcDiag.summary.antigravityBrain?.openBloatedTabs &&
                     pcDiag.summary.antigravityBrain.openBloatedTabs.length > 0 ? (
                       <div
@@ -1160,6 +1521,7 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
           </div>
         </div>
       </HubDirectoryScreen>
+      <RestoreSnapshotsModal open={restoreOpen} onClose={() => setRestoreOpen(false)} />
     </HubInactiveTabContent>
   );
 }

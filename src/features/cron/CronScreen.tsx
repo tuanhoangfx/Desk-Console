@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Play, PowerOff } from "lucide-react";
 import {
   emitHubAppLog,
   useHubToast,
@@ -94,8 +93,7 @@ function taskToDeskRow(
     log: row.lastSummary || (telemetryPrefix ? `${telemetryPrefix} · ${detailText}` : detailText),
     activityLog: row.activityLog,
     updated: iso || "",
-    updatedKind: iso ? "activity" : "text",
-    createdAt: row.createdAt || "2026-10-15T00:00:00.000Z",
+    createdAt: row.createdAt || "",
     opsKind: "task",
     opsUp: /running/i.test(normalizedStatus),
     opsLastResult: row.lastResult || "0",
@@ -328,21 +326,21 @@ export function CronScreen({ tabActive = true }: { tabActive?: boolean }) {
       {
         key: "run-now",
         label: "Start / Run Now",
-        icon: Play,
+        emoji: "▶️",
         disabled: !hasSelection,
         onClick: () => void runBatch(ids, "run"),
       },
       {
         key: "enable",
         label: "Enable Selected",
-        icon: CheckCircle2,
+        emoji: "✅",
         disabled: !hasSelection,
         onClick: () => void runBatch(ids, "enable"),
       },
       {
         key: "disable",
         label: "Disable Selected",
-        icon: PowerOff,
+        emoji: "⏻",
         disabled: !hasSelection,
         onClick: () => void runBatch(ids, "disable"),
       },

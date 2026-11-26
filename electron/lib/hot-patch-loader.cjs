@@ -27,20 +27,60 @@ const STATEFUL_SINGLETON_BASENAMES = new Set([
   "powershell-exec.cjs",
 ]);
 
-function installEpipeProcessGuard() {
-  if (globalThis.__STEALTH_EPIPE_GUARD_INSTALLED__) return;
+function isEpipeLikeError(err) {
+  if (!err) return false;
+  const code = String(err.code || "");
+  const msg = String(err.message || err || "");
+  return code === "EPIPE" || code === "ERR_STREAM_DESTROYED" || msg.includes("write EPIPE");
+}
+
+function appendGuardBootLog(tag, err, opts = {}) {
+  try {
+    const detail = err && err.stack ? String(err.stack) : String(err || "unknown");
+    try {
+      process.stderr?.write?.(`[hot-patch-loader:${tag}] ${detail}\n`);
+    } catch {
+      /* ignore broken stderr pipe */
+    }
+    let logFile = typeof opts.logFile === "string" ? opts.logFile.trim() : "";
+    if (!logFile) {
+      let userDataDir = "";
+      try {
+        const electron = require("electron");
+        userDataDir = electron?.app?.getPath?.("userData") || "";
+      } catch {
+        /* outside Electron main */
+      }
+      if (userDataDir) {
+        logFile = path.join(userDataDir, "runtime", "desktop-boot.log");
+      }
+    }
+    if (!logFile) return;
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    fs.appendFileSync(logFile, `${new Date().toISOString()} [${tag}] ${detail}\n`, "utf8");
+  } catch {
+    /* never throw from process error guard */
+  }
+}
+
+function installEpipeProcessGuard(opts = {}) {
+  if (globalThis.__STEALTH_EPIPE_GUARD_INSTALLED__ && !opts.logFile) return;
   globalThis.__STEALTH_EPIPE_GUARD_INSTALLED__ = true;
   try {
     process.stdout?.on?.("error", (err) => {
-      if (err && (err.code === "EPIPE" || err.code === "ERR_STREAM_DESTROYED")) return;
+      if (isEpipeLikeError(err)) return;
+      appendGuardBootLog("stdout:error", err, opts);
     });
     process.stderr?.on?.("error", (err) => {
-      if (err && (err.code === "EPIPE" || err.code === "ERR_STREAM_DESTROYED")) return;
+      if (isEpipeLikeError(err)) return;
     });
     process.on("uncaughtException", (err) => {
-      if (err && (err.code === "EPIPE" || String(err.message || "").includes("write EPIPE"))) {
-        return;
-      }
+      if (isEpipeLikeError(err)) return;
+      appendGuardBootLog("uncaughtException", err, opts);
+    });
+    process.on("unhandledRejection", (reason) => {
+      if (isEpipeLikeError(reason)) return;
+      appendGuardBootLog("unhandledRejection", reason, opts);
     });
   } catch {
     /* ignore */
@@ -209,9 +249,44 @@ function reloadHotPatchedModules({ force = false } = {}) {
   };
 }
 
+function promoteStagedHotPatchDist(hotRoot) {
+  if (!hotRoot) return false;
+  const nextDist = path.join(hotRoot, "dist.next");
+  const curDist = path.join(hotRoot, "dist");
+  const prevDist = path.join(hotRoot, "dist.prev");
+  try {
+    if (!fs.existsSync(path.join(nextDist, "index.html"))) return false;
+    if (fs.existsSync(prevDist)) {
+      fs.rmSync(prevDist, { recursive: true, force: true });
+    }
+    if (fs.existsSync(curDist)) {
+      fs.renameSync(curDist, prevDist);
+    }
+    fs.renameSync(nextDist, curDist);
+    if (fs.existsSync(prevDist)) {
+      try {
+        fs.rmSync(prevDist, { recursive: true, force: true });
+      } catch {
+        /* ignore cleanup race */
+      }
+    }
+    return true;
+  } catch {
+    try {
+      if (!fs.existsSync(path.join(curDist, "index.html")) && fs.existsSync(path.join(prevDist, "index.html"))) {
+        fs.renameSync(prevDist, curDist);
+      }
+    } catch {
+      /* ignore rollback error */
+    }
+    return false;
+  }
+}
+
 function resolveHotPatchedDistIndexHtml(defaultDistIndexPath) {
   const hotRoot = resolveHotPatchRoot();
   if (hotRoot) {
+    promoteStagedHotPatchDist(hotRoot);
     const hotIndex = path.join(hotRoot, "dist", "index.html");
     if (fs.existsSync(hotIndex)) return hotIndex;
   }
@@ -221,6 +296,7 @@ function resolveHotPatchedDistIndexHtml(defaultDistIndexPath) {
 function resolveHotPatchedDistDir(defaultDistDir) {
   const hotRoot = resolveHotPatchRoot();
   if (hotRoot) {
+    promoteStagedHotPatchDist(hotRoot);
     const hotDist = path.join(hotRoot, "dist");
     if (fs.existsSync(path.join(hotDist, "index.html"))) return hotDist;
   }
@@ -262,6 +338,7 @@ function resolveHotPatchedPackageVersion(defaultVersion = "") {
 module.exports = {
   installEpipeProcessGuard,
   resolveHotPatchRoot,
+  promoteStagedHotPatchDist,
   installHotPatchResolveHook,
   reloadHotPatchedModules,
   resolveHotPatchedDistIndexHtml,

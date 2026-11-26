@@ -42,6 +42,8 @@ export function RunnerDetailModal({ row, onClose }: Props) {
   const sectionIds = useMemo(() => RUNNER_DETAIL_TOC.map((item) => item.id), []);
   const title = row.kind === "worker" ? `${row.code} · host API` : `${row.code} · UI`;
   const probedAt = row.probedAt ?? new Date().toISOString();
+  const updatedAt = row.updatedAt || probedAt;
+  const createdAt = row.createdAt || updatedAt;
 
   return (
     <HubAccountDetailSearchProvider>
@@ -70,8 +72,8 @@ export function RunnerDetailModal({ row, onClose }: Props) {
             <>
               <HubAdmRecordMetaRow
                 vaultId={<HubCrmDetailVaultIdBadge id={row.id} title="Copy runner ID" />}
-                created={<HubAdmPlainRelativeTime at={probedAt} />}
-                updated={<HubAdmPlainRelativeTime at={probedAt} />}
+                created={<HubAdmPlainRelativeTime at={createdAt} />}
+                updated={<HubAdmPlainRelativeTime at={updatedAt} />}
                 createdLabel="Created"
                 updatedLabel="Update"
               />

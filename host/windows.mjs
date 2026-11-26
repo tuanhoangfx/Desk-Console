@@ -984,6 +984,8 @@ const KNOWN_SCHTASK_DESCRIPTIONS = {
   "Dev-Home-Server-External-Probe": "Home Server External Reachability & Alert Probe",
   "Dev-Lenovo-Disk-Health": "Monthly Lenovo Host Disk & SMART Health Audit",
   "Dev-P0020-Recheck-Appealed-AI": "Hourly P0020 Recheck Appealed AI Accounts & Restore Active",
+  "Dev-PC-Data-Backup": "Daily PC Workstation Backup (Critical Vault + Local Mirror + Google Drive + Home Server)",
+  "Dev-PC-Backup-Health": "Daily Cloud Backup Health & Archive Restore Drill (PC + Home Server)",
   "Dev-Stealth-Disk-Daily-Prune": "Stealth Browser Closed Profile Cache & Orphan Prune",
   "Dev-Supabase-Lenovo-Restore-Drill": "Weekly Supabase Origin Backup & Restore Drill",
   "Dev-Supabase-PhaseD-Reminder": "Supabase Phase-D Cutover Verification Reminder",
@@ -1198,10 +1200,17 @@ export function parseTaskSchedulerComTsv(stdout) {
     const normalizedResult =
       hexResult === "267011" || hexResult === "0x41303" ? "0" : hexResult;
     const taskToRun = extractCommandFromTaskXml(xml);
+    const regDateRaw = (String(xml || "").match(/<RegistrationInfo>[\s\S]*?<Date>\s*([^<\s]+)\s*<\/Date>/i)?.[1] || "").trim();
+    const regDateParsed = regDateRaw ? new Date(regDateRaw) : null;
+    const createdAt =
+      regDateParsed && !Number.isNaN(regDateParsed.getTime()) && regDateParsed.getFullYear() >= 2005
+        ? regDateParsed.toISOString()
+        : undefined;
     const cleanIso = isoLastRun || null;
     rows.push({
       id: name,
       name,
+      createdAt,
       status: String(status || "Ready").trim(),
       lastRun: cleanIso || localLastRun || "N/A",
       lastRunIso: cleanIso,
@@ -1412,7 +1421,7 @@ export async function cursorCountAsync() {
   return Number(String(r.stdout || "0").trim()) || 0;
 }
 
-export function startDetached(nodeArgs) {
+function resolveDetachedNodeSpec() {
   let bin = process.execPath;
   if (process.platform === "win32") {
     const candidates = [
@@ -1428,15 +1437,70 @@ export function startDetached(nodeArgs) {
   }
   const isSelfElectron =
     bin === process.execPath && Boolean(process.versions?.electron || process.env.ELECTRON_RUN_AS_NODE);
+  return {
+    bin,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" },
+  };
+}
+
+function spawnDetachedChildFallback(bin, nodeArgs, env) {
   const child = spawn(bin, nodeArgs, {
     cwd: DEV_ROOT,
-    detached: true,
+    detached: process.platform !== "win32",
     stdio: "ignore",
     windowsHide: true,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" },
+    env,
   });
   child.unref();
   return child.pid;
+}
+
+export async function startDetachedAsync(nodeArgs) {
+  const { bin, env } = resolveDetachedNodeSpec();
+  if (process.platform === "win32") {
+    try {
+      const winShellPath = path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs");
+      if (fs.existsSync(winShellPath)) {
+        const { startHiddenDetachedProcessAsync } = createRequire(import.meta.url)(winShellPath);
+        if (typeof startHiddenDetachedProcessAsync === "function") {
+          const pid = await startHiddenDetachedProcessAsync({
+            command: bin,
+            args: nodeArgs,
+            cwd: DEV_ROOT,
+            env,
+          });
+          if (pid) return pid;
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return spawnDetachedChildFallback(bin, nodeArgs, env);
+}
+
+export function startDetached(nodeArgs) {
+  const { bin, env } = resolveDetachedNodeSpec();
+  if (process.platform === "win32") {
+    try {
+      const winShellPath = path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs");
+      if (fs.existsSync(winShellPath)) {
+        const { startHiddenDetachedProcess } = createRequire(import.meta.url)(winShellPath);
+        if (typeof startHiddenDetachedProcess === "function") {
+          const pid = startHiddenDetachedProcess({
+            command: bin,
+            args: nodeArgs,
+            cwd: DEV_ROOT,
+            env,
+          });
+          if (pid) return pid;
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return spawnDetachedChildFallback(bin, nodeArgs, env);
 }
 
 export { DEV_ROOT, TOOL_ROOT };

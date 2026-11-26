@@ -20,9 +20,16 @@ const { spawnInteractiveDesktopProcess } = require(path.join(root, "..", "script
 const spec = DESKTOP_EXE_PRODUCTS.P0001;
 const flags = parseDesktopOpenFlags(process.argv, process.env);
 
-const exePath = resolveDesktopProductExe(devRoot, "P0001", { syncUnpacked: !flags.noHotPatch });
+const exePath = resolveDesktopProductExe(devRoot, "P0001", {
+  syncUnpacked: !flags.noHotPatch && flags.target !== "installed",
+  target: flags.target,
+});
 if (!exePath) {
-  console.error(`desktop-open: missing packaged exe for P0001 (${spec.exeName}) — run: pnpm desktop:dist`);
+  console.error(
+    flags.target === "installed"
+      ? `desktop-open: missing installed exe (${spec.installedSubdir}/${spec.exeName}) — install or run release-desktop.ps1 first`
+      : `desktop-open: missing packaged exe for P0001 (${spec.exeName}) — run: pnpm desktop:dist`,
+  );
   process.exit(1);
 }
 
@@ -35,6 +42,7 @@ const res = await openDesktopExeWithPolicy({
   replaceRunning: flags.replace,
   noHotPatch: flags.noHotPatch,
   skipBuild: flags.skipBuild,
+  target: flags.target,
   spawnInteractiveDesktopProcess,
 });
 

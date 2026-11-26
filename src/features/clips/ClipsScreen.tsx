@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ClipboardList, Copy, Pin, RotateCcw } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import {
   HubPromptDialog,
   emitHubAppLog,
@@ -87,37 +87,28 @@ export function ClipsScreen() {
       const trash = lifecycleMode === "trash";
       const actions: HubDirectoryBulkMoreAction[] = [];
       if (!trash) {
-        actions.push(
-          {
-            key: "save-clipboard",
-            label: "Save clipboard",
-            icon: ClipboardList,
-            tone: "indigo",
-            onClick: () => {
-              void deskApi
-                .saveClip()
-                .then(() => {
-                  emitHubAppLog({ scope: "P0001", screen: "clips", kind: "create", message: "Saved clipboard clip" });
-                  return refresh();
-                })
-                .catch((error) => notifyError("save-clip", "Save clipboard failed", error));
-            },
+        actions.push({
+          key: "save-clipboard",
+          label: "Save clipboard",
+          emoji: "📋",
+          tone: "indigo",
+          onClick: () => {
+            void deskApi
+              .saveClip()
+              .then(() => {
+                emitHubAppLog({ scope: "P0001", screen: "clips", kind: "create", message: "Saved clipboard clip" });
+                return refresh();
+              })
+              .catch((error) => notifyError("save-clip", "Save clipboard failed", error));
           },
-          {
-            key: "new-sample",
-            label: "New sample",
-            icon: Pin,
-            tone: "amber",
-            onClick: () => setSampleOpen(true),
-          },
-        );
+        });
       }
       if (hasSelection && !trash) {
         actions.push(
           {
             key: "save-as-sample",
             label: "Save as sample",
-            icon: Pin,
+            emoji: "📌",
             tone: "amber",
             selectedCount: ids.length,
             onClick: () => {
@@ -130,7 +121,7 @@ export function ClipsScreen() {
           {
             key: "copy",
             label: "Copy",
-            icon: Copy,
+            emoji: "📋",
             disabled: ids.length !== 1,
             title: ids.length === 1 ? "Copy to clipboard" : "Select one clip to copy",
             onClick: () => {
@@ -144,7 +135,7 @@ export function ClipsScreen() {
         actions.push({
           key: "restore",
           label: "Restore",
-          icon: RotateCcw,
+          emoji: "♻️",
           tone: "emerald",
           selectedCount: ids.length,
           onClick: () => {

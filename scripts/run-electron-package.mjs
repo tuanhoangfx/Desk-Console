@@ -178,7 +178,7 @@ const ebArgs = ["--win", "--x64", "--publish", publish];
   }
 }
 if (dir) ebArgs.push("--dir");
-if (fast) {
+if (fast && publish !== "always") {
   ebArgs.push("-c.compression=store");
 }
 if (skipSign) {

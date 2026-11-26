@@ -21,6 +21,22 @@ import {
   softDeleteClip,
 } from "./store.mjs";
 import { readHotkeys, resetHotkeys, validateAccelerator, writeHotkeys } from "./hotkeys.mjs";
+import {
+  NVDRS_POWER_MODE_NORMAL,
+  NVDRS_PREFERRED_PSTATE_SETTING_ID,
+  NVDRS_SETTING_SIZE,
+  NVDRS_SETTING_VER1,
+  buildNvdrsDwordSettingBuffer,
+  ensureNvidiaDrsNormalPowerMode,
+  evaluateHardwareAlerts,
+  parseNvdrsSettingBuffer,
+  readNvidiaDrsPowerModeInProcess,
+  readPcSensorCsvHistory,
+  readPcSensorLoggerStatus,
+  readSystemTuningStateInProcess,
+  sampleHardwareSensors,
+  toNum,
+} from "./hardware-sensors.mjs";
 import { getManagedAppsSnapshot, runManagedAppAction } from "./apps-versions.mjs";
 import {
   dibBufferToClipboardImage,
@@ -33,7 +49,7 @@ import {
   readTaskNames,
   writeTaskNames,
 } from "./windows.mjs";
-import { findListeningPidsByPortNative, runnerTargets, stopRunner } from "./runners.mjs";
+import { findListeningPidsByPortNative, listRunners, resolveRunnerTarget, runnerTargets, stopRunner } from "./runners.mjs";
 import {
   cleanAntigravityAppStorage,
   formatPcOptimizeOpsHistoryEntry,
@@ -354,13 +370,32 @@ test("isolated deskElectronEnv always sets VITE_DEV_SERVER_URL", async () => {
   assert.equal(env.DESK_API_PORT, "6011");
 });
 
-test("startRunner uses ensure-dev-lean --vite-only (no dependsOn cascade)", () => {
-  const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "runners.mjs"), "utf8");
-  assert.match(src, /ensure-dev-lean\.cjs/);
-  assert.match(src, /--vite-only/);
-  assert.doesNotMatch(src, /ensure-dev-product\.cjs/);
-  assert.match(src, /start error/);
-  assert.match(src, /startOutcome/);
+test("startRunner uses ensure-dev-lean --vite-only (no dependsOn cascade) and non-blocking async spawn", () => {
+  const srcRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src");
+  const runnersSrc = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "runners.mjs"), "utf8");
+  const serverSrc = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "server.mjs"), "utf8");
+  const apiSrc = fs.readFileSync(path.join(srcRoot, "lib", "api.ts"), "utf8");
+  const screenSrc = fs.readFileSync(path.join(srcRoot, "features", "runners", "RunnersScreen.tsx"), "utf8");
+
+  assert.match(runnersSrc, /ensure-dev-lean\.cjs/);
+  assert.match(runnersSrc, /--vite-only/);
+  assert.doesNotMatch(runnersSrc, /ensure-dev-product\.cjs/);
+  assert.match(runnersSrc, /startHiddenDetachedProcessAsync/);
+  assert.doesNotMatch(runnersSrc, /\bstartHiddenDetachedProcess\(/);
+  assert.doesNotMatch(runnersSrc, /return\s+\{\s*ok:\s*true,\s*code:/);
+  assert.match(runnersSrc, /p0020-quota-probe-api\.mjs/);
+  assert.match(runnersSrc, /start error/);
+  assert.match(runnersSrc, /startOutcome/);
+  assert.match(serverSrc, /await startRunner\(/);
+  assert.match(apiSrc, /runnerAction[\s\S]*AbortSignal\.timeout\(25_000\)/);
+  assert.match(screenSrc, /runnerAction\(raw\.id/);
+
+  const uiTarget = resolveRunnerTarget("P0020");
+  assert.equal(uiTarget?.kind, "ui");
+  assert.equal(uiTarget?.port, 5177);
+  const workerTarget = resolveRunnerTarget("worker:P0020_QUOTA");
+  assert.equal(workerTarget?.kind, "worker");
+  assert.equal(workerTarget?.port, 5198);
 });
 
 test("RunnersScreen clears Starting on host exit and KPI running is wired", () => {
@@ -552,6 +587,35 @@ test("host-metrics endpoint (P0003 header parity)", { timeout: 10_000 }, async (
   }
 });
 
+test("hardware sensors & history endpoints", { timeout: 15_000 }, async () => {
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = server.address();
+    const res = await fetch(`http://127.0.0.1:${port}/api/hardware/sensors`, { signal: AbortSignal.timeout(10_000) });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.ok(Array.isArray(body.storage));
+    assert.ok(Array.isArray(body.alerts));
+    assert.equal(typeof body.stability?.wheaErrors7d, "number");
+
+    const histRes = await fetch(`http://127.0.0.1:${port}/api/hardware/history`, { signal: AbortSignal.timeout(5_000) });
+    assert.equal(histRes.status, 200);
+    const histBody = await histRes.json();
+    assert.equal(histBody.ok, true);
+    assert.ok(Array.isArray(histBody.rows));
+
+    const dashPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "features", "dashboard", "DashboardScreen.tsx");
+    const dashSrc = fs.readFileSync(dashPath, "utf8");
+    assert.match(dashSrc, /"hardware-temps"/);
+    assert.match(dashSrc, /deskApi\.hardwareHistory\(\)/);
+  } finally {
+    server.closeAllConnections?.();
+    server.close();
+  }
+});
+
 test("Desk status cells use HubUsersStatusLabel Dot Color with live pulse (Campaign P0002 parity) and include Created + Log columns", () => {
   const srcRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src");
   const stickers = fs.readFileSync(path.join(srcRoot, "features", "desk", "desk-directory-stickers.ts"), "utf8");
@@ -718,6 +782,35 @@ test("GET /api/clips?summary=1 strips base64 imageDataUrl while GET /api/clips/:
     assert.equal(imgRes.headers.get("content-type"), "image/png");
     const imgBuf = Buffer.from(await imgRes.arrayBuffer());
     assert.equal(`data:image/png;base64,${imgBuf.toString("base64")}`, fakePng);
+  } finally {
+    server.closeAllConnections?.();
+    server.close();
+  }
+});
+
+test("hardware sensors & history endpoints", { timeout: 15_000 }, async () => {
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = server.address();
+    const res = await fetch(`http://127.0.0.1:${port}/api/hardware/sensors`, { signal: AbortSignal.timeout(10_000) });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.ok(Array.isArray(body.storage));
+    assert.ok(Array.isArray(body.alerts));
+    assert.equal(typeof body.stability?.wheaErrors7d, "number");
+
+    const histRes = await fetch(`http://127.0.0.1:${port}/api/hardware/history`, { signal: AbortSignal.timeout(5_000) });
+    assert.equal(histRes.status, 200);
+    const histBody = await histRes.json();
+    assert.equal(histBody.ok, true);
+    assert.ok(Array.isArray(histBody.rows));
+
+    const dashPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "features", "dashboard", "DashboardScreen.tsx");
+    const dashSrc = fs.readFileSync(dashPath, "utf8");
+    assert.match(dashSrc, /"hardware-temps"/);
+    assert.match(dashSrc, /deskApi\.hardwareHistory\(\)/);
   } finally {
     server.closeAllConnections?.();
     server.close();
@@ -1594,8 +1687,19 @@ test("isAntigravityDbOpenInIde ignores stale 0-byte WAL/SHM and sweepAntigravity
 
     mkSession("stale-session", 60); // >48h + stale 0-byte WAL -> must delete
     mkSession("stale-subagent", 8); // >6h subagent with transcript -> must delete
-    mkSession("active-session", 2); // <48h -> must keep
+    const activeSessionDir = mkSession("active-session", 2); // <48h -> must keep
     mkSession("active-old-wal", 60); // >48h but active non-empty WAL -> must keep
+
+    const activeScratch = path.join(activeSessionDir, "scratch");
+    fs.mkdirSync(path.join(activeScratch, "sxs-224-smoke"), { recursive: true });
+    fs.writeFileSync(path.join(activeScratch, "sxs-224-smoke", "Antigravity.exe"), "bin");
+    touch(path.join(activeScratch, "sxs-224-smoke"), 30);
+    const oldBigExe = path.join(activeScratch, "iTunes64Setup.exe");
+    fs.writeFileSync(oldBigExe, "x".repeat(2048));
+    touch(oldBigExe, 30);
+    const keepScript = path.join(activeScratch, "helper.mjs");
+    fs.writeFileSync(keepScript, "console.log(1);");
+    touch(keepScript, 30);
 
     const sumDbPath = path.join(agyRoot, "conversation_summaries.db");
     const db = new DatabaseSync(sumDbPath);
@@ -1640,12 +1744,16 @@ test("isAntigravityDbOpenInIde ignores stale 0-byte WAL/SHM and sweepAntigravity
       agyRoot,
       claudeProjectsDir: claudeDir,
       skipGlobalCaches: true,
+      scratchBinaryMinBytes: 1024,
       nowMs: now,
     });
     assert.equal(res.ok, true);
     assert.equal(fs.existsSync(path.join(brainDir, "stale-session")), false);
     assert.equal(fs.existsSync(path.join(brainDir, "stale-subagent")), false);
     assert.equal(fs.existsSync(path.join(brainDir, "active-session")), true);
+    assert.equal(fs.existsSync(path.join(activeScratch, "sxs-224-smoke")), false);
+    assert.equal(fs.existsSync(oldBigExe), false);
+    assert.equal(fs.existsSync(keepScript), true);
     assert.equal(fs.existsSync(path.join(brainDir, "active-old-wal")), true);
     assert.equal(fs.existsSync(oldJsonl), false);
     assert.equal(fs.existsSync(path.join(claudeDir, "E--", "sess-old")), false);
@@ -1843,7 +1951,10 @@ test("getManagedAppsSnapshot & runManagedAppAction inspect monorepo IDEs and rej
   assert.equal(snap.ok, true);
   assert.equal(snap.available, true);
   assert.ok(Array.isArray(snap.rows));
-  assert.ok(snap.rows.some((r) => r.id === "app:antigravity"));
+  const primaryAg = snap.rows.find((r) => r.id === "app:antigravity");
+  assert.ok(primaryAg);
+  assert.ok("primaryLockConflict" in primaryAg);
+  assert.ok(Array.isArray(primaryAg.brokenTaskbarPins));
   assert.ok(snap.rows.some((r) => r.id === "app:cursor"));
   assert.ok(snap.rows.some((r) => r.id === "app:claude-code"));
 
@@ -1935,6 +2046,8 @@ test("sweepAntigravityStaleTranscripts prunes dead daemon/hub_*.json, old ls_*.l
     assert.match(dashSrc, /antigravityRpcSync/);
     assert.match(dashSrc, /reclaimedBytes/);
     assert.match(dashSrc, /lastPassFreedMB/);
+    assert.match(dashSrc, /opsHistory\("task:PC-Optimizer"\)/);
+    assert.match(dashSrc, /pc-opt-reclaimed-badge/);
     assert.match(dashSrc, /LS ghosts/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -1963,4 +2076,350 @@ test("formatPcOptimizeOpsHistoryEntry records reclaimedBytes, disk MB/KB, and LS
   });
   assert.equal(mbEntry.reclaimedBytes, 45 * 1048576);
   assert.match(mbEntry.message, /freed 120 MB RAM, 45\.0 MB disk/);
+});
+
+function makeTestJwt(claims) {
+  const h = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const p = Buffer.from(JSON.stringify(claims)).toString("base64url");
+  return `${h}.${p}.sig`;
+}
+
+test("verifyHubRequestAuth validates Bearer JWTs, persisted sessions, and enforces auth strictly", async () => {
+  const { createSovereignRuntimeBridge } = await import("../electron/lib/desktop-runtime-bridge.mjs");
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "desk-hub-auth-"));
+  try {
+    const prevHome = process.env.DESK_CONSOLE_HOME;
+    const bridge = createSovereignRuntimeBridge({
+      productRoot: path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), ".."),
+      homeDirName: `.test-hub-auth-${Date.now()}`,
+      stateFileName: "test-state.json",
+    });
+    if (prevHome !== undefined) process.env.DESK_CONSOLE_HOME = prevHome;
+
+    // 1. No auth + requireAuth: true -> 401
+    const unauth = bridge.verifyHubRequestAuth({ headers: {} }, { requireAuth: true });
+    assert.equal(unauth.ok, false);
+    assert.equal(unauth.status, 401);
+    assert.equal(unauth.code, "hub_auth_required");
+
+    // 2. Malformed Bearer -> always 401 even when requireAuth: false
+    const badBearer = bridge.verifyHubRequestAuth(
+      { headers: { authorization: "Bearer not-a-jwt" } },
+      { requireAuth: false },
+    );
+    assert.equal(badBearer.ok, false);
+    assert.equal(badBearer.status, 401);
+    assert.equal(badBearer.code, "malformed_jwt");
+
+    // 3. Expired Bearer -> 401
+    const expiredJwt = makeTestJwt({
+      sub: "user-123",
+      email: "expired@infi28.com",
+      exp: Math.floor(Date.now() / 1000) - 300,
+    });
+    const expRes = bridge.verifyHubRequestAuth(
+      { headers: { authorization: `Bearer ${expiredJwt}` } },
+      { requireAuth: false },
+    );
+    assert.equal(expRes.ok, false);
+    assert.equal(expRes.status, 401);
+    assert.equal(expRes.code, "token_expired");
+
+    // 4. Valid non-expired Bearer -> 200 + extracted user
+    const validJwt = makeTestJwt({
+      sub: "user-123",
+      email: "czpgo@outlook.com",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const okBearer = bridge.verifyHubRequestAuth(
+      { headers: { authorization: `Bearer ${validJwt}` } },
+      { requireAuth: true },
+    );
+    assert.equal(okBearer.ok, true);
+    assert.equal(okBearer.source, "bearer");
+    assert.equal(okBearer.hubUser?.id, "user-123");
+    assert.equal(okBearer.hubUser?.email, "czpgo@outlook.com");
+
+    // 5. Persisted hub-session.json -> valid & clear resets to unauthenticated
+    bridge.saveHubUserSession({
+      accessToken: validJwt,
+      userId: "user-123",
+      email: "czpgo@outlook.com",
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const okFile = bridge.verifyHubRequestAuth({ headers: {} }, { requireAuth: true });
+    assert.equal(okFile.ok, true);
+    assert.equal(okFile.source, "session-file");
+    assert.equal(okFile.hubUser?.email, "czpgo@outlook.com");
+
+    bridge.clearHubUserSession();
+    try {
+      fs.rmSync(bridge.appHomeDir, { recursive: true, force: true });
+    } catch {}
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  }
+});
+
+test("verifyHubRequestAuthAsync validates online /auth/v1/user response, caches hits, and falls back offline", async () => {
+  const { createSovereignRuntimeBridge } = await import("../electron/lib/desktop-runtime-bridge.mjs");
+  const prevUrl = process.env.HUB_SUPABASE_URL;
+  const prevKey = process.env.HUB_SUPABASE_ANON_KEY;
+  process.env.HUB_SUPABASE_URL = "https://hub-api.infi28.com";
+  process.env.HUB_SUPABASE_ANON_KEY = "anon-test-key";
+  const bridge = createSovereignRuntimeBridge({
+    productRoot: path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), ".."),
+    homeDirName: `.test-hub-online-${Date.now()}`,
+    stateFileName: "test-state.json",
+  });
+  try {
+    const validJwt = makeTestJwt({
+      sub: "user-123",
+      email: "czpgo@outlook.com",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const forgedJwt = makeTestJwt({
+      sub: "forged-999",
+      email: "forged@example.com",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    // 1. Online 401 -> token_rejected_by_hub
+    const rejected = await bridge.verifyHubRequestAuthAsync(
+      { headers: { authorization: `Bearer ${forgedJwt}` } },
+      {
+        requireAuth: true,
+        fetchFn: async () => new Response(JSON.stringify({ message: "invalid" }), { status: 401 }),
+      },
+    );
+    assert.equal(rejected.ok, false);
+    assert.equal(rejected.status, 401);
+    assert.equal(rejected.code, "token_rejected_by_hub");
+
+    // 2. Online 200 -> verified + cached on 2nd call (fetchFn only called once)
+    let onlineCalls = 0;
+    const okFetch = async () => {
+      onlineCalls += 1;
+      return new Response(JSON.stringify({ id: "user-123", email: "czpgo@outlook.com" }), { status: 200 });
+    };
+    const r1 = await bridge.verifyHubRequestAuthAsync(
+      { headers: { authorization: `Bearer ${validJwt}` } },
+      { requireAuth: true, fetchFn: okFetch },
+    );
+    const r2 = await bridge.verifyHubRequestAuthAsync(
+      { headers: { authorization: `Bearer ${validJwt}` } },
+      { requireAuth: true, fetchFn: okFetch },
+    );
+    assert.equal(r1.ok, true);
+    assert.equal(r1.verifiedOnline, true);
+    assert.equal(r2.ok, true);
+    assert.equal(onlineCalls, 1);
+
+    // 3. Offline network error -> falls back gracefully when HUB_JWT_STRICT_ONLINE != 1
+    const offlineJwt = makeTestJwt({
+      sub: "user-456",
+      email: "offline@infi28.com",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const rOff = await bridge.verifyHubRequestAuthAsync(
+      { headers: { authorization: `Bearer ${offlineJwt}` } },
+      {
+        requireAuth: true,
+        fetchFn: async () => {
+          throw new Error("network down");
+        },
+      },
+    );
+    assert.equal(rOff.ok, true);
+    assert.equal(rOff.verifiedOnline, false);
+    assert.equal(rOff.hubUser?.email, "offline@infi28.com");
+  } finally {
+    if (prevUrl === undefined) delete process.env.HUB_SUPABASE_URL;
+    else process.env.HUB_SUPABASE_URL = prevUrl;
+    if (prevKey === undefined) delete process.env.HUB_SUPABASE_ANON_KEY;
+    else process.env.HUB_SUPABASE_ANON_KEY = prevKey;
+    try {
+      fs.rmSync(bridge.appHomeDir, { recursive: true, force: true });
+    } catch {}
+  }
+});
+
+test("readSystemTuningStateInProcess & evaluateHardwareAlerts handle Power Plan and GPU_IDLE_P0 thresholds cleanly", async () => {
+  const tuning = readSystemTuningStateInProcess();
+  if (process.platform === "win32") {
+    assert.ok(tuning && typeof tuning === "object");
+    assert.ok(typeof tuning.powerPlanName === "string" || tuning.powerPlanName === null);
+    assert.ok(typeof tuning.cpuMinPct === "number" || tuning.cpuMinPct === null);
+    assert.ok(typeof tuning.nicEeeEnabled === "boolean" || tuning.nicEeeEnabled === null);
+  }
+
+  // 1. Pinned P0 idle with PowerMizerLevel=0 triggers GPU_IDLE_P0 warning
+  const warnAlerts = evaluateHardwareAlerts({
+    gpu: { pstate: "P0", utilPercent: 4, powerDrawW: 71, tempC: 62, pcieDowngraded: false },
+    stability: { wheaErrors7d: 0, unexpectedShutdowns7d: 0 },
+    tuning: { gpuPowerMizerLevel: 0 },
+  });
+  assert.ok(warnAlerts.some((a) => a.code === "GPU_IDLE_P0" && a.severity === "warn"));
+
+  // 2. Normal/Adaptive PowerMizer (level=2) or active load (util >= 50%) clears GPU_IDLE_P0
+  const normalAlerts = evaluateHardwareAlerts({
+    gpu: { pstate: "P0", utilPercent: 4, powerDrawW: 71, tempC: 62, pcieDowngraded: false },
+    stability: { wheaErrors7d: 0, unexpectedShutdowns7d: 0 },
+    tuning: { gpuPowerMizerLevel: 2 },
+  });
+  assert.equal(normalAlerts.some((a) => a.code === "GPU_IDLE_P0"), false);
+
+  const loadAlerts = evaluateHardwareAlerts({
+    gpu: { pstate: "P0", utilPercent: 85, powerDrawW: 210, tempC: 74, pcieDowngraded: true, pcieLinkWidth: 8, pcieLinkWidthMax: 16 },
+    stability: { wheaErrors7d: 2, unexpectedShutdowns7d: 1 },
+    tuning: { gpuPowerMizerLevel: 0 },
+  });
+  assert.equal(loadAlerts.some((a) => a.code === "GPU_IDLE_P0"), false);
+  assert.ok(loadAlerts.some((a) => a.code === "PCIE_LINK_WIDTH"));
+  assert.ok(loadAlerts.some((a) => a.code === "WHEA_ERRORS"));
+  assert.ok(loadAlerts.some((a) => a.code === "KERNEL_POWER_41"));
+
+  const snap = await sampleHardwareSensors({ force: true });
+  assert.equal(snap.ok, true);
+  assert.ok(Object.prototype.hasOwnProperty.call(snap, "tuning"));
+});
+
+test("NVIDIA DRS NVDRS_SETTING_V1 buffer encode/decode and Normal Power Mode enforcement work cleanly", () => {
+  const payload = buildNvdrsDwordSettingBuffer(NVDRS_PREFERRED_PSTATE_SETTING_ID, NVDRS_POWER_MODE_NORMAL);
+  assert.equal(payload.length, NVDRS_SETTING_SIZE);
+  const parsed = parseNvdrsSettingBuffer(payload);
+  assert.equal(parsed?.version, NVDRS_SETTING_VER1);
+  assert.equal(parsed?.settingId, NVDRS_PREFERRED_PSTATE_SETTING_ID);
+  assert.equal(parsed?.currentValue, NVDRS_POWER_MODE_NORMAL);
+  assert.equal(parseNvdrsSettingBuffer(Buffer.alloc(16)), null);
+
+  // DRS Prefer Max Perf (mode 1) also triggers GPU_IDLE_P0 guard when idle pinned
+  const drsMaxWarn = evaluateHardwareAlerts({
+    gpu: { pstate: "P0", utilPercent: 2, powerDrawW: 70, tempC: 60, pcieDowngraded: false },
+    stability: { wheaErrors7d: 0, unexpectedShutdowns7d: 0 },
+    tuning: { gpuPowerMizerLevel: 2, gpuDrsPowerMode: 1 },
+  });
+  assert.ok(drsMaxWarn.some((a) => a.code === "GPU_IDLE_P0"));
+
+  if (process.platform === "win32") {
+    const readRes = readNvidiaDrsPowerModeInProcess();
+    if (readRes.supported) {
+      const ensured = ensureNvidiaDrsNormalPowerMode({ applyIfNeeded: true });
+      assert.equal(ensured.ok, true);
+      assert.equal(ensured.powerMode, NVDRS_POWER_MODE_NORMAL);
+      const tuning = readSystemTuningStateInProcess();
+      assert.equal(tuning?.gpuDrsPowerMode, NVDRS_POWER_MODE_NORMAL);
+      assert.equal(tuning?.gpuDrsPowerModeLabel, "Normal");
+    }
+  }
+});
+
+test("readPcSensorCsvHistory & readPcSensorLoggerStatus parse 2s CSV telemetry and sensorLogger payload", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "p0001-csv-"));
+  try {
+    const csvPath = path.join(dir, "pc-sensors.csv");
+    const lockPath = path.join(dir, "pc-sensor-logger.lock.json");
+    fs.writeFileSync(
+      csvPath,
+      [
+        "timestamp,cpuLoadPct,freeRamGb,gpuTempC,gpuHotSpotC,gpuPowerW,gpuClockMhz,gpuUtilPct,gpuMemMb,gpuPcieGen,gpuPcieWidth,nvmeTempC,cpuPkgTempC,moboTempC,v12,v5,v33,topProc",
+        "2026-11-26T09:20:00.000Z,25.5,101.2,60,74.5,68.2,1442,12,4100,3,8,55,48,40,12.012,5.01,3.31,node:320MB",
+        "2026-11-26T09:20:02.000Z,31.0,101.0,61,75.0,72.4,1569,15,4120,3,8,56,49,41,11.988,5.00,3.30,chrome:512MB",
+      ].join("\n") + "\n",
+      "utf8",
+    );
+    fs.writeFileSync(lockPath, JSON.stringify({ pid: process.pid }), "utf8");
+
+    const hist = readPcSensorCsvHistory({ csvPath });
+    assert.equal(hist.rows.length, 2);
+    assert.equal(hist.rows[1].gpuTempC, 61);
+    assert.equal(hist.rows[1].ssdTempC, 56);
+    assert.equal(hist.rows[1].cpuTempC, 49);
+    assert.equal(hist.rows[1].v12, 11.988);
+    assert.equal(hist.rows[1].topProc, "chrome:512MB");
+
+    const st = readPcSensorLoggerStatus({ lockPath, csvPath });
+    assert.equal(st.running, true);
+    assert.equal(st.pid, process.pid);
+    assert.equal(st.csvRows, 2);
+    assert.equal(st.v12, 11.988);
+    assert.equal(st.topProc, "chrome:512MB");
+
+    fs.appendFileSync(csvPath, "\x00\x00\x002026-11-26T09:20:04.000Z,33.5,100.8,62,76.0,75.0,1569,18,4150,3,8,57,50,42,11.988,5.00,3.104,node:400MB\n\x00\x00", "utf8");
+    const histNul = readPcSensorCsvHistory({ csvPath });
+    assert.equal(histNul.rows.length, 3);
+    assert.equal(histNul.rows[2].cpuTempC, 50);
+    assert.equal(histNul.rows[2].v12, 11.988);
+    assert.equal(histNul.rows[2].v33, 3.104);
+    assert.equal(histNul.rows[2].topProc, "node:400MB");
+
+    const stNul = readPcSensorLoggerStatus({ lockPath, csvPath });
+    assert.equal(stNul.v33, 3.104);
+    assert.equal(stNul.v33MinRecent, 3.104);
+    assert.equal(stNul.v33BelowCount, 1);
+
+    const v33Alerts = evaluateHardwareAlerts({
+      sensorLogger: stNul,
+      motherboard: { voltage33V: 3.168, voltageAvccV: 3.104 },
+    });
+    assert.ok(v33Alerts.some((a) => a.code === "V33_UNDERVOLTAGE" && a.severity === "critical"));
+    assert.ok(v33Alerts.some((a) => a.code === "AVCC_UNDERVOLTAGE" && a.severity === "warn"));
+    assert.equal(toNum("55,0 °C"), 55);
+    assert.equal(toNum("74,5 °C"), 74.5);
+    assert.equal(toNum("12,0 W"), 12);
+
+    const snap = await sampleHardwareSensors({ force: true });
+    assert.equal(snap.ok, true);
+    assert.ok(Object.prototype.hasOwnProperty.call(snap, "sensorLogger"));
+    if (process.platform === "win32") {
+      assert.ok(typeof snap.tuning?.cpuMaxPct === "number" || snap.tuning?.cpuMaxPct === null);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("runners and tasks expose ISO createdAt/updatedAt timestamps and Desk UI Update column never uses URL or text hack", async () => {
+  const runners = await listRunners();
+  assert.ok(runners.length > 0);
+  for (const r of runners) {
+    assert.ok(r.createdAt && !Number.isNaN(Date.parse(r.createdAt)), `${r.id} missing valid ISO createdAt`);
+    assert.ok(r.updatedAt && !Number.isNaN(Date.parse(r.updatedAt)), `${r.id} missing valid ISO updatedAt`);
+    assert.ok(!String(r.updatedAt).startsWith("http"), `${r.id} updatedAt must be timestamp, not URL`);
+  }
+
+  const xmlWithDate =
+    "<Task><RegistrationInfo><Date>2026-09-01T10:15:30</Date></RegistrationInfo><Triggers><CalendarTrigger><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger></Triggers></Task>";
+  const tsv = `Dev-Test-Task\tReady\t2026-11-26T00:00:00.000Z\t26/11/2026 07:00:00\t0\t27/11/2026 07:00:00\t${xmlWithDate}`;
+  const parsed = parseTaskSchedulerComTsv(tsv);
+  assert.equal(parsed.length, 1);
+  assert.ok(parsed[0].createdAt && !Number.isNaN(Date.parse(parsed[0].createdAt)));
+
+  const deskRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const runnersScreen = fs.readFileSync(path.join(deskRoot, "src/features/runners/RunnersScreen.tsx"), "utf8");
+  const cells = fs.readFileSync(path.join(deskRoot, "src/features/desk/desk-directory-cells.tsx"), "utf8");
+  const meta = fs.readFileSync(path.join(deskRoot, "src/features/desk/desk-column-meta.ts"), "utf8");
+  const prefs = fs.readFileSync(path.join(deskRoot, "src/features/desk/desk-table-prefs.ts"), "utf8");
+  assert.equal(/updatedKind/.test(runnersScreen) || /updatedKind/.test(cells), false);
+  assert.equal(/updated:\s*row\.url/.test(runnersScreen), false);
+  assert.ok(cells.includes("HubDirectoryRunToggle"));
+  assert.ok(meta.includes('col("Action"') && meta.includes('"7.25rem"'));
+  assert.ok(prefs.includes('label: "Action"'));
+});
+
+test("HTTP host runtime modules forbid blocking execSync, spawnSync, and sync detached spawns", () => {
+  const hostDir = path.dirname(fileURLToPath(import.meta.url));
+  const files = ["server.mjs", "runners.mjs", "pc-optimizer.mjs"];
+  for (const name of files) {
+    const src = fs.readFileSync(path.join(hostDir, name), "utf8");
+    assert.equal(/\b(execSync|spawnSync)\b/.test(src), false, `${name} must stay free of execSync/spawnSync`);
+    assert.equal(
+      /\bstartHiddenDetachedProcess\s*\(/.test(src),
+      false,
+      `${name} must use startHiddenDetachedProcessAsync instead of sync startHiddenDetachedProcess`,
+    );
+  }
+  const serverSrc = fs.readFileSync(path.join(hostDir, "server.mjs"), "utf8");
+  assert.equal(/\bstartDetached\s*\(/.test(serverSrc), false, "server.mjs must use startDetachedAsync");
+  assert.match(serverSrc, /\bawait startDetachedAsync\(/);
 });

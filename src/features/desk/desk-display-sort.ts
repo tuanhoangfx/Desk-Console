@@ -28,7 +28,7 @@ const DESK_OPS_DEFAULT_SORT_ROWS: readonly DirectoryDefaultSortRow[] = [
 const DESK_CLIPS_DEFAULT_SORT_ROWS: readonly DirectoryDefaultSortRow[] = [
   {
     id: "updated",
-    label: "Updated",
+    label: "Update",
     directionHint: "newest first",
     emoji: "🕒",
   },

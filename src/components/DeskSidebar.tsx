@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { hubSessionLabels } from "@tool-workspace/hub-identity";
 import {
   HubLogButton,
   HubSidebarBrandIcon,
@@ -6,7 +7,9 @@ import {
   HubSidebarShell,
   HubWorkspaceUserShell,
   useNavGroupOpenState,
+  useWorkspaceRoleKey,
 } from "@tool-workspace/hub-ui";
+import { useDeskAuth } from "../features/auth/DeskAuthGate";
 import { DESK_BRAND_ICON, DESK_PRODUCT } from "../lib/app-release";
 import type { AppScreen } from "../lib/app-screen";
 import { NAV_GROUP_IDS, NAV_STRUCTURE, NAV_SUBNAV_PREFIX } from "../lib/nav-structure";
@@ -19,6 +22,9 @@ type Props = {
 };
 
 export function DeskSidebar({ screen, onNavigate, runnersLocked = false }: Props) {
+  const { session, getHubClient, signOut } = useDeskAuth();
+  const labels = hubSessionLabels(session);
+  const { roleKey } = useWorkspaceRoleKey(session);
   const { groupOpen, setGroupSubnavOpen } = useNavGroupOpenState(NAV_SUBNAV_PREFIX, NAV_GROUP_IDS);
   const structure = useMemo(
     () =>
@@ -51,10 +57,15 @@ export function DeskSidebar({ screen, onNavigate, runnersLocked = false }: Props
       footer={
         <>
           <HubWorkspaceUserShell
-            session={null}
-            anonymous
-            anonymousFooterLabel="Local"
-            profileRoleClient={null}
+            session={session}
+            labels={labels}
+            roleKey={roleKey}
+            getHubClient={() => getHubClient() as never}
+            profileRoleClient={getHubClient() as never}
+            profileRoleUserId={session?.user?.id ?? null}
+            profileRoleEmail={session?.user?.email ?? null}
+            footerTitle="Workspace Account"
+            onSignOut={() => void signOut()}
           />
           <HubLogButton variant="global" />
           <DeskSettings sidebarRow />

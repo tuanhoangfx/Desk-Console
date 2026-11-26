@@ -121,6 +121,40 @@ function resolveDesktopProductVersion(app, opts = {}) {
   return packaged ? electronVer : fromEnv || electronVer;
 }
 
+function promoteStagedHotPatchDist(hotDir) {
+  if (!hotDir) return false;
+  const nextDist = path.join(hotDir, "dist.next");
+  const curDist = path.join(hotDir, "dist");
+  const prevDist = path.join(hotDir, "dist.prev");
+  try {
+    if (!fs.existsSync(path.join(nextDist, "index.html"))) return false;
+    if (fs.existsSync(prevDist)) {
+      fs.rmSync(prevDist, { recursive: true, force: true });
+    }
+    if (fs.existsSync(curDist)) {
+      fs.renameSync(curDist, prevDist);
+    }
+    fs.renameSync(nextDist, curDist);
+    if (fs.existsSync(prevDist)) {
+      try {
+        fs.rmSync(prevDist, { recursive: true, force: true });
+      } catch {
+        /* non-fatal cleanup */
+      }
+    }
+    return true;
+  } catch {
+    try {
+      if (!fs.existsSync(path.join(curDist, "index.html")) && fs.existsSync(path.join(prevDist, "index.html"))) {
+        fs.renameSync(prevDist, curDist);
+      }
+    } catch {
+      /* ignore rollback error */
+    }
+    return false;
+  }
+}
+
 /**
  * Prefer live workspace `dist/index.html` when unpacked build runs inside workspace and `dist` is newer than `app.asar`.
  */
@@ -133,10 +167,14 @@ function resolveLocalDistIndexHtml(app, electronDir) {
     return bundledDistHtml;
   }
   try {
-    const hotPatchDistHtml =
+    const hotRoot =
       process.resourcesPath && isHotPatchFreshForResources(process.resourcesPath)
-        ? path.join(process.resourcesPath, "hot-patch", "dist", "index.html")
+        ? path.join(process.resourcesPath, "hot-patch")
         : "";
+    if (hotRoot) {
+      promoteStagedHotPatchDist(hotRoot);
+    }
+    const hotPatchDistHtml = hotRoot ? path.join(hotRoot, "dist", "index.html") : "";
     if (hotPatchDistHtml && fs.existsSync(hotPatchDistHtml)) {
       return hotPatchDistHtml;
     }
@@ -1108,9 +1146,13 @@ function createDesktopHotReloadControlBridge(opts = {}) {
         ? path.join(electronDir, "lib", "hot-patch-loader.cjs")
         : path.join(__dirname, "hot-patch-loader.cjs");
       if (fs.existsSync(loaderPath)) {
-        const { reloadHotPatchedModules } = require(loaderPath);
-        if (typeof reloadHotPatchedModules === "function") {
-          moduleReload = reloadHotPatchedModules({ force: Boolean(body.force) });
+        const loader = require(loaderPath);
+        if (typeof loader.resolveHotPatchRoot === "function") {
+          const hotRoot = loader.resolveHotPatchRoot();
+          if (hotRoot) promoteStagedHotPatchDist(hotRoot);
+        }
+        if (typeof loader.reloadHotPatchedModules === "function") {
+          moduleReload = loader.reloadHotPatchedModules({ force: Boolean(body.force) });
         }
       }
     } catch {
@@ -1175,6 +1217,36 @@ function createDesktopHotReloadControlBridge(opts = {}) {
       }
     }
 
+    let displayDiagnostics = null;
+    let trappedInNonInteractiveS4u = false;
+    let selfExitingForInteractiveRelaunch = false;
+    try {
+      const { screen } = require("electron");
+      const cursorPt = screen?.getCursorScreenPoint ? screen.getCursorScreenPoint() : { x: 0, y: 0 };
+      const primaryDisp = screen?.getPrimaryDisplay ? screen.getPrimaryDisplay() : null;
+      displayDiagnostics = {
+        cursorPt,
+        primaryWorkArea: primaryDisp?.workArea || null,
+      };
+      if (Number(cursorPt?.x ?? 0) < -100000 && (body.showWindow || body.quitIfNonInteractive !== false)) {
+        trappedInNonInteractiveS4u = true;
+        selfExitingForInteractiveRelaunch = true;
+        removeControlRecord();
+        setTimeout(() => {
+          try {
+            app?.exit?.(0);
+          } catch {
+            /* ignore */
+          }
+          process.exit(0);
+        }, 120);
+      } else if (body.showWindow && typeof showWindow === "function") {
+        showWindow();
+      }
+    } catch {
+      /* ignore outside Electron main */
+    }
+
     return {
       ok: !hostReloadError,
       code: String(code || "").toUpperCase(),
@@ -1186,6 +1258,10 @@ function createDesktopHotReloadControlBridge(opts = {}) {
       hostReloaded,
       hostReloadError,
       uiReloaded,
+      displayDiagnostics,
+      ...(trappedInNonInteractiveS4u
+        ? { trappedInNonInteractiveS4u: true, selfExitingForInteractiveRelaunch: true }
+        : {}),
       reloadedAt: new Date().toISOString(),
     };
   }
@@ -1224,9 +1300,37 @@ function createDesktopHotReloadControlBridge(opts = {}) {
           }
           if (req.method === "POST" && reqPath === "/show-window") {
             try {
+              let cursorPt = { x: 0, y: 0 };
+              try {
+                const { screen } = require("electron");
+                if (screen?.getCursorScreenPoint) cursorPt = screen.getCursorScreenPoint();
+              } catch {
+                /* ignore */
+              }
+              if (Number(cursorPt?.x ?? 0) < -100000) {
+                removeControlRecord();
+                res.writeHead(200, { "Content-Type": "application/json" });
+                res.end(
+                  JSON.stringify({
+                    ok: true,
+                    displayDiagnostics: { cursorPt },
+                    trappedInNonInteractiveS4u: true,
+                    selfExitingForInteractiveRelaunch: true,
+                  }),
+                );
+                setTimeout(() => {
+                  try {
+                    app?.exit?.(0);
+                  } catch {
+                    /* ignore */
+                  }
+                  process.exit(0);
+                }, 120);
+                return;
+              }
               showWindow?.();
               res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ ok: true }));
+              res.end(JSON.stringify({ ok: true, displayDiagnostics: { cursorPt } }));
             } catch (err) {
               res.writeHead(500, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }));
@@ -1281,15 +1385,85 @@ function createDesktopHotReloadControlBridge(opts = {}) {
   };
 }
 
+/**
+ * Recover cleanly from unexpected Chromium GPU or Utility (Network/Storage Service) crashes
+ * during long sessions or live hot-patch reloads without leaving a dead/blank shell.
+ */
+function registerDesktopChildProcessCrashRecovery(app, opts = {}) {
+  if (!app || typeof app.on !== "function") return false;
+  if (app.__hubChildProcessRecoveryBound) return true;
+  app.__hubChildProcessRecoveryBound = true;
+
+  const {
+    getWindow = () => null,
+    boot = null,
+    gpuCrashFlagPath = "",
+    maxRecoveries = 5,
+    onRecover = null,
+  } = opts;
+
+  let recoveryCount = 0;
+  let lastRecoverAt = 0;
+  let pendingTimer = null;
+
+  app.on("child-process-gone", (_event, details) => {
+    const type = details?.type || "?";
+    const reason = details?.reason || "?";
+    const exitCode = details?.exitCode;
+    boot?.append?.(`child-process-gone type=${type} reason=${reason} exit=${exitCode}`);
+
+    if (reason === "clean-exit" || reason === "killed") return;
+    if (type !== "GPU" && type !== "Utility") return;
+
+    if (type === "GPU" && gpuCrashFlagPath) {
+      try {
+        fs.writeFileSync(gpuCrashFlagPath, `${new Date().toISOString()} reason=${reason} exit=${exitCode}\n`, "utf8");
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const now = Date.now();
+    if (now - lastRecoverAt > 120_000) {
+      recoveryCount = 0;
+    }
+    recoveryCount += 1;
+    lastRecoverAt = now;
+    if (recoveryCount > maxRecoveries) return;
+
+    if (pendingTimer) return;
+    pendingTimer = setTimeout(() => {
+      pendingTimer = null;
+      const win = typeof getWindow === "function" ? getWindow() : null;
+      if (!win || typeof win.isDestroyed !== "function" || win.isDestroyed()) return;
+      boot?.append?.(`${type.toLowerCase()}-process-gone → reloadIgnoringCache (#${recoveryCount})`);
+      try {
+        if (typeof onRecover === "function") {
+          onRecover(win, { type, reason, exitCode, recoveryCount });
+        } else {
+          win.webContents?.invalidate?.();
+          win.webContents?.reloadIgnoringCache?.();
+        }
+      } catch (err) {
+        boot?.append?.(`child-process recovery failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }, 350);
+  });
+
+  return true;
+}
+
 module.exports = {
   compareSemver,
   parseLatestYml,
   hasPackagedAppUpdateYml,
   resolveDesktopProductVersion,
   resolveLocalDistIndexHtml,
+  promoteStagedHotPatchDist,
   buildPackagedHostNodeEnv,
   scheduleStagedAsarSwapOnQuit,
   bindStagedAsarSwapOnWillQuit,
+  registerDesktopChildProcessCrashRecovery,
   createDesktopHotReloadControlBridge,
   createDesktopUpdaterIpcController,
   createPreloadUpdateBridge,

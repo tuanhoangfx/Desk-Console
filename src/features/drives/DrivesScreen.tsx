@@ -1,6 +1,5 @@
 // no-read-only-table: Drives directory uses HubDirectoryTableShell with interactive OAuth and detail modals.
 import { useEffect, useMemo, useState } from "react";
-import { Globe, KeyRound, Zap } from "lucide-react";
 import {
   DIRECTORY_SEARCH_CLIENT_FILTER_OPTS,
   HubDirectoryCatalogBulkBar,
@@ -464,7 +463,7 @@ export function DrivesScreen() {
                           {
                             key: "signin",
                             label: soleAccount?.authorized ? "Sign in again" : "Sign in",
-                            icon: KeyRound as never,
+                            emoji: "🔑",
                             tone: "indigo",
                             disabled: !soleAccount,
                             title: soleAccount ? "Create a Google sign-in link to copy" : "Select one Drive account",
@@ -477,40 +476,16 @@ export function DrivesScreen() {
                                 {
                                   key: "bulk-bwlimit-inherit",
                                   label: "Bandwidth: Inherit",
-                                  icon: Zap as never,
+                                  emoji: "⚡",
                                   tone: "emerald" as const,
                                   title: "Use Global System Bandwidth Limit for all selected Drives",
                                   onClick: () => void runBulkDriveNetwork({ bwlimit: "" }),
                                 },
                                 {
-                                  key: "bulk-bwlimit-5m",
-                                  label: "Bandwidth: 5M",
-                                  icon: Zap as never,
-                                  tone: "sky" as const,
-                                  title: "Cap bandwidth at 5 MiB/s for all selected Drives",
-                                  onClick: () => void runBulkDriveNetwork({ bwlimit: "5M" }),
-                                },
-                                {
-                                  key: "bulk-bwlimit-10m",
-                                  label: "Bandwidth: 10M",
-                                  icon: Zap as never,
-                                  tone: "sky" as const,
-                                  title: "Cap bandwidth at 10 MiB/s for all selected Drives",
-                                  onClick: () => void runBulkDriveNetwork({ bwlimit: "10M" }),
-                                },
-                                {
-                                  key: "bulk-bwlimit-20m",
-                                  label: "Bandwidth: 20M",
-                                  icon: Zap as never,
-                                  tone: "sky" as const,
-                                  title: "Cap bandwidth at 20 MiB/s for all selected Drives",
-                                  onClick: () => void runBulkDriveNetwork({ bwlimit: "20M" }),
-                                },
-                                {
                                   key: "bulk-proxy-inherit",
                                   label: "Proxy: System Default",
-                                  icon: Globe as never,
-                                  tone: "emerald" as const,
+                                  emoji: "🌐",
+                                  tone: "sky" as const,
                                   title: "Reset Proxy to System Default for all selected Drives",
                                   onClick: () => void runBulkDriveNetwork({ proxyUrl: "" }),
                                 },

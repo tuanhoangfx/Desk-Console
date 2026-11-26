@@ -27,7 +27,7 @@ export async function listOpsRows() {
     name: `${row.code} · ${row.name}`,
     status: row.up ? "Up" : "Down",
     detail: `${row.kind} :${row.port}`,
-    updated: row.url,
+    updated: row.updatedAt || row.probedAt || "",
     lastRun: "",
     lastResult: "",
     nextRun: "",

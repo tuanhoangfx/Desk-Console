@@ -11,6 +11,13 @@ import {
 import toolManifest from "../tool.manifest.json";
 import { DeskSidebar } from "./components/DeskSidebar";
 import { DeskVisitedTabPanel } from "./components/DeskVisitedTabPanel";
+import {
+  DeskAccessDeniedScreen,
+  DeskAuthBootScreen,
+  DeskAuthGate,
+  DeskAuthProvider,
+  useDeskAuth,
+} from "./features/auth/DeskAuthGate";
 import { ClipPickerPage } from "./features/clips/ClipPickerPage";
 import { AppsScreen } from "./features/apps/AppsScreen";
 import { ClipsScreen } from "./features/clips/ClipsScreen";
@@ -58,10 +65,23 @@ const SCREEN_SLOTS: Record<AppScreen, ReactElement> = {
 
 export default function App() {
   if (isPastePicker()) return <ClipPickerPage />;
+  return (
+    <DeskAuthProvider>
+      <DeskAuthBoundary />
+    </DeskAuthProvider>
+  );
+}
+
+function DeskAuthBoundary() {
+  const { authPaint } = useDeskAuth();
+  if (authPaint === "boot") return <DeskAuthBootScreen />;
+  if (authPaint === "denied") return <DeskAccessDeniedScreen />;
+  if (authPaint === "gate") return <DeskAuthGate />;
   return <DeskApp />;
 }
 
 function DeskApp() {
+  const { hubUserId } = useDeskAuth();
   const [screen, setScreen] = useState<AppScreen>(() => {
     const boot = bootAppScreen();
     setDeskActiveScreen(boot);
@@ -169,7 +189,7 @@ function DeskApp() {
 
   return (
     <HubAppLogProvider
-      persistKey="P0001:anon"
+      persistKey={hubUserId ? `P0001:${hubUserId}` : "P0001:anon"}
       activeScreen={screen}
       bootLog={{ scope: "P0001", message: "Desk Console started", screen }}
     >

@@ -18,7 +18,12 @@ import {
   type DeskOpsCellHandlers,
   type DeskRow,
 } from "./desk-directory-cells";
-import { deskDirectoryScreenOrClips, deskTablePrefsFor, type DeskCol } from "./desk-table-prefs";
+import {
+  deskColumnKeysFor,
+  deskDirectoryScreenOrClips,
+  deskTablePrefsFor,
+  type DeskCol,
+} from "./desk-table-prefs";
 
 export type { DeskOpsAction, DeskOpsCellHandlers, DeskRow };
 
@@ -44,9 +49,6 @@ type Props = {
   /** Display manual sort OFF — non-interactive headers (P0005 / P0020 SSOT). */
   defaultSortOnly?: boolean;
 };
-
-const BASE_KEYS: DeskCol[] = ["created", "updated", "name", "format", "status", "extra", "log"];
-const OPS_KEYS: DeskCol[] = ["created", "updated", "name", "run", "schedule", "status", "extra", "log"];
 
 export function DeskDirectoryTable({
   screen,
@@ -76,14 +78,20 @@ export function DeskDirectoryTable({
     return () => window.removeEventListener(tablePrefs.changeEvent, sync);
   }, [tablePrefs.changeEvent]);
 
-  const visible = useMemo(() => {
+  const { visible, ordered } = useMemo(() => {
     void columnTick;
-    return tablePrefs.read();
+    return {
+      visible: tablePrefs.read(),
+      ordered: tablePrefs.readOrder(),
+    };
   }, [columnTick, tablePrefs]);
   const keys = useMemo(() => {
-    const order = opsHandlers ? OPS_KEYS : BASE_KEYS;
-    return order.filter((key) => key === "run" || visible.has(key));
-  }, [opsHandlers, visible]);
+    const allowed = new Set(deskColumnKeysFor(tableScreen));
+    const baseOrder = ordered.length > 0 ? ordered : [...allowed];
+    return baseOrder.filter(
+      (key) => allowed.has(key) && ((Boolean(opsHandlers) && key === "run") || key === "name" || visible.has(key)),
+    );
+  }, [opsHandlers, ordered, tableScreen, visible]);
   const columns = useMemo(
     () =>
       buildDirectoryColumns(keys, getDeskColumnMeta(tableScreen)).map((col) => ({

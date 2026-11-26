@@ -14,7 +14,13 @@ export function TabHeaderActions() {
     const pull = async () => {
       try {
         const next = await deskApi.health();
-        if (!cancelled) setHealth({ ok: Boolean(next.ok), cursorRunning: next.cursorRunning });
+        if (!cancelled) {
+          setHealth({
+            ok: Boolean(next.ok),
+            cursorRunning: next.cursorRunning,
+            authTelemetry: next.authTelemetry ?? null,
+          });
+        }
       } catch (error) {
         if (!cancelled) setHealth({ ok: false, error: error instanceof Error ? error.message : String(error) });
       }

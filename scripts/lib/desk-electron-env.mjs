@@ -10,14 +10,16 @@ const {
   DEV_DIR,
   roamingAppData,
 } = require("../../electron/lib/user-data-root.cjs");
+const { resolveRealOperatorHomeEnv } = require("../../../scripts/lib/win-shell-env.cjs");
 
 /**
  * Isolated dev (`DESK_DEV_ISOLATED=1`) = default — packaged NSIS and `pnpm dev` in parallel.
  * Pass `DESK_DEV_ISOLATED: "0"` only for explicit prod userData debugging.
  */
 export function deskElectronEnv(extra = {}) {
+  const operatorEnv = resolveRealOperatorHomeEnv(process.env);
   const env = {
-    ...process.env,
+    ...operatorEnv,
     ...extra,
     DESK_DEV_ISOLATED:
       extra.DESK_DEV_ISOLATED !== undefined ? String(extra.DESK_DEV_ISOLATED) : "1",
@@ -27,7 +29,8 @@ export function deskElectronEnv(extra = {}) {
 
   const isolated = env.DESK_DEV_ISOLATED === "1";
   if (isolated) {
-    env.DESK_USER_DATA = extra.DESK_USER_DATA ?? path.join(roamingAppData(), DEV_DIR);
+    const appDataRoot = env.APPDATA || roamingAppData();
+    env.DESK_USER_DATA = extra.DESK_USER_DATA ?? path.join(appDataRoot, DEV_DIR);
     env.DESK_CONSOLE_DATA = extra.DESK_CONSOLE_DATA ?? env.DESK_USER_DATA;
     env.DESK_API_PORT = extra.DESK_API_PORT ?? String(DEFAULT_DEV_API_PORT);
     /** Isolated desktop:dev must hit Vite — never fall through to stale `dist/` (black screen). */

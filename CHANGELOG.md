@@ -1,5 +1,326 @@
 # Changelog
 
+## 2026-11-27 - fix(host): enforce non-blocking async spawns across HTTP host modules
+
+- Version: `3.1.266`
+- Timestamp: 2026-11-27 05:05 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Switch remaining startHiddenDetachedProcess/startDetached calls in pc-optimizer.mjs, windows.mjs, and server.mjs to async non-blocking helpers and add a host regression test forbidding sync spawn calls in HTTP host runtime modules.
+
+### Verification
+
+- tsc --noEmit + desk-host.test.mjs (71/71)
+
+---
+## 2026-11-27 - fix(runners): non-blocking async spawn and worker target routing
+
+- Version: `3.1.265`
+- Timestamp: 2026-11-27 04:39 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Switch startRunner to startHiddenDetachedProcessAsync with scalar PID return so :6010 never freezes past 8s and triggers Cron/Runner timeouts; route worker:P0020_QUOTA and worker targets cleanly via raw.id and extend runnerAction timeout.
+
+### Verification
+
+- tsc --noEmit + desk-host.test.mjs (70/70)
+
+---
+## 2026-11-27 - SSOT smoke: headless Stealth CDP + DOM column/date verification
+
+- Version: `3.1.264`
+- Timestamp: 2026-11-27 03:40 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Upgrade smoke-runners-tasks.mjs and verify-desk-parity-visual.mjs from raw profile 9990 WebSocket CDP to dynamic agent pool + connectStealthHeadless with live th===td and Created/Update assertions.
+
+### Verification
+
+- typecheck + 70/70 host tests + live Stealth smoke/visual pass
+
+---
+## 2026-11-27 - Fix Desk directory Update/Created/Action column parity & SSOT gates
+
+- Version: `3.1.263`
+- Timestamp: 2026-11-27 03:04 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replace Runners Update URL text hack with real activity timestamps, derive real Created timestamps on host runners/tasks/apps, standardize Action header/toggle, scope Desk columns per screen, and fix P0001 directory SSOT inventory + gates
+
+### Verification
+
+- typecheck + 70/70 host tests + vite build + hub-ui-preflight + Stealth 9004 6-tab live DOM check
+
+---
+## 2026-11-26 - Add +3.3V history chart mode and AVCC rail check
+
+- Version: `3.1.262`
+- Timestamp: 2026-11-26 20:46 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added Power +3.3V chart series and inline sparkline to P0001 Dashboard plus motherboard AVCC_UNDERVOLTAGE warning.
+
+### Verification
+
+- tsc --noEmit (0) + node --test host/desk-host.test.mjs (69/69)
+
+---
+## 2026-11-26 - Add +3.3V undervoltage telemetry and Dashboard alert
+
+- Version: `3.1.261`
+- Timestamp: 2026-11-26 18:30 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Exposed v33/v33MinRecent from pc-sensors CSV and LHM, added V33_UNDERVOLTAGE critical alert and Dashboard +3.3V status pill.
+
+### Verification
+
+- tsc --noEmit (0) + node --test host/desk-host.test.mjs (69/69)
+
+---
+## 2026-11-26 - Strip NUL bytes in pc-sensors CSV reader
+
+- Version: `3.1.260`
+- Timestamp: 2026-11-26 17:49 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Hardened readPcSensorCsvHistory against NTFS power-loss NUL tail padding and added unit regression test.
+
+### Verification
+
+- tsc --noEmit (0) + node --test host/desk-host.test.mjs (69/69)
+
+---
+## 2026-11-26 - Hardware 2s CSV telemetry and stability history integration
+
+- Version: `3.1.259`
+- Timestamp: 2026-11-26 16:35 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Integrate pc-sensors.csv 2s stream, NVMe watchdog temp/max, cpuMaxPct tuning pill, and 20 stability events into P0001 HardwareHealthPanel and Hardware Temps chart
+
+### Verification
+
+- tsc --noEmit, 69/69 host tests, hub-vite-alias-check, vite build
+
+---
+## 2026-11-22 - Sync desktop-host-kit S4U non-interactive self-eviction & interactive relaunch
+
+- Version: `3.1.258`
+- Timestamp: 2026-11-22 19:31 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Synced packages/hub-desktop-host-kit S4U non-interactive detection (cursorPt.x < -100000) and install-desktop-exe.ps1 Prod upgrade pipeline
+
+### Verification
+
+- node --test Tool/scripts/desktop-exe-ssot.test.mjs
+
+---
+## 2026-11-19 - Patch bump for completed agent task
+
+- Version: `3.1.257`
+- Timestamp: 2026-11-19 18:11 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Version bump
+
+- Version: `3.1.256`
+- Timestamp: 2026-11-18 18:51 (UTC+7)
+- Type: Patch
+- Status: Verified
+- Release: https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.256
+
+### Changes
+
+- Release v3.1.256.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.255`
+- Timestamp: 2026-11-18 18:09 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Surface PC-Optimizer reclaimedBytes in Dashboard & History
+
+- Version: `3.1.254`
+- Timestamp: 2026-11-18 18:02 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Display PC-Optimizer reclaimed disk bytes in Dashboard Cron & PC Hygiene card and DeskOpsRuntimeRail History rows.
+
+### Verification
+
+- typecheck + lint + 62/62 host tests + build + hub-ui-preflight
+
+---
+## 2026-11-18 - Antigravity multi-version vault controls, Stop v* button & Archive All Public
+
+- Version: `3.1.253`
+- Timestamp: 2026-11-18 16:50 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Replaced Antigravity Primary status/actions with version-first Antigravity Vault labels, added Stop v* runtime action and Archive All Public GCS installer button in AppVersionDetailModal.
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console run typecheck (62/62 host tests) + build + agent-verify-gate light
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.252`
+- Timestamp: 2026-11-18 16:45 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Add apps to P0001 uiShell.splitScreens & sync desk-profile-layout audit
+
+- Version: `3.1.251`
+- Timestamp: 2026-11-18 15:23 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Register apps in tool.manifest.json uiShell.splitScreens and update audit-p0001-desk-directory.mjs for :not(.hub-main--apps); verify tsc, 62/62 host tests, and light gate green.
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console run typecheck (62/62) + agent-verify-gate light (gatesReady=true)
+
+---
+## 2026-11-18 - Surface Primary Antigravity lock conflict & Taskbar SxS pin repair in Apps
+
+- Version: `3.1.250`
+- Timestamp: 2026-11-18 15:15 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Show Conflict status and inline alert on app:antigravity when un-isolated SxS holds Primary lock, add Launch Primary and Repair Taskbar actions in Apps detail modal.
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console run typecheck (tsc + 62/62 host tests pass)
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.249`
+- Timestamp: 2026-11-18 15:13 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Patch bump for completed agent task
+
+- Version: `3.1.248`
+- Timestamp: 2026-11-18 15:12 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Automatic patch bump after completed P0001 task.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-18 - Directory SSOT col widths, headerAlign, and click-to-copy
+
+- Version: `3.1.247`
+- Timestamp: 2026-11-18 07:09 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Regenerate Drives/Jobs fixed-col CSS, align left headers via HubDirectoryTableShell headerAlign, and add HubDirectoryCopyText on Account/Job Name/Desk Extra.
+
+### Verification
+
+- verify-directory-fixed-col-css-parity + hub-directory-table-gate + tsc --noEmit + vite build
+
+---
 ## 2026-11-18 - Record reclaimedBytes in PC Optimize Ops History & refine table debt audit
 
 - Version: `3.1.246`

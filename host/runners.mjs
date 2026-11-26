@@ -53,8 +53,10 @@ const FLIP_DOWN_STREAK = 3;
 
 let cache = { at: 0, rows: [] };
 let inflight = null;
-/** @type {Map<string, { up: boolean; failStreak: number }>} */
+/** @type {Map<string, { up: boolean; failStreak: number; changedAt: number }>} */
 const probeGate = new Map();
+/** @type {Map<string, string>} */
+const runnerCreatedAtCache = new Map();
 /** Last start/restart spawn outcome — UI clears Starting when exit ≠ 0. */
 /** @type {Map<string, { pid: number; startedAt: number; exitedAt?: number; exitCode?: number | null }>} */
 const startOutcome = new Map();
@@ -132,11 +134,13 @@ export function setRunnerWatchdogEnabled(enabled) {
 export function stabilizeRunnerProbe(id, probedUp) {
   const key = String(id || "");
   const prev = probeGate.get(key);
+  const now = Date.now();
   if (!prev) {
-    probeGate.set(key, { up: probedUp, failStreak: 0 });
+    probeGate.set(key, { up: probedUp, failStreak: 0, changedAt: now });
     return probedUp;
   }
   if (probedUp) {
+    if (!prev.up) prev.changedAt = now;
     prev.up = true;
     prev.failStreak = 0;
     return true;
@@ -146,8 +150,42 @@ export function stabilizeRunnerProbe(id, probedUp) {
   if (prev.failStreak >= FLIP_DOWN_STREAK) {
     prev.up = false;
     prev.failStreak = 0;
+    prev.changedAt = now;
   }
   return prev.up;
+}
+
+function resolveRunnerCreatedAt(row, meta) {
+  const cacheKey = String(row.id || "");
+  const cached = runnerCreatedAtCache.get(cacheKey);
+  if (cached) return cached;
+  const toolRel = String(meta?.toolRoot || "").trim();
+  const candidates = [];
+  if (toolRel) {
+    const absToolDir = path.isAbsolute(toolRel) ? toolRel : path.join(DEV_ROOT, "Tool", toolRel);
+    candidates.push(
+      path.join(absToolDir, "tool.manifest.json"),
+      path.join(absToolDir, "package.json"),
+      absToolDir,
+    );
+  }
+  candidates.push(PORTS_PATH);
+  let resolved = "";
+  for (const filePath of candidates) {
+    try {
+      if (!fs.existsSync(filePath)) continue;
+      const st = fs.statSync(filePath);
+      const ts = st.birthtimeMs > 0 ? st.birthtimeMs : st.mtimeMs;
+      if (Number.isFinite(ts) && ts > 0) {
+        resolved = new Date(ts).toISOString();
+        break;
+      }
+    } catch {
+      /* try next */
+    }
+  }
+  if (resolved) runnerCreatedAtCache.set(cacheKey, resolved);
+  return resolved;
 }
 
 export function loadPorts() {
@@ -262,12 +300,25 @@ async function refreshRunners() {
   const pinnedSet = new Set(readRunnerWatchdogState().pinned);
   const rows = targets.map((row, i) => {
     const upperCode = String(row.code).toUpperCase();
-    const outcome = startOutcome.get(upperCode) || startOutcome.get(String(row.id).toUpperCase());
+    const meta = runnerMeta(row, doc);
+    const idKey = String(row.id).toUpperCase();
+    const outcome = startOutcome.get(idKey) || (row.kind === "ui" ? startOutcome.get(upperCode) : undefined);
+    const up = stabilizeRunnerProbe(row.id, probed[i]);
+    const gateChangedAt = probeGate.get(String(row.id || ""))?.changedAt ?? 0;
+    const latestMs = Math.max(
+      Number(outcome?.exitedAt || 0),
+      Number(outcome?.startedAt || 0),
+      Number(gateChangedAt || 0),
+    );
+    const updatedAt = latestMs > 0 ? new Date(latestMs).toISOString() : probedAt;
+    const createdAt = resolveRunnerCreatedAt(row, meta) || updatedAt;
     return {
       ...row,
-      ...runnerMeta(row, doc),
-      up: stabilizeRunnerProbe(row.id, probed[i]),
+      ...meta,
+      up,
       pinned: pinnedSet.has(upperCode),
+      createdAt,
+      updatedAt,
       probedAt,
       startPid: outcome?.pid,
       startStartedAt: outcome?.startedAt,
@@ -289,15 +340,57 @@ export async function listRunners() {
   return inflight;
 }
 
-export function resolveRunnerPort(code, doc = loadPorts()) {
-  const upper = String(code).toUpperCase();
+export function resolveRunnerTarget(codeOrId, doc = loadPorts()) {
+  const raw = String(codeOrId || "").trim();
+  const upper = raw.toUpperCase();
+  if (!upper) return null;
+  if (upper.startsWith("WORKER:")) {
+    const reqKey = raw.slice("worker:".length).trim().toUpperCase();
+    for (const [key, worker] of Object.entries(doc.workers || {})) {
+      if (key.toUpperCase() === reqKey) {
+        const wCode = String(worker.code || key).toUpperCase();
+        const prod = doc.products?.[wCode];
+        return {
+          id: `worker:${key}`,
+          workerKey: key,
+          kind: "worker",
+          code: wCode,
+          port: Number(worker.port) || 0,
+          toolRoot: String(worker.toolRoot || prod?.root || ""),
+        };
+      }
+    }
+    return null;
+  }
   const product = doc.products?.[upper];
-  if (product?.port) return Number(product.port);
+  if (product?.port) {
+    return {
+      id: upper,
+      workerKey: null,
+      kind: "ui",
+      code: upper,
+      port: Number(product.port),
+      toolRoot: String(product.root || ""),
+    };
+  }
   for (const [key, worker] of Object.entries(doc.workers || {})) {
     const workerCode = String(worker.code || key).toUpperCase();
-    if (workerCode === upper) return Number(worker.port);
+    if (workerCode === upper && worker.port) {
+      return {
+        id: `worker:${key}`,
+        workerKey: key,
+        kind: "worker",
+        code: workerCode,
+        port: Number(worker.port),
+        toolRoot: String(worker.toolRoot || ""),
+      };
+    }
   }
   return null;
+}
+
+export function resolveRunnerPort(code, doc = loadPorts()) {
+  return resolveRunnerTarget(code, doc)?.port ?? null;
 }
 
 let _nativeTcpTableFn = undefined;
@@ -362,12 +455,16 @@ export function findListeningPidsByPortNative(targetPort) {
 }
 
 export async function stopRunner(code, opts = {}) {
+  const target = resolveRunnerTarget(code);
   const upper = String(code).toUpperCase();
-  const port = Number(opts.portOverride) > 0 ? Number(opts.portOverride) : resolveRunnerPort(upper);
+  const logId = target?.id || upper;
+  const port = Number(opts.portOverride) > 0 ? Number(opts.portOverride) : target?.port ?? resolveRunnerPort(upper);
   if (!port) return { ok: false, error: "not found" };
   if (!opts.portOverride) {
-    setRunnerWatchdogPinned(upper, false);
-    appendTerminalLine(upper, "runner", opsConsoleCmd(`stop-process :${port} ${upper}`));
+    if (!target || target.kind === "ui") {
+      setRunnerWatchdogPinned(target?.code || upper, false);
+    }
+    appendTerminalLine(logId, "runner", opsConsoleCmd(`stop-process :${port} ${logId}`));
   }
   try {
     let pids = findListeningPidsByPortNative(port);
@@ -403,34 +500,126 @@ export async function stopRunner(code, opts = {}) {
   }
 }
 
-export function startRunner(code, mode = "start") {
-  const upper = String(code).toUpperCase();
-  if (mode === "start" || mode === "restart") {
-    setRunnerWatchdogPinned(upper, true);
+function resolveWorkerLaunchSpec(target, doc, nodeExe) {
+  const workerKey = String(target.workerKey || "").toUpperCase();
+  if (workerKey === "P0020_QUOTA") {
+    const cwd = path.join(DEV_ROOT, "Tool", "P0020-Data-Box");
+    return {
+      command: nodeExe,
+      args: [path.join(cwd, "scripts", "p0020-quota-probe-api.mjs")],
+      cwd,
+      desc: "p0020-quota-probe-api",
+    };
+  }
+  if (workerKey === "P0002") {
+    const cwd = path.join(DEV_ROOT, "Tool", "P0002-Social-Hub");
+    return {
+      command: nodeExe,
+      args: [path.join(cwd, "server", "social-hub-api.mjs")],
+      cwd,
+      desc: "social-hub-api",
+    };
+  }
+  const prod = doc.products?.[target.code];
+  const toolRel = String(target.toolRoot || prod?.root || "").trim();
+  if (toolRel && prod?.ensureScript) {
+    const cwd = path.join(DEV_ROOT, "Tool", toolRel);
+    const scriptPath = path.join(cwd, prod.ensureScript);
+    if (fs.existsSync(scriptPath)) {
+      return {
+        command: nodeExe,
+        args: [scriptPath],
+        cwd,
+        desc: `${target.code}/${prod.ensureScript}`,
+      };
+    }
   }
   const lean = path.join(DEV_ROOT, "Tool", "scripts", "ensure-dev-lean.cjs");
-  /** Desk Start = vite-only: never cascade dependsOn (P0005→P0016 audit can fail the whole tree). */
-  const args = [lean, upper, "--vite-only"];
-  if (mode === "recover") {
-    appendTerminalLine(upper, "runner", opsConsoleCmd(`recover ${upper} via ensure-dev-lean --vite-only`));
-  } else if (mode === "restart") {
-    args.push("--force");
-    appendTerminalLine(upper, "runner", opsConsoleCmd(`ensure-dev-lean ${upper} --vite-only --force`));
-  } else {
-    appendTerminalLine(upper, "runner", opsConsoleCmd(`ensure-dev-lean ${upper} --vite-only`));
-  }
-  const logFile = terminalLogPath(upper, "runner");
-  appendTerminalLine(upper, "runner", opsConsoleOk(`ensure-dev-lean ${upper} pid pending`));
-  const out = fs.openSync(logFile, "a");
-  const nodeExe = resolveNodeExe();
-  const isSelfElectron = nodeExe === process.execPath && Boolean(process.versions?.electron || process.env.ELECTRON_RUN_AS_NODE);
-  const startedAt = Date.now();
-  const child = spawn(nodeExe, args, {
+  return {
+    command: nodeExe,
+    args: [lean, target.code, "--vite-only"],
     cwd: DEV_ROOT,
-    detached: true,
+    desc: `ensure-dev-lean ${target.code} --vite-only`,
+  };
+}
+
+export async function startRunner(code, mode = "start") {
+  const doc = loadPorts();
+  const target = resolveRunnerTarget(code, doc);
+  const rawUpper = String(code).toUpperCase();
+  const outcomeKey = String(target?.id || rawUpper).toUpperCase();
+  const logTarget = target?.id || rawUpper;
+  const codeUpper = String(target?.code || rawUpper).toUpperCase();
+  const isWorker = target?.kind === "worker";
+
+  if (!isWorker && (mode === "start" || mode === "restart")) {
+    setRunnerWatchdogPinned(codeUpper, true);
+  }
+  if (isWorker && mode === "restart" && target?.port) {
+    await stopRunner(logTarget, { portOverride: target.port });
+  }
+
+  const nodeExe = resolveNodeExe();
+  let spawnCmd = nodeExe;
+  let spawnCwd = DEV_ROOT;
+  let args;
+  let cmdSummary;
+
+  if (isWorker && target) {
+    const spec = resolveWorkerLaunchSpec(target, doc, nodeExe);
+    spawnCmd = spec.command;
+    spawnCwd = spec.cwd;
+    args = spec.args;
+    cmdSummary = `${mode} ${logTarget} via ${spec.desc}`;
+  } else {
+    const lean = path.join(DEV_ROOT, "Tool", "scripts", "ensure-dev-lean.cjs");
+    /** Desk Start = vite-only: never cascade dependsOn (P0005→P0016 audit can fail the whole tree). */
+    args = [lean, codeUpper, "--vite-only"];
+    if (mode === "restart") {
+      args.push("--force");
+      cmdSummary = `ensure-dev-lean ${codeUpper} --vite-only --force`;
+    } else if (mode === "recover") {
+      cmdSummary = `recover ${codeUpper} via ensure-dev-lean --vite-only`;
+    } else {
+      cmdSummary = `ensure-dev-lean ${codeUpper} --vite-only`;
+    }
+  }
+
+  appendTerminalLine(logTarget, "runner", opsConsoleCmd(cmdSummary));
+  const logFile = terminalLogPath(logTarget, "runner");
+  appendTerminalLine(logTarget, "runner", opsConsoleOk(`${logTarget} pid pending`));
+  const isSelfElectron = spawnCmd === process.execPath && Boolean(process.versions?.electron || process.env.ELECTRON_RUN_AS_NODE);
+  const startedAt = Date.now();
+  const childEnv = { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" };
+  const winShellPath = path.join(DEV_ROOT, "Tool", "scripts", "lib", "win-shell-env.cjs");
+  if (process.platform === "win32" && fs.existsSync(winShellPath)) {
+    try {
+      const { startHiddenDetachedProcessAsync } = require(winShellPath);
+      if (typeof startHiddenDetachedProcessAsync === "function") {
+        const hiddenPid = await startHiddenDetachedProcessAsync({
+          command: spawnCmd,
+          args,
+          cwd: spawnCwd,
+          logFile,
+          env: childEnv,
+        });
+        if (hiddenPid) {
+          startOutcome.set(outcomeKey, { pid: hiddenPid, startedAt });
+          cache = { at: 0, rows: [] };
+          return hiddenPid;
+        }
+      }
+    } catch {
+      /* fall through to spawn */
+    }
+  }
+  const out = fs.openSync(logFile, "a");
+  const child = spawn(spawnCmd, args, {
+    cwd: spawnCwd,
+    detached: process.platform !== "win32",
     stdio: ["ignore", out, out],
     windowsHide: true,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: isSelfElectron ? "1" : "" },
+    env: childEnv,
   });
   child.unref();
   try {
@@ -439,48 +628,48 @@ export function startRunner(code, mode = "start") {
     /* ignore */
   }
   const pid = child.pid;
-  startOutcome.set(upper, { pid, startedAt });
+  startOutcome.set(outcomeKey, { pid, startedAt });
   cache = { at: 0, rows: [] };
   child.on("exit", (exitCode, signal) => {
     const codeNum = exitCode == null && signal ? 2048 : exitCode;
-    const prev = startOutcome.get(upper) || { pid, startedAt };
-    startOutcome.set(upper, {
+    const prev = startOutcome.get(outcomeKey) || { pid, startedAt };
+    startOutcome.set(outcomeKey, {
       ...prev,
       exitedAt: Date.now(),
       exitCode: codeNum,
     });
     cache = { at: 0, rows: [] };
     if (codeNum && codeNum !== 0) {
-      appendTerminalLine(upper, "runner", opsConsoleErr(`Runner [${upper}] start error: ${codeNum}`));
+      appendTerminalLine(logTarget, "runner", opsConsoleErr(`Runner [${logTarget}] start error: ${codeNum}`));
       appendOpsHistory({
         kind: "runner",
-        targetId: upper,
+        targetId: logTarget,
         action: mode,
         ok: false,
-        message: `Runner [${upper}] start error ${codeNum}`,
+        message: `Runner [${logTarget}] start error ${codeNum}`,
         pid,
         exitCode: codeNum,
       });
     } else {
       // ensure-dev-lean parent exits 0 after Vite detach — runner stays Up; not a crash.
       appendTerminalLine(
-        upper,
+        logTarget,
         "runner",
-        opsConsoleOk(`${mode} ${upper} ensure detached (Vite stays up)`),
+        opsConsoleOk(`${mode} ${logTarget} ensure detached (Vite stays up)`),
       );
     }
   });
   child.on("error", (err) => {
     const message = err instanceof Error ? err.message : String(err);
-    startOutcome.set(upper, { pid: pid || 0, startedAt, exitedAt: Date.now(), exitCode: 2048 });
+    startOutcome.set(outcomeKey, { pid: pid || 0, startedAt, exitedAt: Date.now(), exitCode: 2048 });
     cache = { at: 0, rows: [] };
-    appendTerminalLine(upper, "runner", opsConsoleErr(`Runner [${upper}] start error: 2048 (${message})`));
+    appendTerminalLine(logTarget, "runner", opsConsoleErr(`Runner [${logTarget}] start error: 2048 (${message})`));
     appendOpsHistory({
       kind: "runner",
-      targetId: upper,
+      targetId: logTarget,
       action: mode,
       ok: false,
-      message: `Runner [${upper}] start error 2048`,
+      message: `Runner [${logTarget}] start error 2048`,
       pid,
       exitCode: 2048,
     });
@@ -572,7 +761,7 @@ export async function runRunnerWatchdogTick(opts = {}) {
       watchdogHungStreak.set(code, 0);
       lastWatchdogHealAt.set(code, now);
       const mode = tcpUp ? "restart" : "recover";
-      const pid = startRunner(code, mode);
+      const pid = await startRunner(code, mode);
       const entry = { code, port: target.port, mode, pid, healedAt: tickIso };
       healed.push(entry);
       appendOpsHistory({

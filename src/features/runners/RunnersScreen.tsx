@@ -27,6 +27,14 @@ function runnerLabel(row: RunnerRow): string {
 function toRow(row: RunnerRow): DeskRow {
   const summary = row.up ? `Listening on ${row.url}` : `Stopped (${row.url})`;
   const probedAt = row.probedAt || new Date().toISOString();
+  const latestActionMs = Math.max(
+    typeof row.startExitedAt === "number" ? row.startExitedAt : 0,
+    typeof row.startStartedAt === "number" ? row.startStartedAt : 0,
+  );
+  const updatedAt =
+    row.updatedAt ||
+    (latestActionMs > 0 ? new Date(latestActionMs).toISOString() : probedAt);
+  const createdAt = row.createdAt || updatedAt;
   return {
     id: row.id,
     name: runnerLabel(row),
@@ -35,14 +43,13 @@ function toRow(row: RunnerRow): DeskRow {
     log: summary,
     activityLog: [
       {
-        at: probedAt,
+        at: updatedAt,
         message: summary,
         actor: { label: row.code, source: "system" },
       },
     ],
-    updated: row.url,
-    updatedKind: "text",
-    createdAt: "2026-10-15T00:00:00.000Z",
+    updated: updatedAt,
+    createdAt,
     statusTone: row.up ? "online" : "off",
     opsKind: "runner",
     opsUp: row.up,
@@ -213,23 +220,23 @@ export function RunnersScreen() {
     [beginPhase, clearPhase, refresh, refreshBurst, setFocusedId],
   );
 
-  const codesOf = (ids: string[]) =>
-    ids.map((id) => rawRef.current.find((r) => r.id === id)?.code).filter((c): c is string => Boolean(c));
-
   const run = (ids: string[], mode: "start" | "restart" | "recover" | "stop") => {
     const kind: DeskOpsAction = mode === "stop" ? "stopping" : "starting";
-    for (const id of ids) beginPhase(id, kind);
-    void Promise.all(codesOf(ids).map((c) => deskApi.runnerAction(c, mode === "stop" ? "stop" : mode)))
+    const targetIds = ids
+      .map((id) => rawRef.current.find((r) => r.id === id)?.id || id)
+      .filter((id): id is string => Boolean(id));
+    for (const id of targetIds) beginPhase(id, kind);
+    void Promise.all(targetIds.map((targetId) => deskApi.runnerAction(targetId, mode === "stop" ? "stop" : mode)))
       .then(() => {
-        appendDeskOpsLog(`${mode} ${ids.length} runner(s)`, "info", "runner");
-        emitHubAppLog({ scope: "P0001", screen: "runners", kind: "update", message: `${mode} ${ids.length} runner(s)` });
+        appendDeskOpsLog(`${mode} ${targetIds.length} runner(s)`, "info", "runner");
+        emitHubAppLog({ scope: "P0001", screen: "runners", kind: "update", message: `${mode} ${targetIds.length} runner(s)` });
         refreshBurst(90_000, 1500);
         return refresh();
       })
       .catch((err) => {
         const message = err instanceof Error ? err.message : String(err);
         appendDeskOpsLog(`Failed: ${message}`, "error", "runner");
-        for (const id of ids) clearPhase(id);
+        for (const id of targetIds) clearPhase(id);
       });
   };
 
@@ -247,9 +254,10 @@ export function RunnersScreen() {
     (id: string) => {
       const raw = rawRef.current.find((row) => row.id === id);
       if (!raw || raw.up) return;
-      void withAction(id, "starting", `start ${raw.code}`, async () => {
-        await deskApi.runnerAction(raw.code, "start");
-        emitHubAppLog({ scope: "P0001", screen: "runners", kind: "update", message: `start ${raw.code}` });
+      const label = raw.kind === "worker" ? `${raw.code} host API` : raw.code;
+      void withAction(id, "starting", `start ${label}`, async () => {
+        await deskApi.runnerAction(raw.id, "start");
+        emitHubAppLog({ scope: "P0001", screen: "runners", kind: "update", message: `start ${label}` });
       });
     },
     [withAction],
@@ -259,9 +267,10 @@ export function RunnersScreen() {
     (id: string) => {
       const raw = rawRef.current.find((row) => row.id === id);
       if (!raw || !raw.up) return;
-      void withAction(id, "stopping", `stop ${raw.code}`, async () => {
-        await deskApi.runnerAction(raw.code, "stop");
-        emitHubAppLog({ scope: "P0001", screen: "runners", kind: "update", message: `stop ${raw.code}` });
+      const label = raw.kind === "worker" ? `${raw.code} host API` : raw.code;
+      void withAction(id, "stopping", `stop ${label}`, async () => {
+        await deskApi.runnerAction(raw.id, "stop");
+        emitHubAppLog({ scope: "P0001", screen: "runners", kind: "update", message: `stop ${label}` });
       });
     },
     [withAction],

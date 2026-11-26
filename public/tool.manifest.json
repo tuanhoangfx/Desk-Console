@@ -31,7 +31,8 @@
       "jobs",
       "drives",
       "runners",
-      "cron"
+      "cron",
+      "apps"
     ],
     "userFooter": "workspace"
   },
@@ -200,18 +201,18 @@
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.246",
+    "version": "3.1.266",
     "latestPublished": {
-      "tag": "v3.1.246",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.246",
-      "publishedAt": "2026-11-17T23:18:40Z",
+      "tag": "v3.1.256",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.256",
+      "publishedAt": "2026-11-18T11:53:04Z",
       "asset": {
-        "name": "Desk-Console-Setup-3.1.246.exe",
-        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.246/Desk-Console-Setup-3.1.246.exe",
-        "size": 124057037,
-        "sha256": "36c0e916abebafb1f51d9e6fa47f062948e23800941d0a05fe8aa1117ff196c3",
-        "sha512": "O2/MoWEKZKbB9fMm1qAFCaHBQ/jEnIYutGNCdX/gohDUysLbKuLhFWlOCQ3MLcuuKs2BwDf+Zf7TU+QY8khF6w==",
-        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.246/latest.yml"
+        "name": "Desk-Console-Setup-3.1.256.exe",
+        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.256/Desk-Console-Setup-3.1.256.exe",
+        "size": 125359374,
+        "sha256": "6de44bb20e631076853c095d054b0f2a7e7fe4db7b990ee876b21903a7a53420",
+        "sha512": "BcFqpbH6uk02XzWjPh75lALjkOL+a1SiVpO1KERekAl9pMsYuepizZdGAtudfY6S+kTtm+G9BUTdO6spkZeL6A==",
+        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.256/latest.yml"
       }
     }
   },
@@ -221,7 +222,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-17T23:25:26.791Z",
+  "manifestUpdatedAt": "2026-11-26T22:05:39.458Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -246,7 +247,7 @@
     "syncedAt": "2026-10-28T17:14:22.333Z"
   },
   "versions": {
-    "latestPublished": "3.1.246",
-    "current": "3.1.246"
+    "latestPublished": "3.1.256",
+    "current": "3.1.266"
   }
 }

@@ -16,6 +16,7 @@ import {
 
 const require = createRequire(import.meta.url);
 const { DEV_DIR } = require("../../electron/lib/user-data-root.cjs");
+const { startHiddenDetachedProcess } = require("../../../scripts/lib/win-shell-env.cjs");
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const PID_FILE = path.join(root, ".dev-desktop.pid");
@@ -177,16 +178,29 @@ export function killDeskDev() {
 }
 
 export function startDevDetached() {
-  const logFd = fs.openSync(LOG_FILE, "a");
   fs.writeFileSync(LOG_FILE, `\n--- dev start ${new Date().toISOString()} ---\n`, { flag: "a" });
+  const env = deskElectronEnv({
+    DESK_DEV_LOG: "1",
+    VITE_DEV_SERVER_URL: `http://127.0.0.1:${DESK_VITE_PORT}/`,
+  });
+  if (process.platform === "win32") {
+    const pid = startHiddenDetachedProcess({
+      command: process.execPath,
+      args: [path.join(root, "scripts", "dev-node.mjs")],
+      cwd: root,
+      logFile: LOG_FILE,
+      pidFile: PID_FILE,
+      writePid: (fp, p) => fs.writeFileSync(fp, String(p)),
+      env,
+    });
+    return pid;
+  }
+  const logFd = fs.openSync(LOG_FILE, "a");
   const child = spawn(process.execPath, [path.join(root, "scripts", "dev-node.mjs")], winSpawnOpts({
     cwd: root,
     detached: true,
     stdio: ["ignore", logFd, logFd],
-    env: deskElectronEnv({
-      DESK_DEV_LOG: "1",
-      VITE_DEV_SERVER_URL: `http://127.0.0.1:${DESK_VITE_PORT}/`,
-    }),
+    env,
   }));
   child.unref();
   fs.writeFileSync(PID_FILE, String(child.pid));

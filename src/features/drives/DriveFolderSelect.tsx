@@ -50,7 +50,7 @@ export function DriveFolderSelect({ remoteName, folder, disabled, onUseFolder }:
           {browsePath || "(Drive root)"}
         </span>
         <HubBulkActionButton
-          icon={<FolderOpen size={14} aria-hidden />}
+          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📂</span>}
           label="Use this folder"
           title="Sync this Drive folder"
           tone="sky"

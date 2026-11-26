@@ -1,3 +1,7 @@
+import {
+  withDesktopHubAuthHeaders,
+  type DesktopAuthBootTelemetry,
+} from "@tool-workspace/hub-identity";
 import { fetchDeskHost, resolveDeskApiOrigin } from "./host-fetch-recovery";
 
 function apiOrigin(): string {
@@ -5,7 +9,7 @@ function apiOrigin(): string {
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers);
+  const headers = withDesktopHubAuthHeaders(init?.headers);
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -64,6 +68,8 @@ export type RunnerRow = {
   port: number;
   url: string;
   up: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   toolRoot?: string;
   stack?: string;
   probePath?: string;
@@ -123,8 +129,18 @@ export type OpsHistoryEntry = {
   action: string;
   ok: boolean;
   message: string;
+  reclaimedBytes?: number;
   pid?: number;
 };
+
+/** Format reclaimed disk bytes concisely for P0001 Dashboard & Ops History badges. */
+export function formatDiskBytesLabel(bytes: number | undefined | null): string {
+  const n = Number(bytes || 0);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return n >= 1024 * 1024
+    ? `${(n / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(n / 1024))} KB`;
+}
 
 export type OpsConsoleEntry = {
   id: string;
@@ -275,6 +291,243 @@ export type PcOptimizeAction =
   | "sweep-antigravity"
   | "deep-maintenance";
 
+export type PcBackupStep = {
+  id: string;
+  label: string;
+  status: "pending" | "running" | "ok" | "warn" | "error" | "skipped" | string;
+  ok: boolean | null;
+  detail?: string;
+};
+
+export type PcBackupStatusPayload = {
+  ok: boolean;
+  backupRoot: string;
+  scriptAvailable: boolean;
+  status: "never" | "running" | "ok" | "error" | string;
+  health: "unconfigured" | "running" | "protected" | "partial" | "overdue" | "warning" | string;
+  mode: "full" | "critical" | string;
+  phase: string;
+  phaseLabel: string;
+  percent: number;
+  pid: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  lastSuccessAt: string | null;
+  ageHours: number | null;
+  durationMs: number | null;
+  transferred: string | null;
+  total: string | null;
+  speed: string | null;
+  eta: string | null;
+  filesDone: number | null;
+  filesTotal: number | null;
+  archiveName: string | null;
+  archiveBytes: number;
+  stealthCoreName?: string | null;
+  stealthCoreBytes?: number;
+  stealthCoreProfileCount?: number;
+  stealthCoreAt?: string | null;
+  pixelTgxAccountCount?: number;
+  pixelTgxBytes?: number;
+  pixelTgxAt?: string | null;
+  localBytes: number;
+  localMirrorBytes: number;
+  localArchiveCount: number;
+  offsiteGdriveOk: boolean;
+  offsiteGdriveTarget: string;
+  offsiteGdriveRetained: number;
+  offsiteLenovoOk: boolean;
+  offsiteLenovoTarget: string;
+  offsiteLenovoRetained: number;
+  dirtyGitCount: number;
+  cleanGitCount: number;
+  systemRecoveryOk: boolean;
+  vssActive?: boolean;
+  vssDrives?: string[];
+  steps: PcBackupStep[];
+  error: string | null;
+  schtask: {
+    name: string;
+    status: string;
+    schedule: string;
+    lastRun: string;
+    nextRun: string;
+    lastResult: string;
+  } | null;
+  logPath: string;
+  logTail: string[];
+  healthDrill?: {
+    ok: boolean;
+    checkedAt: string;
+    lastSuccessAt: string | null;
+    ageHours: number | null;
+    archiveName: string | null;
+    localArchiveCount: number;
+    drillOk: boolean;
+    drillEntries: number;
+    drillHasRecovery: boolean;
+    stealthArchiveName?: string | null;
+    stealthDrillOk?: boolean;
+    stealthDrillEntries?: number;
+    pixelTgxDrillOk?: boolean;
+    pixelTgxDrillEntries?: number;
+    pixelTgxAccountCount?: number;
+    cloudArchiveCount: number;
+    cloudLatestArchivePresent: boolean;
+    cloudStatePresent: boolean;
+    cloudMirrorDirs: string[];
+    alerts: string[];
+  } | null;
+  systemImage?: {
+    ok: boolean;
+    hasleoInstalled: boolean;
+    state: "ready" | "awaiting-disk" | "awaiting-task" | "missing-hasleo" | "error" | string;
+    ready: boolean;
+    summary: string;
+    secondaryDisks?: Array<{ Number: number; FriendlyName: string; BusType: string; SizeGB: number }>;
+    tasks?: Array<{ guid: string; name: string }>;
+  } | null;
+};
+
+export type HardwareSensorGpu = {
+  name: string;
+  tempC: number | null;
+  hotSpotC?: number | null;
+  fanPercent: number | null;
+  fanRpm?: number | null;
+  powerDrawW: number | null;
+  powerLimitW: number | null;
+  utilPercent: number | null;
+  memUtilPercent: number | null;
+  vramUsedMB: number | null;
+  vramTotalMB: number | null;
+  graphicsClockMHz: number | null;
+  memoryClockMHz: number | null;
+  pstate: string | null;
+  pcieGen: number | null;
+  pcieGenMax: number | null;
+  pcieLinkWidth: number | null;
+  pcieLinkWidthMax: number | null;
+  pcieDowngraded?: boolean;
+  throttleFlags: string;
+};
+
+export type HardwareSensorCpuSocket = {
+  name: string;
+  packageTempC: number | null;
+  coreMaxTempC: number | null;
+  coreAvgTempC: number | null;
+  packagePowerW: number | null;
+  loadPercent: number | null;
+};
+
+export type HardwareSensorStorage = {
+  name: string;
+  tempC: number | null;
+  tempMaxC?: number | null;
+  lifePercent: number | null;
+  powerOnHours?: number | null;
+  healthOk?: boolean;
+  recordedAt?: string;
+  source: "lhm" | "crystaldiskinfo" | "watchdog" | string;
+};
+
+export type HardwareSensorsPayload = {
+  ok: boolean;
+  sampledAt: string;
+  health: "healthy" | "warn" | "critical" | string;
+  lhmReachable: boolean;
+  tools: {
+    lhm: boolean;
+    occt: boolean;
+    crystaldiskinfo: boolean;
+  };
+  tuning?: {
+    powerPlanGuid: string | null;
+    powerPlanName: string | null;
+    cpuMinPct: number | null;
+    cpuMaxPct?: number | null;
+    gpuPowerMizerLevel: number | null;
+    gpuPowerMizerMode: string | null;
+    gpuDrsPowerMode?: number | null;
+    gpuDrsPowerModeLabel?: string | null;
+    nicEeeEnabled: boolean | null;
+  } | null;
+  sensorLogger?: {
+    running: boolean;
+    pid: number | null;
+    csvRows: number;
+    lastSampleAt: string | null;
+    cpuLoadPct: number | null;
+    v12: number | null;
+    v33?: number | null;
+    v33MinRecent?: number | null;
+    v33BelowCount?: number;
+    topProc: string | null;
+  } | null;
+  cpu: {
+    sockets: HardwareSensorCpuSocket[];
+    packageTempC: number | null;
+    coreMaxTempC: number | null;
+    totalPackagePowerW: number | null;
+  };
+  gpu: HardwareSensorGpu | null;
+  storage: HardwareSensorStorage[];
+  motherboard: {
+    name: string;
+    temps: Array<{ name: string; valueC: number }>;
+    fans: Array<{ name: string; rpm: number }>;
+    voltage12V: number | null;
+    voltage33V?: number | null;
+    voltageAvccV?: number | null;
+  } | null;
+  stability: {
+    unexpectedShutdowns7d: number;
+    wheaErrors7d: number;
+    displayTdrs7d: number;
+    recentEvents: Array<{
+      at: string;
+      id: number;
+      provider: string;
+      message: string;
+    }>;
+  };
+  alerts: Array<{
+    severity: "warn" | "critical" | string;
+    code: string;
+    message: string;
+  }>;
+};
+
+export type HardwareHistoryPoint = {
+  ts: string;
+  gpuTempC: number | null;
+  gpuHotSpotC: number | null;
+  gpuPowerW: number | null;
+  cpuTempC: number | null;
+  ssdTempC: number | null;
+  pcieWidth: number | null;
+  v12?: number | null;
+  v33?: number | null;
+  cpuLoadPct?: number | null;
+  topProc?: string | null;
+};
+
+export type PcBackupSnapshotEntry = {
+  name: string;
+  bytes: number;
+  mtime: string | null;
+  source: "local" | "gdrive" | "lenovo" | string;
+};
+
+export type PcBackupSnapshotsResponse = {
+  ok: boolean;
+  source: string;
+  critical: Record<string, PcBackupSnapshotEntry[]>;
+  stealthCore: Record<string, PcBackupSnapshotEntry[]>;
+  error?: string;
+};
+
 export type PcOptimizeResult = {
   ok: boolean;
   action: string;
@@ -340,7 +593,7 @@ function mergeOpsRows(runners: RunnerRow[], tasks: TaskRow[]): OpsRow[] {
     name: `${row.code} · ${row.name}`,
     status: row.up ? "Up" : "Down",
     detail: `${row.kind} :${row.port}`,
-    updated: row.url,
+    updated: row.updatedAt || row.probedAt || "",
     up: row.up,
     port: row.port,
     url: row.url,
@@ -364,7 +617,10 @@ export type TelemetryHistoryPoint = {
 };
 
 export const deskApi = {
-  health: () => req<{ ok: boolean; cursorRunning: boolean }>("/api/health"),
+  health: () =>
+    req<{ ok: boolean; cursorRunning: boolean; authTelemetry?: DesktopAuthBootTelemetry | null }>(
+      "/api/health",
+    ),
   hotkeys: () => req<DeskHotkeys>("/api/hotkeys"),
   saveHotkeys: (body: { picker?: string }) =>
     req<DeskHotkeys>("/api/hotkeys", { method: "PUT", body: JSON.stringify(body) }),
@@ -394,8 +650,11 @@ export const deskApi = {
   listRunners: async () => (await deskApi.runners()).rows,
   getRunnerWatchdog: () =>
     req<{ ok: boolean; watchdog?: { enabled?: boolean; pinned?: string[] } }>("/api/runners/watchdog"),
-  runnerAction: (code: string, mode: "start" | "restart" | "recover" | "stop") =>
-    req(`/api/runners/${encodeURIComponent(code)}/${mode}`, { method: "POST" }),
+  runnerAction: (idOrCode: string, mode: "start" | "restart" | "recover" | "stop") =>
+    req(`/api/runners/${encodeURIComponent(idOrCode)}/${mode}`, {
+      method: "POST",
+      signal: AbortSignal.timeout(25_000),
+    }),
   tasks: async () => ({ rows: rowsOf(await req<{ rows: TaskRow[] }>("/api/tasks")) }),
   listTasks: async () => (await deskApi.tasks()).rows,
   createTask: (body: {
@@ -478,10 +737,80 @@ export const deskApi = {
       stores: string[];
     }>("/api/meta"),
   hostMetrics: () => req<DeskHostMetrics>("/api/host-metrics"),
+  hardwareSensors: (force = false) =>
+    req<HardwareSensorsPayload>(`/api/hardware/sensors${force ? "?force=1" : ""}`, {
+      signal: AbortSignal.timeout(12000),
+    }),
+  hardwareHistory: () =>
+    req<{ ok: boolean; rows: HardwareHistoryPoint[] }>("/api/hardware/history").then((r) => rowsOf(r)),
+  launchHardwareTool: (tool: "lhm" | "occt" | "crystaldiskinfo") =>
+    req<{ ok: boolean; tool?: string; path?: string; error?: string }>("/api/hardware/launch", {
+      method: "POST",
+      body: JSON.stringify({ tool }),
+    }),
   telemetryHistory: () =>
     req<{ ok: boolean; rows: TelemetryHistoryPoint[] }>("/api/telemetry/history").then((r) => rowsOf(r)),
   pcDiagnostics: () =>
     req<PcDiagnosticsPayload>("/api/pc/diagnostics", { signal: AbortSignal.timeout(25000) }),
+  pcBackupStatus: () =>
+    req<PcBackupStatusPayload>("/api/pc/backup", { signal: AbortSignal.timeout(10000) }),
+  runPcBackup: (mode: "full" | "critical" = "full") =>
+    req<{
+      ok: boolean;
+      started: boolean;
+      alreadyRunning?: boolean;
+      mode?: string;
+      pid?: number | null;
+      error?: string;
+      status: PcBackupStatusPayload;
+    }>("/api/pc/backup/run", {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+      signal: AbortSignal.timeout(10000),
+    }),
+  runPcBackupDrill: () =>
+    req<{
+      ok: boolean;
+      error?: string;
+      drill: PcBackupStatusPayload["healthDrill"];
+      status: PcBackupStatusPayload;
+    }>("/api/pc/backup/drill", {
+      method: "POST",
+      body: "{}",
+      signal: AbortSignal.timeout(45000),
+    }),
+  pcBackupSnapshots: (source: "all" | "local" | "gdrive" | "lenovo" = "all") =>
+    req<PcBackupSnapshotsResponse>(`/api/pc/backup/snapshots?source=${encodeURIComponent(source)}`, {
+      signal: AbortSignal.timeout(45000),
+    }),
+  runPcBackupRestore: (payload: {
+    source: "local" | "gdrive" | "lenovo";
+    snapshot?: string;
+    stealthCore?: boolean;
+    restoreLive?: boolean;
+    target?: string;
+  }) =>
+    req<{
+      ok: boolean;
+      error?: string;
+      criticalSnapshot?: string;
+      stealthCoreSnapshot?: string | null;
+      extractedCriticalDir?: string;
+      extractedStealthCoreDir?: string | null;
+      restoreLive?: boolean;
+      restoredLive?: Array<{ to: string; files: number }>;
+      gitPatchesHint?: string;
+    }>("/api/pc/backup/restore", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(300_000),
+    }),
+  runHasleoSystemImage: (payload?: { guid?: string; type?: string }) =>
+    req<{ ok: boolean; error?: string; guid?: string }>("/api/pc/backup/system-image/run", {
+      method: "POST",
+      body: JSON.stringify(payload || {}),
+      signal: AbortSignal.timeout(60_000),
+    }),
   pcOptimize: (action: PcOptimizeAction | "deep-maintenance" = "all") =>
     req<PcOptimizeResult>("/api/pc/optimize", {
       method: "POST",
@@ -521,7 +850,7 @@ export const deskApi = {
     req<{ ok: boolean; message?: string; error?: string; appsState?: ManagedAppsResponse }>("/api/apps/action", {
       method: "POST",
       body: JSON.stringify({ action, ...payload }),
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(action === "fetch-all-releases" ? 300000 : 45000),
     }),
 };
 
@@ -536,12 +865,16 @@ export type ManagedAppRow = {
   installed: boolean;
   isRunning?: boolean;
   runningPids?: number[];
+  memoryBytes?: number;
+  memoryMb?: number;
   status: string;
   updatePinned: boolean;
   extensionsPinned?: boolean;
   aclLocked: boolean;
   pendingUpdatePresent: boolean;
   pendingFileName?: string | null;
+  primaryLockConflict?: { pid: number; version: string; exePath: string; reason: string } | null;
+  brokenTaskbarPins?: Array<{ shortcutPath: string; fileName: string; version: string; targetPath: string }>;
   exePath: string | null;
   visualTheme?: string;
   boundEmail?: string | null;
@@ -554,6 +887,7 @@ export type ManagedAppRow = {
   vsixExtensions?: Array<{ id: string; fileName: string; version: string; scope: string; path: string; sizeBytes?: number }>;
   detail: string;
   log: string;
+  createdAt?: string;
   updated: string;
 };
 
