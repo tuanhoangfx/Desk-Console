@@ -1,6 +1,21 @@
 {
-  "generatedAt": "2026-11-26T22:06:20.141Z",
+  "generatedAt": "2026-11-26T22:21:13.557Z",
   "entries": [
+    {
+      "version": "3.1.267",
+      "date": "2026-11-27",
+      "at": "2026-11-27T05:20:00+07:00",
+      "title": "fix(build): order vite hub-identity regex alias",
+      "bullets": [
+        "Ensure sub-path regex alias precedes exact @tool-workspace/hub-identity alias in vite.config.ts."
+      ],
+      "kind": "fix",
+      "userTitle": "Order vite hub-identity regex alias",
+      "userSummary": "",
+      "userHighlights": [
+        "Ensure sub-path regex alias precedes exact @tool-workspace hub-identity alias in ."
+      ]
+    },
     {
       "version": "3.1.266",
       "date": "2026-11-27",
@@ -164,21 +179,6 @@
       "userSummary": "",
       "userHighlights": [
         "Display PC-Optimizer reclaimed disk bytes in Dashboard Cron & PC Hygiene card and Desk Ops Runtim…"
-      ]
-    },
-    {
-      "version": "3.1.253",
-      "date": "2026-11-18",
-      "at": "2026-11-18T16:50:00+07:00",
-      "title": "Antigravity multi-version vault controls, Stop v* button & Archive All Public",
-      "bullets": [
-        "Replaced Antigravity Primary status/actions with version-first Antigravity Vault labels, added Stop v* runtime action and Archive All Public GCS installer button in AppVersionDetailModal."
-      ],
-      "kind": "improve",
-      "userTitle": "Antigravity multi-version vault controls, Stop v* button & Archive Al…",
-      "userSummary": "",
-      "userHighlights": [
-        "Replaced Antigravity Primary status actions with version-first Antigravity Vault labels, added St…"
       ]
     }
   ]

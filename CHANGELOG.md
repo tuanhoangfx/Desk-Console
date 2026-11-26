@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-27 - fix(build): order vite hub-identity regex alias
+
+- Version: `3.1.267`
+- Timestamp: 2026-11-27 05:20 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Ensure sub-path regex alias precedes exact @tool-workspace/hub-identity alias in vite.config.ts.
+
+### Verification
+
+- tsc --noEmit + desk-host.test.mjs (71/71)
+
+---
 ## 2026-11-27 - fix(host): enforce non-blocking async spawns across HTTP host modules
 
 - Version: `3.1.266`
