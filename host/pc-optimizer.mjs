@@ -24,6 +24,9 @@ const require = createRequire(import.meta.url);
 let cachedLocalSqliteOpen = null;
 
 function openLocalSqlite(filePath, { readOnly = false } = {}) {
+  if (process.versions?.electron) {
+    throw new Error("in-process sqlite disabled inside Electron host (use runNodeSqliteBridge)");
+  }
   if (!cachedLocalSqliteOpen) {
     let BetterSqlite = null;
     if (DEV_ROOT) {
@@ -54,7 +57,7 @@ function openLocalSqlite(filePath, { readOnly = false } = {}) {
 function runNodeSqliteBridge(scriptBody, stdinPayload) {
   const nodeBin = resolveFarmCuiNodeExe();
   if (!nodeBin || nodeBin === process.execPath || !fs.existsSync(nodeBin)) return null;
-  const out = execFileSync(nodeBin, ["--input-type=commonjs", "-e", scriptBody], {
+  const out = execFileSync(nodeBin, ["--no-warnings=ExperimentalWarning", "--input-type=commonjs", "-e", scriptBody], {
     input: JSON.stringify(stdinPayload),
     encoding: "utf8",
     windowsHide: true,
@@ -107,23 +110,33 @@ function cleanAntigravitySummaryDb(sumDbPath, activeIds, { allowVacuum = false }
     try {
       sdb = openLocalSqlite(sumDbPath);
       sdb.exec("PRAGMA busy_timeout = 3000;");
-      const delSum = sdb.prepare("DELETE FROM conversation_summaries WHERE conversation_id = ?");
-      const delFts = sdb.prepare("DELETE FROM conversations_fts WHERE conversation_id = ?");
+      const hasFts = Boolean(
+        sdb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversations_fts' LIMIT 1").get(),
+      );
+      const hasSum = Boolean(
+        sdb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversation_summaries' LIMIT 1").get(),
+      );
+      const delSum = hasSum ? sdb.prepare("DELETE FROM conversation_summaries WHERE conversation_id = ?") : null;
+      const delFts = hasFts ? sdb.prepare("DELETE FROM conversations_fts WHERE conversation_id = ?") : null;
       let dbRemoved = 0;
       sdb.exec("BEGIN IMMEDIATE;");
-      const curRows = sdb.prepare("SELECT conversation_id FROM conversation_summaries").all();
-      for (const r of curRows) {
-        if (!activeIds.has(r.conversation_id)) {
-          delSum.run(r.conversation_id);
-          delFts.run(r.conversation_id);
-          dbRemoved += 1;
+      if (delSum) {
+        const curRows = sdb.prepare("SELECT conversation_id FROM conversation_summaries").all();
+        for (const r of curRows) {
+          if (!activeIds.has(r.conversation_id)) {
+            delSum.run(r.conversation_id);
+            delFts?.run(r.conversation_id);
+            dbRemoved += 1;
+          }
         }
       }
-      const ftsRows = sdb.prepare("SELECT DISTINCT conversation_id FROM conversations_fts").all();
-      for (const r of ftsRows) {
-        if (!activeIds.has(r.conversation_id)) {
-          delFts.run(r.conversation_id);
-          dbRemoved += 1;
+      if (delFts) {
+        const ftsRows = sdb.prepare("SELECT DISTINCT conversation_id FROM conversations_fts").all();
+        for (const r of ftsRows) {
+          if (!activeIds.has(r.conversation_id)) {
+            delFts.run(r.conversation_id);
+            dbRemoved += 1;
+          }
         }
       }
       sdb.exec("COMMIT;");
@@ -131,7 +144,7 @@ function cleanAntigravitySummaryDb(sumDbPath, activeIds, { allowVacuum = false }
         try {
           const fl = sdb.prepare("PRAGMA freelist_count").get();
           if (dbRemoved > 0 || (Number(fl?.freelist_count) || 0) > 500) {
-            sdb.exec("INSERT INTO conversations_fts(conversations_fts) VALUES('optimize');");
+            if (hasFts) sdb.exec("INSERT INTO conversations_fts(conversations_fts) VALUES('optimize');");
             sdb.exec("VACUUM;");
             sdb.exec("PRAGMA wal_checkpoint(TRUNCATE);");
           }
@@ -163,20 +176,26 @@ const sdb = new DatabaseSync(req.dbPath, { open: true });
 let dbRemoved = 0;
 try {
   sdb.exec("PRAGMA busy_timeout = 3000;");
-  const delSum = sdb.prepare("DELETE FROM conversation_summaries WHERE conversation_id = ?");
-  const delFts = sdb.prepare("DELETE FROM conversations_fts WHERE conversation_id = ?");
+  const hasFts = Boolean(sdb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversations_fts' LIMIT 1").get());
+  const hasSum = Boolean(sdb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversation_summaries' LIMIT 1").get());
+  const delSum = hasSum ? sdb.prepare("DELETE FROM conversation_summaries WHERE conversation_id = ?") : null;
+  const delFts = hasFts ? sdb.prepare("DELETE FROM conversations_fts WHERE conversation_id = ?") : null;
   sdb.exec("BEGIN IMMEDIATE;");
-  for (const r of sdb.prepare("SELECT conversation_id FROM conversation_summaries").all()) {
-    if (!active.has(r.conversation_id)) {
-      delSum.run(r.conversation_id);
-      delFts.run(r.conversation_id);
-      dbRemoved += 1;
+  if (delSum) {
+    for (const r of sdb.prepare("SELECT conversation_id FROM conversation_summaries").all()) {
+      if (!active.has(r.conversation_id)) {
+        delSum.run(r.conversation_id);
+        delFts?.run(r.conversation_id);
+        dbRemoved += 1;
+      }
     }
   }
-  for (const r of sdb.prepare("SELECT DISTINCT conversation_id FROM conversations_fts").all()) {
-    if (!active.has(r.conversation_id)) {
-      delFts.run(r.conversation_id);
-      dbRemoved += 1;
+  if (delFts) {
+    for (const r of sdb.prepare("SELECT DISTINCT conversation_id FROM conversations_fts").all()) {
+      if (!active.has(r.conversation_id)) {
+        delFts.run(r.conversation_id);
+        dbRemoved += 1;
+      }
     }
   }
   sdb.exec("COMMIT;");
@@ -184,7 +203,7 @@ try {
     try {
       const fl = sdb.prepare("PRAGMA freelist_count").get();
       if (dbRemoved > 0 || (Number(fl?.freelist_count) || 0) > 500) {
-        sdb.exec("INSERT INTO conversations_fts(conversations_fts) VALUES('optimize');");
+        if (hasFts) sdb.exec("INSERT INTO conversations_fts(conversations_fts) VALUES('optimize');");
         sdb.exec("VACUUM;");
         sdb.exec("PRAGMA wal_checkpoint(TRUNCATE);");
       }
@@ -669,7 +688,7 @@ function getWin32Api() {
       ),
       K32EmptyWorkingSet: kernel32.func("bool __stdcall K32EmptyWorkingSet(void* hProcess)"),
       GetProcessGroupAffinity: kernel32.func(
-        "bool __stdcall GetProcessGroupAffinity(void* hProcess, _Inout_ uint16_t* GroupCount, _Out_ uint16_t* GroupArray)",
+        "bool __stdcall GetProcessGroupAffinity(void* hProcess, _Inout_ uint16_t* GroupCount, void* GroupArray)",
       ),
       GetActiveProcessorGroupCount: kernel32.func("uint16_t __stdcall GetActiveProcessorGroupCount()"),
       GetActiveProcessorCount: kernel32.func(
@@ -678,6 +697,7 @@ function getWin32Api() {
       GetProcessTimes: kernel32.func(
         "bool __stdcall GetProcessTimes(void* hProcess, _Out_ uint64_t* lpCreationTime, _Out_ uint64_t* lpExitTime, _Out_ uint64_t* lpKernelTime, _Out_ uint64_t* lpUserTime)",
       ),
+      GetPriorityClass: kernel32.func("uint32_t __stdcall GetPriorityClass(void* hProcess)"),
       SetPriorityClass: kernel32.func(
         "bool __stdcall SetPriorityClass(void* hProcess, uint32_t dwPriorityClass)",
       ),
@@ -823,10 +843,13 @@ export function scanNativeProcesses() {
               }
               gdi = Number(api.GetGuiResources(h, 0)) || 0;
               user = Number(api.GetGuiResources(h, 1)) || 0;
-              const gc = [4];
-              const ga = [0, 0, 0, 0];
-              if (api.GetProcessGroupAffinity(h, gc, ga) && gc[0] > 0) {
-                group = ga.slice(0, gc[0]).join(",");
+              const gc = [8];
+              const gaBuf = Buffer.alloc(16);
+              if (api.GetProcessGroupAffinity(h, gc, gaBuf) && gc[0] > 0) {
+                const groups = [];
+                const cnt = Math.min(gc[0], 8);
+                for (let gi = 0; gi < cnt; gi++) groups.push(gaBuf.readUInt16LE(gi * 2));
+                group = groups.join(",");
                 affinityCounts[group] = (affinityCounts[group] || 0) + 1;
               }
             } finally {
@@ -1553,10 +1576,9 @@ function readNativeProcessCmd(api, pid) {
     const retLen = [0];
     if (api.NtQueryInformationProcess(h, 60, buf, buf.length, retLen) !== 0) return "";
     const len = buf.readUInt16LE(0);
-    const ptrVal = Number(buf.readBigUInt64LE(8));
-    if (!len || !ptrVal) return "";
-    const strBuf = api.koffi.decode(ptrVal, "uint8_t", len);
-    return Buffer.from(strBuf).toString("utf16le");
+    const maxLen = Math.min(len, Math.max(0, buf.length - 16));
+    if (maxLen <= 0) return "";
+    return buf.subarray(16, 16 + maxLen).toString("utf16le");
   } catch {
     return "";
   } finally {
@@ -1617,9 +1639,78 @@ function getProcessAgeMsNative(api, pid) {
   }
 }
 
+function setProcessPriorityClassNative(api, pid, targetPriorityClass, { preserveHigher = false } = {}) {
+  if (!api || !pid) return false;
+  const h = api.OpenProcess(preserveHigher ? 0x1200 : 0x0200, false, pid);
+  if (!h) return false;
+  try {
+    if (preserveHigher && typeof api.GetPriorityClass === "function") {
+      const cur = api.GetPriorityClass(h);
+      if (cur === 0x00000080 || cur === 0x00000100 || (cur === 0x00008000 && targetPriorityClass === 0x00000020)) {
+        return false;
+      }
+    }
+    return Boolean(api.SetPriorityClass(h, targetPriorityClass));
+  } catch {
+    return false;
+  } finally {
+    api.CloseHandle(h);
+  }
+}
+
+const EVKEY_HANDLE_LEAK_THRESHOLD = 4000;
+const EVKEY_HEAL_COOLDOWN_MS = 5 * 60_000;
+let lastEvKeyHealMs = 0;
+let evKeyHealInFlight = false;
+
+async function restartEvKeyCleanly(api, pid, evkPath) {
+  if (evKeyHealInFlight) return;
+  evKeyHealInFlight = true;
+  try {
+    let stopped = terminatePidNative(api, pid);
+    if (!stopped) {
+      try {
+        await execFileAsync("schtasks.exe", ["/End", "/TN", "\\EVKey - Vietnamese Keyboard"], {
+          windowsHide: true,
+          timeout: 4000,
+        });
+        stopped = true;
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!stopped) return;
+    for (let i = 0; i < 8; i += 1) {
+      if (!isProcessRunningNative("evkey64.exe")) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    let startedViaTask = false;
+    try {
+      await execFileAsync("schtasks.exe", ["/Run", "/TN", "\\EVKey - Vietnamese Keyboard"], {
+        windowsHide: true,
+        timeout: 4000,
+      });
+      startedViaTask = true;
+    } catch {
+      /* ignore */
+    }
+    if (!startedViaTask && evkPath && fs.existsSync(evkPath) && !isProcessRunningNative("evkey64.exe")) {
+      const child = spawn(evkPath, [], {
+        cwd: path.dirname(evkPath),
+        detached: true,
+        stdio: "ignore",
+        windowsHide: false,
+      });
+      child.unref();
+    }
+  } finally {
+    evKeyHealInFlight = false;
+  }
+}
+
 /**
  * Zero-WMI native handle-leak self-healer (<3ms via Toolhelp32 + NtQueryInformationProcess):
- * - Restarts `EVKey64.exe` cleanly if it leaks >1,200 handles (normal ~180; bloated WH_KEYBOARD_LL lags all typing/clicks).
+ * - Restarts `EVKey64.exe` cleanly if it leaks >4,000 handles (normal ~200; bloated WH_KEYBOARD_LL lags all typing/clicks).
  * - Terminates windowless `olk.exe` if it leaks >15,000 handles in the background.
  * - Terminates runaway Chrome `--type=renderer` child processes leaking >35,000 handles (never touches root browser windows).
  */
@@ -1633,10 +1724,20 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
   const wireproxyByCountry = new Map();
   const conhostChildrenByParent = new Map();
   const lsPids = new Set();
+  const chromeProcs = [];
+  const chromeChildrenByParent = new Map();
   for (const p of scan.processes) {
     const pLower = String(p.name || "").toLowerCase();
     if (NEVER_TERMINATE_EXE_NAMES.has(pLower)) {
       protectedPids.add(p.pid);
+    }
+    if (pLower === "chrome.exe") {
+      chromeProcs.push(p);
+      if (p.ppid) {
+        const cl = chromeChildrenByParent.get(p.ppid) || [];
+        cl.push(p.pid);
+        chromeChildrenByParent.set(p.ppid, cl);
+      }
     }
     if (pLower === "language_server_windows_x64.exe" || pLower === "language_server.exe") {
       lsPids.add(p.pid);
@@ -1645,6 +1746,28 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
       const list = conhostChildrenByParent.get(p.ppid) || [];
       list.push(p.pid);
       conhostChildrenByParent.set(p.ppid, list);
+    }
+  }
+  // Protect all non-headless Chrome roots & pinned Taskbar PWAs (`--source-shortcut=`, `--app-id=`)
+  // plus their descendant renderer/utility/GPU processes from handle-leak or orphan sweeps.
+  const chromeRootSeeds = [];
+  for (const cp of chromeProcs) {
+    const cmd = readNativeProcessCmd(api, cp.pid);
+    if (!cmd) continue;
+    const isChild = /--type=/i.test(cmd);
+    const isHeadless = /--headless\b/i.test(cmd);
+    const isPinnedPwa = /--source-shortcut=/i.test(cmd) || /--app-id=/i.test(cmd);
+    if ((!isChild && !isHeadless) || isPinnedPwa) {
+      chromeRootSeeds.push(cp.pid);
+    }
+  }
+  const pwaQueue = [...chromeRootSeeds];
+  while (pwaQueue.length > 0) {
+    const curPid = pwaQueue.shift();
+    if (protectedPids.has(curPid)) continue;
+    protectedPids.add(curPid);
+    for (const childPid of chromeChildrenByParent.get(curPid) || []) {
+      if (!protectedPids.has(childPid)) pwaQueue.push(childPid);
     }
   }
   let hasActiveG1UnlockSession = false;
@@ -1668,108 +1791,50 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
   for (const p of scan.processes) {
     const lower = p.name.toLowerCase();
     if (lower === "evkey64.exe") {
-      if (p.handles > 1200) {
+      if (p.handles > EVKEY_HANDLE_LEAK_THRESHOLD && !evKeyHealInFlight && Date.now() - lastEvKeyHealMs > EVKEY_HEAL_COOLDOWN_MS) {
         const rawCmd = readNativeProcessCmd(api, p.pid);
         const cmdExeMatch = rawCmd.match(/^"([^"]+)"|^(\S+)/);
         const detectedEvkPath = cmdExeMatch ? (cmdExeMatch[1] || cmdExeMatch[2] || "").trim() : "";
-        let evkStopped = terminatePidNative(api, p.pid);
-        if (!evkStopped) {
-          try {
-            const endChild = spawn("schtasks.exe", ["/End", "/TN", "\\EVKey - Vietnamese Keyboard"], {
-              stdio: "ignore",
-              windowsHide: true,
-            });
-            endChild.unref();
-            evkStopped = true;
-          } catch {
-            /* ignore */
-          }
-        }
-        if (evkStopped) {
-          try {
-            setTimeout(() => {
-              try {
-                const schChild = spawn("schtasks.exe", ["/Run", "/TN", "\\EVKey - Vietnamese Keyboard"], {
-                  stdio: "ignore",
-                  windowsHide: true,
-                });
-                schChild.unref();
-              } catch {
-                /* ignore */
-              }
-            }, 350);
-            const evkCandidates = [
-              detectedEvkPath,
-              "D:\\Tool\\System\\EVKey\\EVKey 5.0.1\\EVKey64.exe",
-              "C:\\Program Files\\EVKey\\EVKey64.exe",
-              path.join(os.homedir(), "Desktop", "EVKey", "EVKey64.exe"),
-              path.join(os.homedir(), "Downloads", "EVKey", "EVKey64.exe"),
-              "D:\\Tools\\EVKey\\EVKey64.exe",
-              "C:\\EVKey\\EVKey64.exe",
-            ].filter(Boolean);
-            const evkPath = evkCandidates.find((c) => fs.existsSync(c));
-            if (evkPath) {
-              setTimeout(() => {
-                try {
-                  if (!isProcessRunningNative("evkey64.exe")) {
-                    const child = spawn(evkPath, [], {
-                      cwd: path.dirname(evkPath),
-                      env: { ...process.env, __COMPAT_LAYER: "RunAsInvoker" },
-                      detached: true,
-                      stdio: "ignore",
-                      windowsHide: false,
-                    });
-                    child.unref();
-                  }
-                } catch {
-                  /* ignore */
-                }
-              }, 1200).unref?.();
-            }
-          } catch {
-            /* ignore */
-          }
-          healed.push({ pid: p.pid, name: p.name, handles: p.handles, action: "restarted-evkey" });
-        }
+        const evkCandidates = [
+          detectedEvkPath,
+          "C:\\Program Files\\EVKey\\EVKey64.exe",
+          path.join(os.homedir(), "Desktop", "EVKey", "EVKey64.exe"),
+          path.join(os.homedir(), "Downloads", "EVKey", "EVKey64.exe"),
+          "D:\\Tools\\EVKey\\EVKey64.exe",
+          "C:\\EVKey\\EVKey64.exe",
+        ].filter(Boolean);
+        const evkPath = evkCandidates.find((c) => fs.existsSync(c)) || "";
+        lastEvKeyHealMs = Date.now();
+        void restartEvKeyCleanly(api, p.pid, evkPath).catch(() => undefined);
+        healed.push({ pid: p.pid, name: p.name, handles: p.handles, action: "restarted-evkey" });
       } else {
-        const hEvk = api.OpenProcess(0x0200, false, p.pid);
-        if (hEvk) {
-          try {
-            api.SetPriorityClass(hEvk, 0x00000020); // NORMAL_PRIORITY_CLASS
-          } finally {
-            api.CloseHandle(hEvk);
-          }
-        }
+        setProcessPriorityClassNative(api, p.pid, 0x00008000, { preserveHigher: true }); // ABOVE_NORMAL (keep HIGH if elevated)
       }
     } else if (lower === "olk.exe" && p.handles > 15000) {
       if (terminatePidNative(api, p.pid)) {
         healed.push({ pid: p.pid, name: p.name, handles: p.handles, action: "killed-bloated-olk" });
       }
     } else if (lower === "chrome-headless-shell.exe") {
-      const hPri = api.OpenProcess(0x0200, false, p.pid);
-      if (hPri) {
-        try {
-          api.SetPriorityClass(hPri, 0x00000020); // NORMAL_PRIORITY_CLASS
-        } finally {
-          api.CloseHandle(hPri);
-        }
-      }
+      setProcessPriorityClassNative(api, p.pid, 0x00004000); // BELOW_NORMAL_PRIORITY_CLASS
       const cmd = readNativeProcessCmd(api, p.pid);
       if (cmd && /\.cache[\\/]g1-support-pw-/i.test(cmd)) {
         if (terminatePidNative(api, p.pid, protectedPids)) {
           healed.push({ pid: p.pid, name: p.name, handles: p.handles, action: "reaped-stale-cache-headless-shell" });
         }
       }
-    } else if (lower === "chrome.exe" || lower === "chrome-headless.exe") {
-      // Zero-Throttle Root-Cause Kaizen (2026-11-10): keep all Chrome & headless Chrome processes at NORMAL_PRIORITY_CLASS (0x00000020)
-      const hPri = api.OpenProcess(0x0200, false, p.pid);
-      if (hPri) {
-        try {
-          api.SetPriorityClass(hPri, 0x00000020); // NORMAL_PRIORITY_CLASS
-        } finally {
-          api.CloseHandle(hPri);
+    } else if (lower === "chrome-headless.exe") {
+      // Headless automation pools run full speed on idle cores at BELOW_NORMAL while never preempting user IDEs/typing.
+      setProcessPriorityClassNative(api, p.pid, 0x00004000); // BELOW_NORMAL_PRIORITY_CLASS
+      if (p.handles > 35000) {
+        const fullCmd = readNativeProcessCmd(api, p.pid);
+        if (fullCmd && /--type=renderer\b/i.test(fullCmd)) {
+          if (terminatePidNative(api, p.pid, protectedPids)) {
+            healed.push({ pid: p.pid, name: p.name, handles: p.handles, action: "killed-runaway-renderer" });
+          }
         }
       }
+    } else if (lower === "chrome.exe") {
+      setProcessPriorityClassNative(api, p.pid, protectedPids.has(p.pid) ? 0x00000020 : 0x00004000);
       if (p.handles > 35000) {
         const fullCmd = readNativeProcessCmd(api, p.pid);
         if (fullCmd && /--type=renderer\b/i.test(fullCmd)) {
@@ -1779,8 +1844,22 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
         }
       }
     } else if (
+      lower === "antigravity.exe" ||
+      lower === "antigravity ide.exe" ||
+      lower === "cursor.exe" ||
+      lower === "code.exe"
+    ) {
+      // Prioritize active user IDE UI/renderer/GPU above headless pools & background Electron GPU children.
+      setProcessPriorityClassNative(api, p.pid, 0x00008000); // ABOVE_NORMAL_PRIORITY_CLASS
+    } else if (lower === "python.exe" || lower === "pythonw.exe") {
+      const cmd = readNativeProcessCmd(api, p.pid);
+      const isBgWorker = /desktop_worker\.py|uvicorn.*:(?:8029|8130)/i.test(cmd);
+      setProcessPriorityClassNative(api, p.pid, isBgWorker ? 0x00004000 : 0x00000020);
+    } else if (
+      lower === "video flow.exe" ||
       lower === "stealth browser console.exe" ||
       lower === "desk console.exe" ||
+      lower === "ide console.exe" ||
       lower === "telegram.exe" ||
       lower === "zalo.exe" ||
       lower === "7za.exe" ||
@@ -1788,46 +1867,21 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
       lower === "ssh.exe" ||
       lower === "scp.exe" ||
       lower === "robocopy.exe" ||
-      lower === "python.exe" ||
-      lower === "antigravity.exe" ||
-      lower === "cursor.exe" ||
       lower === "language_server_windows_x64.exe" ||
       lower === "language_server.exe" ||
       lower === "claude.exe" ||
       lower === "codex.exe"
     ) {
-      // Zero-Throttle Root-Cause Kaizen (2026-11-10): keep all active IDE, compiler, and desktop processes
-      // at NORMAL_PRIORITY_CLASS (0x00000020) without restricting CPU affinity masks.
-      const hUi = api.OpenProcess(0x0200, false, p.pid);
-      if (hUi) {
-        try {
-          api.SetPriorityClass(hUi, 0x00000020); // NORMAL_PRIORITY_CLASS
-        } finally {
-          api.CloseHandle(hUi);
-        }
-      }
+      // Cap background Electron apps & LS indexers at NORMAL_PRIORITY_CLASS (fixes self-elevated 0x8000 GPU children).
+      setProcessPriorityClassNative(api, p.pid, 0x00000020); // NORMAL_PRIORITY_CLASS
     } else if (lower === "powershell.exe") {
-      const hPri = api.OpenProcess(0x0200, false, p.pid);
-      if (hPri) {
-        try {
-          api.SetPriorityClass(hPri, 0x00000020); // NORMAL_PRIORITY_CLASS
-        } finally {
-          api.CloseHandle(hPri);
-        }
-      }
+      setProcessPriorityClassNative(api, p.pid, 0x00000020);
       const cmd = readNativeProcessCmd(api, p.pid);
       if (cmd && /stealth-taskbar-apply-worker\.ps1/i.test(cmd)) {
         psTaskbarWorkers.push({ pid: p.pid, ppid: p.ppid, handles: p.handles, name: p.name });
       }
     } else if (lower === "wireproxy.exe") {
-      const hPri = api.OpenProcess(0x0200, false, p.pid);
-      if (hPri) {
-        try {
-          api.SetPriorityClass(hPri, 0x00000020); // NORMAL_PRIORITY_CLASS
-        } finally {
-          api.CloseHandle(hPri);
-        }
-      }
+      setProcessPriorityClassNative(api, p.pid, 0x00000020);
       const cmd = readNativeProcessCmd(api, p.pid);
       const m = cmd.match(/wireproxy-([a-z]{2})-(\d+)\.conf/i);
       const confMatch = cmd.match(/-c\s+(?:"([^"]+)"|([^\s]+))/i);
@@ -1837,14 +1891,7 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
       list.push({ pid: p.pid, handles: p.handles, name: p.name, confPath });
       wireproxyByCountry.set(tunnelKey, list);
     } else if (lower === "node.exe" || lower === "nodew.exe") {
-      const hPri = api.OpenProcess(0x0200, false, p.pid);
-      if (hPri) {
-        try {
-          api.SetPriorityClass(hPri, 0x00000020); // NORMAL_PRIORITY_CLASS
-        } finally {
-          api.CloseHandle(hPri);
-        }
-      }
+      setProcessPriorityClassNative(api, p.pid, 0x00000020);
       const cmd = readNativeProcessCmd(api, p.pid);
       if (!hasActiveG1UnlockSession && cmd && /\.cache[\\/]g1-support-pw-/i.test(cmd)) {
         if (terminatePidNative(api, p.pid)) {
@@ -1924,7 +1971,20 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
     }
   }
   // Deduplicate wireproxy.exe tunnels: keep at most 1 (newest PID) per country:port slot,
-  // and cap ephemeral non-warm-pool tunnels (ports outside 51400..51434) at max 16 / max age 25m.
+  // and cap ephemeral non-warm-pool tunnels at max 16 / max age 25m (only exempting active US manifest slots).
+  const activeUsPoolPorts = new Set();
+  try {
+    const usManifestPath = path.join(DEV_ROOT, "Tool", "scripts", "out", "wireproxy-us-pool.json");
+    if (fs.existsSync(usManifestPath)) {
+      const usState = JSON.parse(fs.readFileSync(usManifestPath, "utf8"));
+      for (const s of Array.isArray(usState?.slots) ? usState.slots : []) {
+        const hp = Number(s?.httpPort || 0);
+        if (hp > 0) activeUsPoolPorts.add(hp);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
   const ephemeralWireproxyList = [];
   for (const [, wpList] of wireproxyByCountry.entries()) {
     if (wpList.length > 1) {
@@ -1957,7 +2017,10 @@ export function autoHealSystemHandleLeaks(existingScan = null) {
     if (survivor) {
       const portMatch = String(survivor.confPath || "").match(/wireproxy-[a-z]{2}-(\d+)\.conf/i);
       const portNum = portMatch ? Number(portMatch[1]) : 0;
-      const isWarmPoolSlot = portNum >= 51400 && portNum <= 51440;
+      const isWarmPoolSlot =
+        activeUsPoolPorts.size > 0
+          ? activeUsPoolPorts.has(portNum)
+          : portNum >= 51400 && portNum <= 51434;
       if (!isWarmPoolSlot) {
         const ageMs = getProcessAgeMsNative(api, survivor.pid);
         ephemeralWireproxyList.push({ ...survivor, portNum, ageMs });
