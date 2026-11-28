@@ -199,16 +199,16 @@
   "release": {
     "version": "3.1.310",
     "latestPublished": {
-      "tag": "v3.1.267",
-      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.267",
-      "publishedAt": "2026-11-26T22:26:37Z",
+      "tag": "v3.1.310",
+      "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.310",
+      "publishedAt": "2026-11-28T11:37:43Z",
       "asset": {
-        "name": "Desk-Console-Setup-3.1.267.exe",
-        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.267/Desk-Console-Setup-3.1.267.exe",
-        "size": 120131540,
-        "sha256": "63b02f784628210f3d293d2cb66ed81d6f533788b75e686cab7edf03eb070c3e",
-        "sha512": "qa1nXkwdfiy61ZqMnHP3EB9D9/PqBzIxJNtmghIwUAQeMPpqPmLKbZEkKOYCkJIzawBv+rXhIDoiP89dFpraaQ==",
-        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.267/latest.yml"
+        "name": "Desk-Console-Setup-3.1.310.exe",
+        "downloadUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.310/Desk-Console-Setup-3.1.310.exe",
+        "size": 113678181,
+        "sha256": "b6181c9cc556abbcea15f50c85fdaf2a4007e3516135cf472ddd9cda4f0a6638",
+        "sha512": "a5cmE6tOGK57UhxhIcSjtXu8KHaa5RCkPKfLGCRkywas6/tTB8BLYqlJWM0vrf65Go5V+w1Gtosk1dWD6dtZmg==",
+        "feedUrl": "https://github.com/tuanhoangfx/Desk-Console/releases/download/v3.1.310/latest.yml"
       }
     }
   },
@@ -218,7 +218,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-28T11:21:17.871Z",
+  "manifestUpdatedAt": "2026-11-28T11:39:54.363Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -243,7 +243,7 @@
     "syncedAt": "2026-10-28T17:14:22.333Z"
   },
   "versions": {
-    "latestPublished": "3.1.267",
+    "latestPublished": "3.1.310",
     "current": "3.1.310"
   },
   "areas": {
