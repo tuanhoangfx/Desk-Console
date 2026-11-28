@@ -27,12 +27,7 @@
     "golden": "P0020",
     "mainMode": "directory",
     "splitScreens": [
-      "clips",
-      "jobs",
-      "drives",
-      "runners",
-      "cron",
-      "apps"
+      "system"
     ],
     "userFooter": "workspace"
   },
@@ -46,44 +41,45 @@
     {
       "screen": "clips",
       "template": "directory",
-      "layout": "split-workspace",
-      "golden": "P0004/users",
-      "notes": "Clipboard / quick-save inbox (text & images) + Ctrl+Shift+Q Paste Picker. Local JSON store."
+      "golden": "P0020/services",
+      "notes": "Clipboard / quick-save inbox (text & images) + Ctrl+Shift+Q Paste Picker. Layout 1 Directory SSOT."
     },
     {
       "screen": "jobs",
       "template": "directory",
-      "layout": "split-workspace",
-      "golden": "P0003/profiles",
-      "notes": "P0003 Profiles split — bidirectional folder sync jobs table + KPI · History / Console. Remote is a signed-in Google Drive."
+      "golden": "P0020/services",
+      "notes": "Google Drive bidirectional folder sync jobs — Layout 1 Directory (8 KPIs + 4 Charts + Detail modal Console & History)."
     },
     {
       "screen": "drives",
       "template": "directory",
-      "layout": "split-workspace",
-      "golden": "P0003/profiles",
-      "notes": "Google Drive accounts that finished OAuth. Sign-in & quota telemetry live here."
+      "golden": "P0020/services",
+      "notes": "Google Drive OAuth accounts & quota telemetry — Layout 1 Directory (8 KPIs + 4 Charts + Detail modal Console & History)."
     },
     {
       "screen": "runners",
       "template": "directory",
-      "layout": "split-workspace",
-      "golden": "P0001/runners",
-      "notes": "Vite/worker port runners — 8 KPI Golden Strip + Start/Stop row + History · Log · Console rail."
+      "golden": "P0020/services",
+      "notes": "Vite/worker port runners — Layout 1 Directory (8 KPIs + 4 Charts + Start/Stop row + Detail modal Live Console)."
     },
     {
       "screen": "cron",
       "template": "directory",
-      "layout": "split-workspace",
-      "golden": "P0001/runners",
-      "notes": "Built-in Daemons (Daemon-*) + Windows Scheduled Tasks (Dev-*) — 8 KPI Golden Strip + Start/Stop row + History · Log · Console rail."
+      "golden": "P0020/services",
+      "notes": "Built-in Daemons (Daemon-*) + Windows Scheduled Tasks (Dev-*) — Layout 1 Directory (8 KPIs + 4 Charts + Detail modal Live Console)."
     },
     {
       "screen": "apps",
       "template": "directory",
+      "golden": "P0020/services",
+      "notes": "Local IDE app versions, SxS portable builds, auto-update pin/ACL locks, GCS release vault, state snapshots & VSIX extensions — Layout 1 Directory."
+    },
+    {
+      "screen": "system",
+      "template": "system-panels",
       "layout": "split-workspace",
-      "golden": "P0001/runners",
-      "notes": "Local IDE app versions, SxS portable builds, auto-update pin/ACL locks, GCS release vault, state snapshots & VSIX extensions."
+      "golden": "P0020/system",
+      "notes": "Design Template standby surface — empty state after locking Directory integration in Apps."
     }
   ],
   "commands": {
@@ -175,33 +171,33 @@
       "partialPagePad": "invisible"
     },
     "runners": {
-      "scope": "Runners split directory — Run/Stop row + ops rail",
+      "scope": "Runners directory — standalone Layout 1 table",
       "columnStorageKey": "p0001_runners_directory_columns",
       "presetsStorageKey": "p0001_runners_directory_column_presets",
       "displayPanelVariant": "panel",
-      "panelFillRows": "pageSize",
-      "partialPagePad": "invisible"
+      "panelFillRows": false,
+      "partialPagePad": "n/a"
     },
     "cron": {
-      "scope": "Cron split directory — Run/Stop row + ops rail",
+      "scope": "Cron directory — standalone Layout 1 table",
       "columnStorageKey": "p0001_cron_directory_columns",
       "presetsStorageKey": "p0001_cron_directory_column_presets",
       "displayPanelVariant": "panel",
-      "panelFillRows": "pageSize",
-      "partialPagePad": "invisible"
+      "panelFillRows": false,
+      "partialPagePad": "n/a"
     },
     "apps": {
-      "scope": "Apps & Versions directory — IDE builds, SxS, update guard & VSIX",
+      "scope": "Apps & Versions directory — standalone Layout 1 table",
       "columnStorageKey": "p0001_apps_directory_columns",
       "presetsStorageKey": "p0001_apps_directory_column_presets",
       "displayPanelVariant": "panel",
-      "panelFillRows": "pageSize",
-      "partialPagePad": "invisible"
+      "panelFillRows": false,
+      "partialPagePad": "n/a"
     },
     "notes": "Per-tab column presets — never share storage keys across clips/jobs/drives/runners (P0003 parity)."
   },
   "release": {
-    "version": "3.1.267",
+    "version": "3.1.310",
     "latestPublished": {
       "tag": "v3.1.267",
       "url": "https://github.com/tuanhoangfx/Desk-Console/releases/tag/v3.1.267",
@@ -222,7 +218,7 @@
     "snapshot": "node scripts/snapshot-known-good.mjs",
     "restore": "git checkout v0.1.8-stable"
   },
-  "manifestUpdatedAt": "2026-11-26T22:28:47.682Z",
+  "manifestUpdatedAt": "2026-11-28T11:21:17.870Z",
   "ship": {
     "schemaVersion": 1,
     "fastPath": "Deploy",
@@ -248,7 +244,7 @@
   },
   "versions": {
     "latestPublished": "3.1.267",
-    "current": "3.1.267"
+    "current": "3.1.310"
   },
   "areas": {
     "packaging": {

@@ -1,25 +1,20 @@
 import { useMemo } from "react";
 import {
   asDirectoryTableColumnPresetManagerProp,
-  DirectoryTableLegacyDisplaySettings,
   type HubDirectoryDisplayPanelProps,
 } from "@tool-workspace/hub-ui";
 import type { AppScreen } from "../../lib/app-screen";
 import { SCREEN_DISPLAY_PREFS } from "../../lib/display-prefs-registry";
-import { deskDefaultSortRowsFor, deskPrimaryDefaultSort } from "./desk-display-sort";
+import { DeskTableDisplaySettings } from "./DeskTableDisplaySettings";
 import {
-  deskColItemsFor,
   deskColumnPresetsFor,
   deskDirectoryScreenOrClips,
-  deskTablePrefsFor,
 } from "./desk-table-prefs";
 
 export function useDeskDisplayPanelConfig(screen: AppScreen): HubDirectoryDisplayPanelProps | null {
   const defs = SCREEN_DISPLAY_PREFS[screen];
   const tableScreen = deskDirectoryScreenOrClips(screen);
-  const tablePrefs = deskTablePrefsFor(tableScreen);
   const columnPresets = deskColumnPresetsFor(tableScreen);
-  const columnItems = useMemo(() => deskColItemsFor(tableScreen), [tableScreen]);
   return useMemo(() => {
     if (!defs) return null;
     return {
@@ -32,16 +27,7 @@ export function useDeskDisplayPanelConfig(screen: AppScreen): HubDirectoryDispla
       filtersFromUrl: true,
       getScreen: () => screen,
       tableColumnPresets: asDirectoryTableColumnPresetManagerProp(columnPresets),
-      tablePanel: (
-        <DirectoryTableLegacyDisplaySettings
-          id={tableScreen}
-          items={columnItems}
-          prefs={tablePrefs}
-          primaryDefault={deskPrimaryDefaultSort(screen)}
-          sortRows={deskDefaultSortRowsFor(screen)}
-          showReset
-        />
-      ),
+      tablePanel: <DeskTableDisplaySettings screen={tableScreen} />,
     };
-  }, [columnItems, columnPresets, defs, screen, tablePrefs, tableScreen]);
+  }, [columnPresets, defs, screen, tableScreen]);
 }

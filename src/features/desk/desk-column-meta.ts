@@ -19,11 +19,11 @@ import type { DeskDirectoryScreen } from "./desk-table-prefs";
 
 const { col } = createDirectoryColumnMetaHelpers();
 
-function buildStatusHintLines(statuses: readonly string[]): HubDirectoryColumnHintLine[] {
+function buildStatusHintLines(statuses: readonly string[], screen?: DeskDirectoryScreen): HubDirectoryColumnHintLine[] {
   return statuses.map((label) => ({
-    statusDot: deskStatusDotTone(label),
+    statusDot: deskStatusDotTone(label, screen),
     label,
-    detail: deskStatusKpiDetail(label),
+    detail: deskStatusKpiDetail(label, screen),
   }));
 }
 
@@ -37,10 +37,10 @@ const DEFAULT_DESK_STATUS_HINT_LINES = buildStatusHintLines([
 ]);
 
 const SCREEN_STATUS_HINT_LINES: Record<DeskDirectoryScreen, HubDirectoryColumnHintLine[]> = {
-  cron: buildStatusHintLines(["Active", "Running", "Disabled", "Failed"]),
-  runners: buildStatusHintLines(["Up", "Starting", "Running", "Stopping", "Down"]),
-  clips: buildStatusHintLines(["History", "Sample"]),
-  apps: buildStatusHintLines(["Up", "Pending", "Disabled", "Down"]),
+  cron: buildStatusHintLines(["Active", "Running", "Disabled", "Failed"], "cron"),
+  runners: buildStatusHintLines(["Up", "Starting", "Running", "Stopping", "Down"], "runners"),
+  clips: buildStatusHintLines(["History", "Sample"], "clips"),
+  apps: buildStatusHintLines(["Running", "Ready", "Update", "Conflict", "Down"], "apps"),
 };
 
 const FORMAT_HINT_LINES: HubDirectoryColumnHintLine[] = [
@@ -81,6 +81,18 @@ const baseMeta = withDirectoryColumnStickers(
     run: col("Action", "hub-desk-col--run", "status", "col.directory.status", "7.25rem", {
       columnKind: "compact",
     }),
+    version: col("Version", "hub-desk-col--version", "version", "col.directory.status", "7.25rem", {
+      columnKind: "compact",
+    }),
+    account: col("Account", "hub-desk-col--account", "user", "col.directory.name", "11.5rem", {
+      columnKind: "code",
+    }),
+    ram: col("RAM", "hub-desk-col--ram", "load", "col.directory.status", "6.5rem", {
+      columnKind: "compact",
+    }),
+    size: col("Size", "hub-desk-col--size", "load", "col.directory.status", "6.5rem", {
+      columnKind: "compact",
+    }),
     schedule: col("Schedule", "hub-desk-col--schedule", "period", "col.directory.updated", "10.5rem", {
       columnKind: "code",
     }),
@@ -100,6 +112,10 @@ const baseMeta = withDirectoryColumnStickers(
     name: HUB_DIRECTORY_HEADER_EMOJI.displayName,
     format: "🗂️",
     run: DESK_DIRECTORY_FILTER_EMOJI.runner,
+    version: "🏷️",
+    account: "👤",
+    ram: "🧠",
+    size: "💾",
     schedule: "🕒",
     status: DESK_DIRECTORY_FILTER_EMOJI.status,
     extra: "📝",
@@ -132,6 +148,38 @@ export const DESK_COLUMN_META = {
   run: {
     ...baseMeta.run,
     headerHint: { title: "Action", lines: RUN_HINT_LINES },
+  },
+  version: {
+    ...baseMeta.version,
+    headerHint: {
+      title: "Version",
+      description: "Active installed build version on disk (semver).",
+      lines: [],
+    },
+  },
+  account: {
+    ...baseMeta.account,
+    headerHint: {
+      title: "Account",
+      description: "Bound Google/AI account or mapped Zalo Windows profile & display name.",
+      lines: [],
+    },
+  },
+  ram: {
+    ...baseMeta.ram,
+    headerHint: {
+      title: "RAM",
+      description: "Live working-set memory aggregated across active child processes.",
+      lines: [],
+    },
+  },
+  size: {
+    ...baseMeta.size,
+    headerHint: {
+      title: "Size",
+      description: "On-disk footprint for installed desktop runtimes and portable instances.",
+      lines: [],
+    },
   },
   schedule: {
     ...baseMeta.schedule,

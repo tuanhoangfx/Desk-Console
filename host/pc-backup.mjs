@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { DEV_ROOT as WINDOWS_DEV_ROOT } from "./windows.mjs";
 
@@ -38,7 +38,68 @@ export const DEFAULT_HASLEO_SCRIPT = path.join(
   "scripts",
   "hasleo-system-image.mjs",
 );
+export const DEFAULT_START_TILES_LIB = path.join(
+  RESOLVED_DEV_ROOT,
+  "Tool",
+  "scripts",
+  "lib",
+  "windows-start-tiles.mjs",
+);
+export const DEFAULT_START_TILEGRID_GOLDEN_BIN = path.join(
+  RESOLVED_DEV_ROOT,
+  "Tool",
+  "scripts",
+  "assets",
+  "start-tilegrid-golden.bin",
+);
 export const PC_BACKUP_TASK_NAME = "Dev-PC-Data-Backup";
+
+export function readStartLayoutGoldenSummary(goldenPath = DEFAULT_START_TILEGRID_GOLDEN_BIN) {
+  try {
+    const target = fs.existsSync(goldenPath)
+      ? goldenPath
+      : fs.existsSync(path.join(DEFAULT_PC_BACKUP_ROOT, "start-tilegrid-golden.bin"))
+        ? path.join(DEFAULT_PC_BACKUP_ROOT, "start-tilegrid-golden.bin")
+        : "";
+    if (!target) return { exists: false, path: goldenPath, bytes: 0, updatedAt: null };
+    const st = fs.statSync(target);
+    return {
+      exists: st.size >= 64,
+      path: target,
+      bytes: st.size,
+      updatedAt: st.mtime.toISOString(),
+    };
+  } catch {
+    return { exists: false, path: goldenPath, bytes: 0, updatedAt: null };
+  }
+}
+
+export async function manageStartMenuLayout(action = "restore", opts = {}) {
+  const mode = String(action || "restore").toLowerCase() === "backup" ? "backup" : "restore";
+  if (!fs.existsSync(DEFAULT_START_TILES_LIB)) {
+    return { ok: false, error: `Missing ${DEFAULT_START_TILES_LIB}` };
+  }
+  try {
+    const mod = await import(pathToFileURL(DEFAULT_START_TILES_LIB).href);
+    const res =
+      mode === "backup"
+        ? mod.backupCloudStoreStartTilegridLive({
+            targetPath: opts.targetPath || DEFAULT_START_TILEGRID_GOLDEN_BIN,
+          })
+        : mod.restoreCloudStoreStartTilegridLive({
+            sourcePath: opts.sourcePath || DEFAULT_START_TILEGRID_GOLDEN_BIN,
+          });
+    return {
+      ...res,
+      startLayoutGolden: readStartLayoutGoldenSummary(opts.targetPath || opts.sourcePath || DEFAULT_START_TILEGRID_GOLDEN_BIN),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
 
 let hasleoCache = { at: 0, value: null, inFlight: null };
 const HASLEO_TTL_MS = 10 * 60_000;
@@ -239,6 +300,7 @@ export function normalizePcBackupState(rawState = {}, opts = {}) {
     logTail,
     healthDrill: healthDrill && typeof healthDrill === "object" ? healthDrill : null,
     systemImage: systemImage && typeof systemImage === "object" ? systemImage : null,
+    startLayoutGolden: readStartLayoutGoldenSummary(),
   };
 }
 

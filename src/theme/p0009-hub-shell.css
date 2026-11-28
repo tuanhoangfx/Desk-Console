@@ -7,7 +7,7 @@
 
 .p0009-hub-app {
   --p0009-chrome-bleed: var(--app-tab-header-px, 1.5rem);
-  --p0009-frame-gutter: var(--p0009-frame-px, 0.75rem);
+  --p0009-frame-gutter: var(--p0009-frame-px, var(--app-tab-header-px, 1.5rem));
 }
 
 .p0009-hub-app .app-tab-header {
@@ -44,40 +44,13 @@
   min-height: 0;
 }
 
-/* Split-workspace screens (Jobs, Drives) — P0019 Comments / P0003 Profiles golden parity */
-.hub-app.p0009-hub-app > main.p0009-hub-main.hub-main--jobs,
-.hub-app.p0009-hub-app > main.p0009-hub-main.hub-main--drives {
+.hub-app.p0009-hub-app > main.p0009-hub-main.hub-main--system {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
   padding-bottom: 0;
   scroll-padding-top: 0;
-}
-
-.hub-main--jobs > div:not([hidden]),
-.hub-main--jobs .hub-tab-chrome-stack,
-.hub-main--jobs .hub-tab-content-zone,
-.hub-main--jobs .hub-tab-body-zone--split,
-.hub-main--jobs .stealth-profile-layout,
-.hub-main--drives > div:not([hidden]),
-.hub-main--drives .hub-tab-chrome-stack,
-.hub-main--drives .hub-tab-content-zone,
-.hub-main--drives .hub-tab-body-zone--split {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.hub-main--jobs .hub-tab-body-zone--split,
-.hub-main--drives .hub-tab-body-zone--split {
-  padding-bottom: 0.625rem;
-}
-
-.hub-main--jobs .stealth-profile-layout {
-  display: grid;
 }
 
 /* 2-card right rail: History (top 50%) + Console (bottom 50%) at 5/5 ratio — P0019 CommentRail SSOT */

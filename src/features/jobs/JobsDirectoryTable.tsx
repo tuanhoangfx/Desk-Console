@@ -1,8 +1,7 @@
-/** body-only-directory · table-only-directory · no-form-directory — FilterBar lives on JobsScreen. */
+/** body-only-directory · table-only-directory · no-form-directory — FilterBar lives on JobsScreen (HubDirectoryScreen). */
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS,
-  HUB_DIRECTORY_TABLE_PANE_WRAP_CLASS,
   HubDirectoryTableShell,
   buildDirectoryColgroupForShell,
   buildDirectoryColumns,
@@ -120,7 +119,7 @@ export const JobsDirectoryTable = memo(function JobsDirectoryTable({
         : buildDirectoryColgroupForShell(columns, { showSelect: false }),
     [columns, selectable],
   );
-  const { rootRef, stickyStyle } = useHubScopedFreeze({
+  const { rootRef, stickyStyle, scrollWrapClassName } = useHubScopedFreeze({
     prefs: jobsTableFreezePrefs,
     columns: columns.map((col) => ({ colClass: col.colClass, width: JOBS_COLUMN_META[col.key].width })),
     scopeClass: JOBS_STICKY_LEAD_CLASS,
@@ -164,7 +163,7 @@ export const JobsDirectoryTable = memo(function JobsDirectoryTable({
         items={sorted}
         ariaLabel="Sync jobs directory"
         tableClassName={`${hubDirectoryFrameTableClass("8")} p0009-jobs-directory-table ${JOBS_STICKY_LEAD_CLASS}`}
-        wrapClassName={embedded ? WRAP_CLASS : HUB_DIRECTORY_TABLE_PANE_WRAP_CLASS}
+        wrapClassName={embedded ? WRAP_CLASS : (scrollWrapClassName || HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS)}
         flushWrap
         colgroup={colgroup}
         columns={columns}
@@ -181,8 +180,8 @@ export const JobsDirectoryTable = memo(function JobsDirectoryTable({
         pageSize={embedded ? Math.max(items.length, 1) : pageSize}
         resetKey={resetKey}
         hideWhenSinglePage={embedded}
-        padBodyRowsToPageSize={!embedded}
-        paginatedShellClassName={embedded ? "min-w-0" : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"}
+        padBodyRowsToPageSize={false}
+        paginatedShellClassName="min-w-0"
         onRowClick={onRowClick}
         renderRowCells={renderRowCells}
       />

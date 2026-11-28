@@ -1,184 +1,184 @@
 {
-  "generatedAt": "2026-11-26T22:28:45.529Z",
+  "generatedAt": "2026-11-28T11:31:38.991Z",
   "entries": [
     {
-      "version": "3.1.267",
-      "date": "2026-11-27",
-      "at": "2026-11-27T05:20:00+07:00",
-      "title": "fix(build): order vite hub-identity regex alias",
+      "version": "3.1.310",
+      "date": "2026-11-28",
+      "at": "2026-11-28T18:21:00+07:00",
+      "title": "Default /api/clips to lightweight summary + compact brand-icons",
       "bullets": [
-        "Ensure sub-path regex alias precedes exact @tool-workspace/hub-identity alias in vite.config.ts."
+        "Omit inline base64 imageDataUrl and truncate >2KB text on GET /api/clips by default (12.7MB -> <150KB) with /api/clips/:id/image URLs and on-demand full clip fetch in ClipDetailModal; sync compressed brand-icons"
+      ],
+      "kind": "improve",
+      "userTitle": "Default api clips to lightweight summary + compact brand-icons",
+      "userSummary": "",
+      "userHighlights": [
+        "Omit inline base64 image Data Url and truncate >2 KB text on GET api clips by default with api cl…"
+      ]
+    },
+    {
+      "version": "3.1.309",
+      "date": "2026-11-28",
+      "at": "2026-11-28T18:09:00+07:00",
+      "title": "Repair unpacked ASAR boot & optimize P0001 tab LRU/polling to match P0010",
+      "bullets": [
+        "Remove 7-tab pinned override in useHubVisitedTabsLru, pass tabActive to DashboardScreen/CronScreen/JobsScreen, apply HUB_VISITED_INACTIVE_STYLE, share TabHeaderActions health poll, and guard pre-boot uncaughtException"
+      ],
+      "kind": "improve",
+      "userTitle": "Repair unpacked ASAR boot & optimize P0001 tab LRU polling to match P…",
+      "userSummary": "",
+      "userHighlights": [
+        "Remove 7-tab pinned override in use Hub Visited Tabs Lru, pass tab Active to Dashboard Screen Cro…"
+      ]
+    },
+    {
+      "version": "3.1.308",
+      "date": "2026-11-28",
+      "at": "2026-11-28T18:09:00+07:00",
+      "title": "Eliminate Zalo remote-ops PowerShell Terminal flash & add host crash backoff",
+      "bullets": [
+        "Wrap cross-user runas PowerShell calls with conhost.exe --headless, persist Zalo daemon cooldown/cache metadata with fsync durability to prevent post-reboot 5-profile scan storms, and add exponential respawn backoff in electron/main.cjs."
+      ],
+      "kind": "improve",
+      "userTitle": "Eliminate Zalo remote-ops Power Shell Terminal flash & add host crash…",
+      "userSummary": "",
+      "userHighlights": [
+        "Wrap cross-user runas Power Shell calls with conhost.exe --headless, persist Zalo daemon cooldown…"
+      ]
+    },
+    {
+      "version": "3.1.307",
+      "date": "2026-11-28",
+      "at": "2026-11-28T17:02:00+07:00",
+      "title": "Assemble retry, titlebar cleanup & gutter SSOT",
+      "bullets": [
+        "Added EPERM/EBUSY rmSyncWithRetry fallback to assemble-unpacked, synced desktop-app-menu (no header version pill) and hot-patch-loader fix"
+      ],
+      "kind": "improve",
+      "userTitle": "Assemble retry, titlebar cleanup & gutter shared UI",
+      "userSummary": "",
+      "userHighlights": [
+        "Added EPERM EBUSY rm Sync With Retry fallback to assemble-unpacked, synced desktop-app-menu and h…"
+      ]
+    },
+    {
+      "version": "3.1.306",
+      "date": "2026-11-28",
+      "at": "2026-11-28T15:06:00+07:00",
+      "title": "Upgrade HubTooltip SSOT across modal/table/pager controls",
+      "bullets": [
+        "Pick up full HubTooltip SSOT from packages/hub-ui and repackage desktop NSIS + win-unpacked"
+      ],
+      "kind": "improve",
+      "userTitle": "Upgrade Hub Tooltip shared UI across modal table pager controls",
+      "userSummary": "",
+      "userHighlights": [
+        "Pick up full Hub Tooltip shared UI from packages hub-ui and repackage desktop NSIS + win-unpacked"
+      ]
+    },
+    {
+      "version": "3.1.305",
+      "date": "2026-11-28",
+      "at": "2026-11-28T06:45:00+07:00",
+      "title": "Lock V1 sidebar collapse icon & HubTooltip SSOT chrome",
+      "bullets": [
+        "Pick up HubSidebarCollapseGlyph V1 Panel Dock Frame and HubTooltip portal SSOT across header/toolbar controls"
+      ],
+      "kind": "improve",
+      "userTitle": "Lock V1 sidebar collapse icon & Hub Tooltip shared UI chrome",
+      "userSummary": "",
+      "userHighlights": [
+        "Pick up Hub Sidebar Collapse Glyph V1 Panel Dock Frame and Hub Tooltip portal shared UI across he…"
+      ]
+    },
+    {
+      "version": "3.1.304",
+      "date": "2026-11-28",
+      "at": "2026-11-28T06:21:00+07:00",
+      "title": "Decrypt AES-GCM ide_console envelopes & fix split-head-gate P0001 target",
+      "bullets": [
+        "Support encrypted AES-256-GCM ~/.ide_console account envelopes + real homedir resolution in P0001 theme-mod & electron-hook, and update hub-directory-split-head-gate P0001 target to Desk Console :5180"
+      ],
+      "kind": "improve",
+      "userTitle": "Decrypt AES-GCM ide console envelopes & fix split-head-gate P0001 target",
+      "userSummary": "",
+      "userHighlights": [
+        "Support encrypted AES-256-GCM ~ .ide console account envelopes + real homedir resolution in P0001…"
+      ]
+    },
+    {
+      "version": "3.1.303",
+      "date": "2026-11-28",
+      "at": "2026-11-28T06:18:00+07:00",
+      "title": "NoAsar Lock Fix, Zalo Old-Build Prune & Closed Browser Caches",
+      "bullets": [
+        "Wrap app.asar fs access in process.noAsar=true to prevent Desk Console Electron handles from locking old Zalo builds, prune <latestVersion folders across all stopped instances including Primary, and add closed-app Chromium cache cleanup for Chrome/CocCoc/Discord"
       ],
       "kind": "fix",
-      "userTitle": "Order vite hub-identity regex alias",
+      "userTitle": "No Asar Lock Fix, Zalo Old-Build Prune & Closed Browser Caches",
       "userSummary": "",
       "userHighlights": [
-        "Ensure sub-path regex alias precedes exact @tool-workspace hub-identity alias in ."
+        "Wrap app.asar fs access in process.no Asar=true to prevent Desk Console Electron handles from loc…"
       ]
     },
     {
-      "version": "3.1.266",
-      "date": "2026-11-27",
-      "at": "2026-11-27T05:05:00+07:00",
-      "title": "fix(host): enforce non-blocking async spawns across HTTP host modules",
+      "version": "3.1.302",
+      "date": "2026-11-28",
+      "at": "2026-11-28T05:49:00+07:00",
+      "title": "Stabilize end-user host port test & harden native dialog opacity",
       "bullets": [
-        "Switch remaining startHiddenDetachedProcess/startDetached calls in pc-optimizer.mjs, windows.mjs, and server.mjs to async non-blocking helpers and add a host regression test forbidding sync spawn calls in HTTP host runtime modules."
-      ],
-      "kind": "fix",
-      "userTitle": "Enforce non-blocking async spawns across HTTP host modules",
-      "userSummary": "",
-      "userHighlights": [
-        "Switch remaining start Hidden Detached Process start Detached calls in , , and to async non-block…"
-      ]
-    },
-    {
-      "version": "3.1.265",
-      "date": "2026-11-27",
-      "at": "2026-11-27T04:39:00+07:00",
-      "title": "fix(runners): non-blocking async spawn and worker target routing",
-      "bullets": [
-        "Switch startRunner to startHiddenDetachedProcessAsync with scalar PID return so :6010 never freezes past 8s and triggers Cron/Runner timeouts; route worker:P0020_QUOTA and worker targets cleanly via raw.id and extend runnerAction timeout."
-      ],
-      "kind": "fix",
-      "userTitle": "Non-blocking async spawn and worker target routing",
-      "userSummary": "",
-      "userHighlights": [
-        "Switch start Runner to start Hidden Detached Process Async with scalar PID return so :6010 never…"
-      ]
-    },
-    {
-      "version": "3.1.264",
-      "date": "2026-11-27",
-      "at": "2026-11-27T03:40:00+07:00",
-      "title": "SSOT smoke: headless Stealth CDP + DOM column/date verification",
-      "bullets": [
-        "Upgrade smoke-runners-tasks.mjs and verify-desk-parity-visual.mjs from raw profile 9990 WebSocket CDP to dynamic agent pool + connectStealthHeadless with live th===td and Created/Update assertions."
+        "Use ephemeral free port in desk-host end-user boot test and strengthen opaque native dialog CSS isolation in theme-mod.css"
       ],
       "kind": "improve",
-      "userTitle": "Shared UI smoke: headless Stealth CDP + DOM column date verification",
+      "userTitle": "Stabilize end-user host port test & harden native dialog opacity",
       "userSummary": "",
       "userHighlights": [
-        "Upgrade and from raw profile 9990 Web Socket CDP to dynamic agent pool + connect Stealth Headless…"
+        "Use ephemeral free port in desk-host end-user boot test and strengthen opaque native dialog CSS i…"
       ]
     },
     {
-      "version": "3.1.263",
-      "date": "2026-11-27",
-      "at": "2026-11-27T03:04:00+07:00",
-      "title": "Fix Desk directory Update/Created/Action column parity & SSOT gates",
+      "version": "3.1.301",
+      "date": "2026-11-28",
+      "at": "2026-11-28T05:43:00+07:00",
+      "title": "Auto >1.5GB Zalo Offload & C: PC Cache Maintenance",
       "bullets": [
-        "Replace Runners Update URL text hack with real activity timestamps, derive real Created timestamps on host runners/tasks/apps, standardize Action header/toggle, scope Desk columns per screen, and fix P0001 directory SSOT inventory + gates"
-      ],
-      "kind": "fix",
-      "userTitle": "Fix Desk directory Update Created Action column parity & shared UI gates",
-      "userSummary": "",
-      "userHighlights": [
-        "Replace Runners Update URL text hack with real activity timestamps, derive real Created timestamp…"
-      ]
-    },
-    {
-      "version": "3.1.262",
-      "date": "2026-11-26",
-      "at": "2026-11-26T20:46:00+07:00",
-      "title": "Add +3.3V history chart mode and AVCC rail check",
-      "bullets": [
-        "Added Power +3.3V chart series and inline sparkline to P0001 Dashboard plus motherboard AVCC_UNDERVOLTAGE warning."
+        "Add offloadZaloDataIfDue (>1.5GB) to Daemon-Zalo-Fleet-Sync, upgrade cleanZaloDataCache cross-user execution via runZaloRemotePsScriptAsync, and extend runNightlyDeepMaintenance to safely purge stale C: dev/updater/shader caches"
       ],
       "kind": "improve",
-      "userTitle": "Add +3.3 V history chart mode and AVCC rail check",
+      "userTitle": "Auto >1.5 GB Zalo Offload & C: PC Cache Maintenance",
       "userSummary": "",
       "userHighlights": [
-        "Added Power +3.3 V chart series and inline sparkline to P0001 Dashboard plus motherboard AVCC UND…"
+        "Add offload Zalo Data If Due to Daemon-Zalo-Fleet-Sync, upgrade clean Zalo Data Cache cross-user…"
       ]
     },
     {
-      "version": "3.1.261",
-      "date": "2026-11-26",
-      "at": "2026-11-26T18:30:00+07:00",
-      "title": "Add +3.3V undervoltage telemetry and Dashboard alert",
+      "version": "3.1.300",
+      "date": "2026-11-28",
+      "at": "2026-11-28T05:22:00+07:00",
+      "title": "Ensure full-height layout on P0001 Directory tabs",
       "bullets": [
-        "Exposed v33/v33MinRecent from pc-sensors CSV and LHM, added V33_UNDERVOLTAGE critical alert and Dashboard +3.3V status pill."
+        "Set flex: 1 0 auto and min-height: 100% on non-system active desk-tab-panel so Drive Sync/Jobs/Cron/Apps pass desk-core 32/32"
       ],
       "kind": "improve",
-      "userTitle": "Add +3.3 V undervoltage telemetry and Dashboard alert",
+      "userTitle": "Ensure full-height layout on P0001 Directory tabs",
       "userSummary": "",
       "userHighlights": [
-        "Exposed v33 v33 Min Recent from pc-sensors CSV and LHM, added V33 UNDERVOLTAGE critical alert and…"
+        "Set flex: 1 0 auto and min-height: 100% on non-system active desk-tab-panel so Drive Sync Jobs Cr…"
       ]
     },
     {
-      "version": "3.1.260",
-      "date": "2026-11-26",
-      "at": "2026-11-26T17:49:00+07:00",
-      "title": "Strip NUL bytes in pc-sensors CSV reader",
+      "version": "3.1.299",
+      "date": "2026-11-28",
+      "at": "2026-11-28T05:20:00+07:00",
+      "title": "Auto 24h Remote Zalo Probe & Decluttered UI",
       "bullets": [
-        "Hardened readPcSensorCsvHistory against NTFS power-loss NUL tail padding and added unit regression test."
+        "Hydrate savedCredCache in standalone Zalo helpers, auto-probe secondary ZaloData stats every 24h inside Daemon-Zalo-Fleet-Sync, and remove redundant manual Scan button from AppVersionDetailModal"
       ],
       "kind": "improve",
-      "userTitle": "Strip NUL bytes in pc-sensors CSV reader",
+      "userTitle": "Auto 24h Remote Zalo Probe & Decluttered UI",
       "userSummary": "",
       "userHighlights": [
-        "Hardened read Pc Sensor Csv History against NTFS power-loss NUL tail padding and added unit regre…"
-      ]
-    },
-    {
-      "version": "3.1.259",
-      "date": "2026-11-26",
-      "at": "2026-11-26T16:35:00+07:00",
-      "title": "Hardware 2s CSV telemetry and stability history integration",
-      "bullets": [
-        "Integrate pc-sensors.csv 2s stream, NVMe watchdog temp/max, cpuMaxPct tuning pill, and 20 stability events into P0001 HardwareHealthPanel and Hardware Temps chart"
-      ],
-      "kind": "improve",
-      "userTitle": "Hardware 2s CSV telemetry and stability history integration",
-      "userSummary": "",
-      "userHighlights": [
-        "Integrate pc-sensors.csv 2s stream, NVMe watchdog temp max, cpu Max Pct tuning pill, and 20 stabi…"
-      ]
-    },
-    {
-      "version": "3.1.258",
-      "date": "2026-11-22",
-      "at": "2026-11-22T19:31:00+07:00",
-      "title": "Sync desktop-host-kit S4U non-interactive self-eviction & interactive relaunch",
-      "bullets": [
-        "Synced packages/hub-desktop-host-kit S4U non-interactive detection (cursorPt.x < -100000) and install-desktop-exe.ps1 Prod upgrade pipeline"
-      ],
-      "kind": "improve",
-      "userTitle": "Sync desktop-host-kit S4 U non-interactive self-eviction & interactiv…",
-      "userSummary": "",
-      "userHighlights": [
-        "Synced packages hub-desktop-host-kit S4 U non-interactive detection and install-desktop-exe.ps1 P…"
-      ]
-    },
-    {
-      "version": "3.1.257",
-      "date": "2026-11-19",
-      "at": "2026-11-19T18:11:00+07:00",
-      "title": "Patch bump for completed agent task",
-      "bullets": [
-        "Automatic patch bump after completed P0001 task."
-      ],
-      "kind": "improve",
-      "userTitle": "Patch bump for completed agent task",
-      "userSummary": "",
-      "userHighlights": [
-        "Automatic patch bump after completed P0001 task."
-      ]
-    },
-    {
-      "version": "3.1.254",
-      "date": "2026-11-18",
-      "at": "2026-11-18T18:02:00+07:00",
-      "title": "Surface PC-Optimizer reclaimedBytes in Dashboard & History",
-      "bullets": [
-        "Display PC-Optimizer reclaimed disk bytes in Dashboard Cron & PC Hygiene card and DeskOpsRuntimeRail History rows."
-      ],
-      "kind": "improve",
-      "userTitle": "Surface PC-Optimizer reclaimed Bytes in Dashboard & History",
-      "userSummary": "",
-      "userHighlights": [
-        "Display PC-Optimizer reclaimed disk bytes in Dashboard Cron & PC Hygiene card and Desk Ops Runtim…"
+        "Hydrate saved Cred Cache in standalone Zalo helpers, auto-probe secondary Zalo Data stats every 2…"
       ]
     }
   ]

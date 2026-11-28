@@ -23,10 +23,12 @@ type Props = {
   status: PcBackupStatusPayload | null;
   triggeringMode: "full" | "critical" | null;
   verifyingDrill?: boolean;
+  startLayoutAction?: "backup" | "restore" | null;
   onRunBackup: (mode: "full" | "critical") => void;
   onRunDrill?: () => void;
   onOpenRestore?: () => void;
   onRunSystemImage?: () => void;
+  onManageStartLayout?: (action: "backup" | "restore") => void;
   onRefresh: () => void;
   onOpenCron: () => void;
 };
@@ -72,10 +74,12 @@ export function PcBackupStatusPanel({
   status,
   triggeringMode,
   verifyingDrill = false,
+  startLayoutAction = null,
   onRunBackup,
   onRunDrill,
   onOpenRestore,
   onRunSystemImage,
+  onManageStartLayout,
   onRefresh,
   onOpenCron,
 }: Props) {
@@ -179,6 +183,34 @@ export function PcBackupStatusPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          {onManageStartLayout ? (
+            <>
+              <button
+                type="button"
+                disabled={startLayoutAction !== null}
+                onClick={() => onManageStartLayout("backup")}
+                data-testid="pc-start-layout-backup-btn"
+                className="inline-flex items-center gap-1 rounded-md border border-amber-400/25 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+                title="Snapshot current Windows 10 Start Menu layout (4-col width, height & all tile groups) into start-tilegrid-golden.bin"
+              >
+                {startLayoutAction === "backup" ? "Saving…" : "Backup Start"}
+              </button>
+              <button
+                type="button"
+                disabled={startLayoutAction !== null}
+                onClick={() => onManageStartLayout("restore")}
+                data-testid="pc-start-layout-restore-btn"
+                className="inline-flex items-center gap-1 rounded-md border border-teal-400/25 bg-teal-500/10 px-2 py-1 text-xs font-medium text-teal-200 transition-colors hover:bg-teal-500/20 disabled:opacity-50"
+                title={
+                  status?.startLayoutGolden?.exists
+                    ? `1-Click restore golden Windows 10 Start Menu layout (${formatDiskBytesLabel(status.startLayoutGolden.bytes) || "25 KB"})`
+                    : "Restore golden Windows 10 Start Menu layout"
+                }
+              >
+                {startLayoutAction === "restore" ? "Restoring…" : "Restore Start"}
+              </button>
+            </>
+          ) : null}
           {onOpenRestore ? (
             <button
               type="button"

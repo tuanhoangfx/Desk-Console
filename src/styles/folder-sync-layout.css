@@ -1,7 +1,5 @@
-/* P0009 Jobs — P0003 Profiles split. System uses the same flex column. */
+/* System split workspace flex column; Jobs & Drives use Layout 1 Directory SSOT. */
 
-.hub-main.hub-main--jobs,
-.hub-main.hub-main--drives,
 .hub-main.hub-main--system {
   display: flex;
   flex-direction: column;
@@ -9,20 +7,6 @@
   overscroll-behavior: none;
 }
 
-.hub-main--jobs > div:not([hidden]),
-.hub-main--jobs .hub-tab-chrome-stack,
-.hub-main--jobs .hub-tab-content-zone,
-.hub-main--jobs .hub-tab-body-zone--split,
-.hub-main--jobs .folder-sync-workspace-body,
-.hub-main--jobs .hub-split-workspace,
-.hub-main--jobs .folder-sync-shell-host,
-.hub-main--drives > div:not([hidden]),
-.hub-main--drives .hub-tab-chrome-stack,
-.hub-main--drives .hub-tab-content-zone,
-.hub-main--drives .hub-tab-body-zone--split,
-.hub-main--drives .folder-sync-workspace-body,
-.hub-main--drives .hub-split-workspace,
-.hub-main--drives .folder-sync-shell-host,
 .hub-main--system > div:not([hidden]),
 .hub-main--system .hub-tab-chrome-stack,
 .hub-main--system .hub-tab-content-zone,
@@ -36,14 +20,10 @@
   flex-direction: column;
 }
 
-.hub-main--jobs > div[hidden],
-.hub-main--drives > div[hidden],
 .hub-main--system > div[hidden] {
   display: none !important;
 }
 
-.hub-main--jobs .hub-tab-chrome-stack > .hub-tab-content-zone,
-.hub-main--drives .hub-tab-chrome-stack > .hub-tab-content-zone,
 .hub-main--system .hub-tab-chrome-stack > .hub-tab-content-zone {
   flex: 1 1 0;
   min-height: 0;
@@ -105,13 +85,7 @@
   overflow: hidden;
 }
 
-/* Column split, gap, and rail: hub-profile-split-layout.css (P0003 Profiles SSOT).
-   Jobs rail is History + Console only (stealth-runtime-rail-only). */
-.hub-main--jobs .folder-sync-shell-host > .folder-sync-jobs-layout.stealth-profile-layout {
-  grid-template-rows: minmax(0, 1fr);
-  height: 100%;
-  width: 100%;
-}
+/* Legacy modal / outline styling below. */
 
 /* Browse chevron sits inside the field, same mark as Mode / Sync after. */
 .hub-account-detail-modal .hub-adm-inline-field__value:has(.fs-browse-chevron) > .hub-adm-click-edit {

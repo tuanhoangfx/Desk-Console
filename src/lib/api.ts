@@ -33,6 +33,8 @@ export type ClipRow = {
   id: string;
   name?: string;
   text: string;
+  textLength?: number;
+  textTruncated?: boolean;
   contentType?: "text" | "image";
   hasImage?: boolean;
   imageDataUrl?: string;
@@ -80,6 +82,8 @@ export type RunnerRow = {
   startStartedAt?: number;
   startExitedAt?: number;
   startExitCode?: number | null;
+  tunnelUrl?: string | null;
+  tunnelState?: "starting" | "active" | null;
 };
 
 export type TaskRow = {
@@ -387,6 +391,12 @@ export type PcBackupStatusPayload = {
     secondaryDisks?: Array<{ Number: number; FriendlyName: string; BusType: string; SizeGB: number }>;
     tasks?: Array<{ guid: string; name: string }>;
   } | null;
+  startLayoutGolden?: {
+    exists: boolean;
+    path: string;
+    bytes: number;
+    updatedAt: string | null;
+  } | null;
 };
 
 export type HardwareSensorGpu = {
@@ -655,6 +665,20 @@ export const deskApi = {
       method: "POST",
       signal: AbortSignal.timeout(25_000),
     }),
+  runnerTunnel: (
+    idOrCode: string,
+    action: "toggle" | "start" | "stop" = "toggle",
+  ) =>
+    req<{
+      ok: boolean;
+      active: boolean;
+      url: string | null;
+      state: "starting" | "active" | null;
+    }>(`/api/runners/${encodeURIComponent(idOrCode)}/tunnel`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+      signal: AbortSignal.timeout(20_000),
+    }),
   tasks: async () => ({ rows: rowsOf(await req<{ rows: TaskRow[] }>("/api/tasks")) }),
   listTasks: async () => (await deskApi.tasks()).rows,
   createTask: (body: {
@@ -811,6 +835,21 @@ export const deskApi = {
       body: JSON.stringify(payload || {}),
       signal: AbortSignal.timeout(60_000),
     }),
+  manageStartMenuLayout: (action: "backup" | "restore") =>
+    req<{
+      ok: boolean;
+      action?: "backup" | "restore";
+      bytes?: number;
+      tileCount?: number;
+      groupCount?: number;
+      header?: { d014: number; d01e: number; d028: number; d078: number };
+      error?: string;
+      startLayoutGolden?: PcBackupStatusPayload["startLayoutGolden"];
+    }>("/api/pc/backup/start-layout", {
+      method: "POST",
+      body: JSON.stringify({ action }),
+      signal: AbortSignal.timeout(20_000),
+    }),
   pcOptimize: (action: PcOptimizeAction | "deep-maintenance" = "all") =>
     req<PcOptimizeResult>("/api/pc/optimize", {
       method: "POST",
@@ -850,16 +889,41 @@ export const deskApi = {
     req<{ ok: boolean; message?: string; error?: string; appsState?: ManagedAppsResponse }>("/api/apps/action", {
       method: "POST",
       body: JSON.stringify({ action, ...payload }),
-      signal: AbortSignal.timeout(action === "fetch-all-releases" ? 300000 : 45000),
+      signal: AbortSignal.timeout(
+        action === "fetch-all-releases" ? 300000 : action === "sync-zalo-instances" ? 120000 : 45000,
+      ),
+    }),
+  themeModStatus: () => req<AntigravityThemeModStatusResponse>("/api/antigravity-theme-mod/status"),
+  saveThemeModConfig: (patch: Partial<AntigravityThemeModConfig>) =>
+    req<{ ok: boolean; configPath: string; config: AntigravityThemeModConfig }>("/api/antigravity-theme-mod/config", {
+      method: "POST",
+      body: JSON.stringify(patch),
+    }),
+  applyThemeMod: (payload: { version?: string } = {}) =>
+    req<AntigravityThemeModActionResponse>("/api/antigravity-theme-mod/apply", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  restoreThemeMod: (payload: { version?: string } = {}) =>
+    req<AntigravityThemeModActionResponse>("/api/antigravity-theme-mod/restore", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 };
 
 export type ManagedAppRow = {
   id: string;
   name: string;
-  product: "antigravity" | "cursor" | "claudeCode";
-  kind: "primary" | "sxs" | "cli";
+  product: "antigravity" | "cursor" | "claudeCode" | "zalo";
+  kind: "primary" | "sxs" | "cli" | "instance";
+  brandId?: string;
+  brandIconSrc?: string;
   version: string | null;
+  latestVersion?: string | null;
+  outdated?: boolean;
+  installedVersions?: string[];
+  winUser?: string | null;
+  accountLabel?: string | null;
   previousUsedVersion?: string | null;
   commit?: string | null;
   installed: boolean;
@@ -867,6 +931,26 @@ export type ManagedAppRow = {
   runningPids?: number[];
   memoryBytes?: number;
   memoryMb?: number;
+  ramLabel?: string;
+  sizeBytes?: number;
+  sizeLabel?: string;
+  zaloDataPath?: string | null;
+  zaloDataAccessible?: boolean;
+  zaloDataBytes?: number;
+  zaloDataLabel?: string;
+  zaloDataOnCBytes?: number;
+  zaloDataOnCLabel?: string;
+  zaloDataOnDBytes?: number;
+  zaloDataOnDLabel?: string;
+  zaloDataJunctions?: {
+    media?: { linked: boolean; target: string | null; bytes: number; label: string };
+    database?: { linked: boolean; target: string | null; bytes: number; label: string };
+  } | null;
+  zaloDataCacheBytes?: number;
+  zaloDataCacheLabel?: string;
+  savedCredReady?: boolean;
+  savecredCommand?: string | null;
+  shortcutName?: string | null;
   status: string;
   updatePinned: boolean;
   extensionsPinned?: boolean;
@@ -877,8 +961,25 @@ export type ManagedAppRow = {
   brokenTaskbarPins?: Array<{ shortcutPath: string; fileName: string; version: string; targetPath: string }>;
   exePath: string | null;
   visualTheme?: string;
+  themePatched?: boolean;
+  themeHasBackup?: boolean;
+  themePreset?: string;
+  themePresetLabel?: string;
+  themeOverride?: boolean;
+  themeHookMtimeAt?: string | null;
+  processStartedAt?: string | null;
+  themeHookRestartNeeded?: boolean;
   boundEmail?: string | null;
   boundTier?: string | null;
+  quotaGeminiPct?: number | null;
+  quotaClaudePct?: number | null;
+  quotaTierLabel?: string | null;
+  quotaAiCredits?: number | null;
+  quotaAiCreditsLimit?: number | null;
+  quotaCreditsLabel?: string | null;
+  quotaResetTime?: string | null;
+  quotaUpdatedAt?: string | null;
+  quotaLabel?: string | null;
   desktopShortcutExists?: boolean;
   startMenuShortcutExists?: boolean;
   isolatedHomeDir?: string | null;
@@ -896,8 +997,24 @@ export type ManagedAppReleaseItem = {
   executionId?: string;
   downloadUrl?: string | null;
   archived: boolean;
+  unavailable?: boolean;
+  unavailableStatus?: number | null;
+  unavailableCheckedAt?: string | null;
   fileName: string;
   sizeBytes?: number;
+};
+
+export type DriveVaultSyncStatus = {
+  jobId: string | null;
+  code: string;
+  name: string;
+  remote: string;
+  localPath?: string | null;
+  status: string;
+  syncedCount: number;
+  lastRunAt?: string | null;
+  lastSuccessfulSyncAt?: string | null;
+  lastResultOk?: boolean | null;
 };
 
 export type ManagedAppsResponse = {
@@ -907,5 +1024,59 @@ export type ManagedAppsResponse = {
   checkedAt?: string;
   rows: ManagedAppRow[];
   releases?: ManagedAppReleaseItem[];
+  cursorReleases?: ManagedAppReleaseItem[];
+  driveVaultSync?: DriveVaultSyncStatus | null;
+  themeMod?: {
+    config: AntigravityThemeModConfig;
+    presets: Array<{ id: string; label: string; kind: string; accentColor: string }>;
+    patchedCount: number;
+    totalCount: number;
+  } | null;
   snapshot?: Record<string, unknown> | null;
+};
+
+export type AntigravityThemeModConfig = {
+  enabled: boolean;
+  preset: string;
+  customWallpaperDataUrl: string;
+  wallpaperBlurPx: number;
+  backdropDim: number;
+  sidebarOpacity: number;
+  panelOpacity: number;
+  codeOpacity: number;
+  quotaOpacity: number;
+  quotaAccent: "emerald" | "sky" | "amber" | "violet" | string;
+  showSidebarQuota: boolean;
+  opaqueNativeDialogs?: boolean;
+  composerGradient: string;
+  composerOpacity: number;
+  accentColor: string;
+  overrides: Record<string, Partial<AntigravityThemeModConfig>>;
+};
+
+export type AntigravityThemeModVersionRow = {
+  version: string;
+  exists: boolean;
+  running: boolean;
+  patched: boolean;
+  hasBackup: boolean;
+};
+
+export type AntigravityThemeModStatusResponse = {
+  ok: boolean;
+  sxsRoot?: string;
+  configPath?: string;
+  settingsExists?: boolean;
+  config?: AntigravityThemeModConfig;
+  presets?: Array<{ id: string; label: string; kind: string; accentColor: string }>;
+  versions?: AntigravityThemeModVersionRow[];
+  error?: string;
+};
+
+export type AntigravityThemeModActionResponse = {
+  ok: boolean;
+  action: "apply" | "restore";
+  results?: Array<{ version: string; status: string; error?: string }>;
+  versions?: AntigravityThemeModVersionRow[];
+  error?: string;
 };

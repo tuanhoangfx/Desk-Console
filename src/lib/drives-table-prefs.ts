@@ -2,6 +2,7 @@ import {
   countHiddenDirectoryTableColumns,
   createDirectoryFreezePrefs,
   createDirectoryTableColumnPrefs,
+  createDirectoryTableColumnPresetManager,
   prefIconMapFromHubDirectoryColumnMeta,
   withDirectoryColumnIcons,
   withDirectoryColumnLabelHints,
@@ -48,6 +49,13 @@ export const drivesDirectoryColumnPrefs = createDirectoryTableColumnPrefs({
   items: DRIVES_DIRECTORY_COLUMN_ITEMS,
   defaultKeys: DEFAULT_DRIVES_DIRECTORY_COLUMNS,
   changeEvent: DRIVES_DIRECTORY_COLUMNS_CHANGE,
+});
+
+export const drivesColumnPresets = createDirectoryTableColumnPresetManager<DrivesColumnKey>({
+  prefs: drivesDirectoryColumnPrefs,
+  presetsStorageKey: "p0009_drives_column_presets_v1",
+  itemKeys: [...DRIVES_COLUMN_KEYS],
+  defaultVisible: DEFAULT_DRIVES_DIRECTORY_COLUMNS,
 });
 
 export function readDrivesDirectoryColumns(): DrivesColumnKey[] {

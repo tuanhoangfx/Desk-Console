@@ -1,5 +1,693 @@
 # Changelog
 
+## 2026-11-28 - Default /api/clips to lightweight summary + compact brand-icons
+
+- Version: `3.1.310`
+- Timestamp: 2026-11-28 18:21 (UTC+7)
+- Type: Patch
+- Status: Committed
+
+### Changes
+
+- Omit inline base64 imageDataUrl and truncate >2KB text on GET /api/clips by default (12.7MB -> <150KB) with /api/clips/:id/image URLs and on-demand full clip fetch in ClipDetailModal; sync compressed brand-icons
+
+### Verification
+
+- tsc --noEmit + host/desk-host.test.mjs + live GET :6010/api/clips
+
+---
+## 2026-11-28 - Repair unpacked ASAR boot & optimize P0001 tab LRU/polling to match P0010
+
+- Version: `3.1.309`
+- Timestamp: 2026-11-28 18:09 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Remove 7-tab pinned override in useHubVisitedTabsLru, pass tabActive to DashboardScreen/CronScreen/JobsScreen, apply HUB_VISITED_INACTIVE_STYLE, share TabHeaderActions health poll, and guard pre-boot uncaughtException
+
+### Verification
+
+- tsc --noEmit + host/desk-host.test.mjs + live :6010
+
+---
+## 2026-11-28 - Eliminate Zalo remote-ops PowerShell Terminal flash & add host crash backoff
+
+- Version: `3.1.308`
+- Timestamp: 2026-11-28 18:09 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wrap cross-user runas PowerShell calls with conhost.exe --headless, persist Zalo daemon cooldown/cache metadata with fsync durability to prevent post-reboot 5-profile scan storms, and add exponential respawn backoff in electron/main.cjs.
+
+### Verification
+
+- tsc --noEmit; node --test host/desk-host.test.mjs; live runas zalo:zalo-06 FLASH_COUNT=0; :6010/api/health 200
+
+---
+## 2026-11-28 - Assemble retry, titlebar cleanup & gutter SSOT
+
+- Version: `3.1.307`
+- Timestamp: 2026-11-28 17:02 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added EPERM/EBUSY rmSyncWithRetry fallback to assemble-unpacked, synced desktop-app-menu (no header version pill) and hot-patch-loader fix
+
+### Verification
+
+- lint + typecheck + 77 host tests + NSIS install sync + desktop smoke
+
+---
+## 2026-11-28 - Upgrade HubTooltip SSOT across modal/table/pager controls
+
+- Version: `3.1.306`
+- Timestamp: 2026-11-28 15:06 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Pick up full HubTooltip SSOT from packages/hub-ui and repackage desktop NSIS + win-unpacked
+
+### Verification
+
+- packages/hub-ui vitest + P0001 dist + hot-patch
+
+---
+## 2026-11-28 - Lock V1 sidebar collapse icon & HubTooltip SSOT chrome
+
+- Version: `3.1.305`
+- Timestamp: 2026-11-28 06:45 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Pick up HubSidebarCollapseGlyph V1 Panel Dock Frame and HubTooltip portal SSOT across header/toolbar controls
+
+### Verification
+
+- packages/hub-ui vitest + P0001 tsc/lint/test/build + desktop hot-patch
+
+---
+## 2026-11-28 - Decrypt AES-GCM ide_console envelopes & fix split-head-gate P0001 target
+
+- Version: `3.1.304`
+- Timestamp: 2026-11-28 06:21 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Support encrypted AES-256-GCM ~/.ide_console account envelopes + real homedir resolution in P0001 theme-mod & electron-hook, and update hub-directory-split-head-gate P0001 target to Desk Console :5180
+
+### Verification
+
+- hub-directory-split-head-gate P0001 pass; desk-host.test.mjs 77/77 pass; gate-preflight P0001 15/15 OK
+
+---
+## 2026-11-28 - NoAsar Lock Fix, Zalo Old-Build Prune & Closed Browser Caches
+
+- Version: `3.1.303`
+- Timestamp: 2026-11-28 06:18 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wrap app.asar fs access in process.noAsar=true to prevent Desk Console Electron handles from locking old Zalo builds, prune <latestVersion folders across all stopped instances including Primary, and add closed-app Chromium cache cleanup for Chrome/CocCoc/Discord
+
+### Verification
+
+- 77/77 desk-host.test.mjs + tsc + vite build + hot-patch (P0001-scoped gates all pass; external scripts/lib/global-telegram-store-core.mjs has WIP TS18004)
+
+---
+## 2026-11-28 - Stabilize end-user host port test & harden native dialog opacity
+
+- Version: `3.1.302`
+- Timestamp: 2026-11-28 05:49 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Use ephemeral free port in desk-host end-user boot test and strengthen opaque native dialog CSS isolation in theme-mod.css
+
+### Verification
+
+- desk-host.test.mjs 77/77 pass; tsc --noEmit OK; gate-preflight P0001 15/15 OK
+
+---
+## 2026-11-28 - Auto >1.5GB Zalo Offload & C: PC Cache Maintenance
+
+- Version: `3.1.301`
+- Timestamp: 2026-11-28 05:43 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Add offloadZaloDataIfDue (>1.5GB) to Daemon-Zalo-Fleet-Sync, upgrade cleanZaloDataCache cross-user execution via runZaloRemotePsScriptAsync, and extend runNightlyDeepMaintenance to safely purge stale C: dev/updater/shader caches
+
+### Verification
+
+- 77/77 desk-host.test.mjs + tsc + vite build + hot-patch (gate failed only on external Tool/scripts/lib/account-password-ssot.mjs:187)
+
+---
+## 2026-11-28 - Ensure full-height layout on P0001 Directory tabs
+
+- Version: `3.1.300`
+- Timestamp: 2026-11-28 05:22 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Set flex: 1 0 auto and min-height: 100% on non-system active desk-tab-panel so Drive Sync/Jobs/Cron/Apps pass desk-core 32/32
+
+### Verification
+
+- smoke-desktop-ui P0001 desk-core 32/32 + tsc --noEmit
+
+---
+## 2026-11-28 - Auto 24h Remote Zalo Probe & Decluttered UI
+
+- Version: `3.1.299`
+- Timestamp: 2026-11-28 05:20 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Hydrate savedCredCache in standalone Zalo helpers, auto-probe secondary ZaloData stats every 24h inside Daemon-Zalo-Fleet-Sync, and remove redundant manual Scan button from AppVersionDetailModal
+
+### Verification
+
+- gate post + 77/77 desk-host.test.mjs + tsc + vite build + hot-patch
+
+---
+## 2026-11-28 - Stabilize native clipboard latency test against cold DLL & screenshot jitter
+
+- Version: `3.1.298`
+- Timestamp: 2026-11-28 05:19 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Warm up koffi user32 handles before timing readClipboardImageAsync and guard empty vs screenshot clipboard branch in desk-host.test.mjs
+
+### Verification
+
+- desk-host.test.mjs 77/77 pass; gate-preflight P0001 15/15 OK
+
+---
+## 2026-11-28 - Add dark titleBarOverlay and live hot-reload chrome sync
+
+- Version: `3.1.297`
+- Timestamp: 2026-11-28 05:13 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Spread getDesktopWindowChromeOptions on BrowserWindow and re-sync desktop-app-menu on hot-reload
+
+### Verification
+
+- desktop-app-menu.test + desktop-hot-patch.test + smoke-desktop-ui desk-core menuBarVisible=false
+
+---
+## 2026-11-28 - Cross-User ZaloData Offload & Quick Cache Toolbar
+
+- Version: `3.1.296`
+- Timestamp: 2026-11-28 05:09 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Support /savecred cross-user NTFS junction offload and data probing for PC02..PC06, expose Clean Zalo Cache in Apps toolbar moreActions, and fix agPrimaryStartMs TDZ order in apps-versions.mjs
+
+### Verification
+
+- gate post + 77/77 desk-host.test.mjs + tsc + vite build + hot-patch
+
+---
+## 2026-11-28 - Apps AI Credits, Hook Restart badge & LS Credits Cache Sync
+
+- Version: `3.1.295`
+- Timestamp: 2026-11-28 05:08 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Surface AI Credits & electron-hook Restart needed badge in P0001 Apps & Versions, and sync LS GetUserStatus aiCredits back into ~/.ide_console accounts via /api/apps/quota-sync
+
+### Verification
+
+- node --check electron-hook.cjs; tsc --noEmit; desk-host.test.mjs 77/77 pass; gate-preflight P0001 15/15 OK
+
+---
+## 2026-11-28 - Zalo Auto Cache Daemon & Apps C:/D: Badges
+
+- Version: `3.1.294`
+- Timestamp: 2026-11-28 04:59 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Integrate cleanZaloCacheIfDue (>300MB stopped profiles + >500MB on-launch) into Daemon-Zalo-Fleet-Sync and render C:/D:/Cache/ACL status pills via HubDirectoryValuePopover in Apps table Detail column
+
+### Verification
+
+- gate post + 76/76 desk-host.test.mjs + tsc + vite build + hot-patch
+
+---
+## 2026-11-28 - Standardize menu-less Electron window chrome
+
+- Version: `3.1.293`
+- Timestamp: 2026-11-28 04:58 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Wire desktop-app-menu SSOT to remove native Win32 menu bar and preserve Reload/DevTools/Fullscreen/Zoom shortcuts
+
+### Verification
+
+- desktop-app-menu.test + live Electron probe + verify-desktop-exe-ssot
+
+---
+## 2026-11-28 - Runners 1-click HTTPS mobile preview Quick Tunnel
+
+- Version: `3.1.292`
+- Timestamp: 2026-11-28 04:56 (UTC+7)
+- Type: Patch
+- Status: Draft
+
+### Changes
+
+- Release v3.1.292.
+
+### Verification
+
+- pending
+
+---
+## 2026-11-28 - Antigravity Quota Update SSOT dot, AI Credits & opaque dialog toggle
+
+- Version: `3.1.291`
+- Timestamp: 2026-11-28 04:55 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Move sidebar quota update age + Hub-UI SSOT dot beside refresh icon, surface AI Credits from userStatus/ide_console cache, and add opaqueNativeDialogs toggle in Custom Theme Studio
+
+### Verification
+
+- node --check theme-mod.js & electron-hook.cjs; tsc --noEmit; desk-host.test.mjs 76/76 pass; gate-preflight P0001 15/15 OK
+
+---
+## 2026-11-28 - ZaloData NTFS Junction & Offload UI
+
+- Version: `3.1.290`
+- Timestamp: 2026-11-28 04:44 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Show live On C: vs Junction D: usage and junction links in P0001 Apps, add allowlisted offload-zalo-data host action and UI offload/cache controls, and align RunnersScreen appendDeskOpsLog call
+
+### Verification
+
+- gate post + 75/75 desk-host.test.mjs + tsc + vite build + hot-patch
+
+---
+## 2026-11-28 - Fix Antigravity Ultra showing as Pro & display quota sync timestamps
+
+- Version: `3.1.289`
+- Timestamp: 2026-11-28 04:27 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Prioritized Google AI Ultra across Antigravity Language Server userTier/paidTier, ~/.ide_console cache, and sxs-bound-account metadata so Ultra never falls back to TEAMS_TIER_PRO/g1-pro-tier; added last-updated quota timestamps to Antigravity sidebar card and P0001 Apps/Versions directory & modal.
+
+### Verification
+
+- pnpm --dir Tool/P0001-Desk-Console run typecheck (tsc --noEmit + 74/74 desk-host.test.mjs pass); gate-preflight --code P0001 OK
+
+---
+## 2026-11-28 - ZaloData Safe Cleanup, PC05/06 Mapping & Boot Apps Cache Pre-Warm
+
+- Version: `3.1.288`
+- Timestamp: 2026-11-28 04:10 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Extended safe ZaloData cache cleanup to Partitions/zalo caches and media/update+temp (freed 386 MB total on CzP while keeping DB/media intact), mapped PC05 (Hoang Anh) & PC06 UID + custom zalo-account-labels.json support, parallelized scheduleDirectorySizeWarm, and added startup getManagedAppsSnapshot pre-warm in server.mjs.
+
+### Verification
+
+- tsc --noEmit + desk-host.test.mjs 74/74 + hot-patch
+
+---
+## 2026-11-28 - Apps Directory Speed, Split Columns, Brand Icons, Status & Zalo Telemetry
+
+- Version: `3.1.287`
+- Timestamp: 2026-11-28 03:47 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added 8s host SWR cache + async probe warm for <50ms /api/apps/versions, localStorage client snapshot hydrate, brand icons via HubDirectoryBrandNameCell, split Version/Account/RAM/Size/Detail columns, normalized Running/Ready/Update/Conflict/Down statuses & colors, Zalo account labels, native Koffi WorkingSet RAM, safe ZaloData Chromium cache cleaner, and PC07 /savecred command guidance.
+
+### Verification
+
+- tsc --noEmit + vite build + desk-host.test.mjs 74/74 + gate.mjs --code P0001 --stage post
+
+---
+## 2026-11-28 - Live Theme Mod hot-reload, auto-apply on SxS extract, and Apps Quota sync
+
+- Version: `3.1.286`
+- Timestamp: 2026-11-28 03:44 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Add live fs.watch hot-reload + multi-version LS CSRF detection in electron-hook.cjs, /api/apps/quota endpoint + ~/.ide_console cache integration in P0001 Apps Directory/Detail modal, and auto-patch hook on SxS download/sync.
+
+### Verification
+
+- desk-host.test.mjs, gate --stage post pass, live :6010 + Antigravity CDP verify
+
+---
+## 2026-11-28 - Standardize Apps, Cron, Runners, and Clips to Layout 1 Directory SSOT matching P0020 Services
+
+- Version: `3.1.285`
+- Timestamp: 2026-11-28 03:15 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Unified `Apps`, `Cron`, `Runners`, and `Clips` onto 100% Layout 1 Directory (`HubDirectoryScreen`, sticky `1.5rem` chrome, zero nested split-pane side borders, `x/y` selection chip, `workspacePeriod` `All` filter, `Display` + Column Presets + `measured` column freeze, 5-button bulk action bar with `HubDirectoryBulkDetailModal`, 8 KPIs, and 4 default Charts per tab), while embedding live `DeskOpsRuntimeRail` SSE Console & History directly inside `RunnerDetailModal`, `CronDetailModal`, and `AppVersionDetailModal`.
+
+### Verification
+
+- `tsc --noEmit`, `desk-host.test.mjs`, `audit-p0001-desk-directory.mjs --strict`, `hub-ui-parity-check.mjs --code P0001`, and headless Stealth CDP verification on `:5180`.
+
+---
+## 2026-11-28 - Cyber Horizon default Theme Mod + P0001 standard Apps Directory controls
+
+- Version: `3.1.284`
+- Timestamp: 2026-11-28 03:03 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Set Cyber Horizon as default Antigravity preset with single-pass lightweight glass, debounced DOM observer, seamless divider rim removal (::before/::after/sash), and compact P0001 Apps Directory Theme & Quota controls.
+
+### Verification
+
+- vite build, desk-host.test.mjs, gate --stage post pass, live :6010 verify
+
+---
+## 2026-11-28 - Integrate Antigravity Theme Mod (Cyber Horizon default) into P0001 Apps Directory
+
+- Version: `3.1.283`
+- Timestamp: 2026-11-28 02:55 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Set Cyber Horizon as lightweight default preset with single-pass blur & debounced observer, integrated Theme & Quota management into P0001 Apps Directory & AppVersionDetailModal, and retired temporary /system design-preview mockups.
+
+### Verification
+
+- tsc --noEmit, desk-host.test.mjs 74/74, vite build, Stealth CDP /apps verify, gate --stage post pass
+
+---
+## 2026-11-28 - Optimize non-blocking app size warm & batch Zalo shortcut repair
+
+- Version: `3.1.282`
+- Timestamp: 2026-11-28 02:41 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Batched PowerShell shortcut creation into a single hidden call and moved IDE directory size walks to async background warming so /api/apps/versions and /api/apps/action respond fast without timeouts.
+
+### Verification
+
+- desk-host.test.mjs 74/74, gate --stage post pass
+
+---
+## 2026-11-28 - Add Size column, Created/Update fields, Zalo shortcuts repair & Daemon-Zalo-Fleet-Sync
+
+- Version: `3.1.281`
+- Timestamp: 2026-11-28 02:36 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added cached disk Size column to P0001 Apps directory, Created/Update/Disk Size/Shortcuts/SavedCred fields in AppVersionDetailModal, repair-zalo-shortcuts action, and 6h non-disruptive Daemon-Zalo-Fleet-Sync.
+
+### Verification
+
+- tsc --noEmit, desk-host.test.mjs 74/74, vite build, gate --stage post pass
+
+---
+## 2026-11-28 - Centralize Antigravity Theme Mod & /system V1-V5 Design Previews
+
+- Version: `3.1.280`
+- Timestamp: 2026-11-28 02:28 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added /api/antigravity-theme-mod/{status,config,apply,restore} host endpoints, scaffolded /system Design Template route with 5 interactive Antigravity Themes & Quota UI mockups (V1-V5), and removed duplicate Theme Mod UI/API from P0010.
+
+### Verification
+
+- tsc --noEmit, desk-host.test.mjs 74/74, vite build, Stealth CDP V1-V5 live check, gate --stage post pass
+
+---
+## 2026-11-28 - Repair Zalo Desktop 02..07 instances & add P0001 Zalo Multi-Instance manager
+
+- Version: `3.1.279`
+- Timestamp: 2026-11-28 02:15 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Upgraded Zalo 02..07 & portable Zalo to verified v26.11.20 (fixing the forced-update blocker), added host/zalo-desktop-instances.mjs, and wired Zalo Desktop inspection, fleet sync, and launch/stop controls into P0001 Apps & Versions.
+
+### Verification
+
+- tsc --noEmit, desk-host.test.mjs 73/73, vite build, gate --stage post pass
+
+---
+## 2026-11-27 - Add JB0006 Drive Vault Sync button and status to P0001 Apps screen
+
+- Version: `3.1.278`
+- Timestamp: 2026-11-27 22:46 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Exposed driveVaultSync (JB0006) status in getManagedAppsSnapshot and added 1-click Sync Drive Vault actions on AppsScreen and AppVersionDetailModal
+
+### Verification
+
+- tsc --noEmit pass; desk-host.test.mjs 72/72 pass
+
+---
+## 2026-11-27 - Revert SxS default icon flags and trigger JB0006 Drive sync after IDE downloads
+
+- Version: `3.1.277`
+- Timestamp: 2026-11-27 21:59 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Defaulted SxS actions to native EXE icon (opt-in badge) and wired immediate JB0006 Drive sync trigger in Daemon-Antigravity-Vault-Sync
+
+### Verification
+
+- 72/72 desk-host tests pass
+
+---
+## 2026-11-27 - Start Menu Tiles auto-pin, Cursor vault sync & Telegram alerts
+
+- Version: `3.1.276`
+- Timestamp: 2026-11-27 21:05 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added Windows Start Tile CloudStore pinning for latest Antigravity SxS builds, Cursor stable installer archiving, and Telegram alerts.
+
+### Verification
+
+- desk-host.test.mjs 72/72 pass; Export-StartLayout 16 tiles
+
+---
+## 2026-11-27 - Antigravity 6h auto-sync cron, Start Menu latest & 404 skip
+
+- Version: `3.1.275`
+- Timestamp: 2026-11-27 20:41 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Added Daemon-Antigravity-Vault-Sync 6h timer, removed limit:50 cap, added Start Menu Latest action, repaired taskbar pins, and persisted GCS 404 builds.
+
+### Verification
+
+- desk-host.test.mjs 72/72 pass; vite build pass
+
+---
+## 2026-11-27 - PC Priority Inversion Fix & Idle GPU/UI Throttling
+
+- Version: `3.1.274`
+- Timestamp: 2026-11-27 16:07 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Enforce ABOVE_NORMAL on EVKey64/Antigravity, BELOW_NORMAL on chrome-headless/Video-Flow worker, cap Electron GPU children at NORMAL, enable pickerWindow backgroundThrottling, reduce polling & disable idle Waiting/Synced dot pulse
+
+### Verification
+
+- tsc + 72/72 desk-host tests + vite build + live hot-patch & Koffi priority audit
+
+---
+## 2026-11-27 - Silence SQLite ExperimentalWarning spam in bridge and add --expose-gc koffi test
+
+- Version: `3.1.273`
+- Timestamp: 2026-11-27 15:17 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Pass --no-warnings=ExperimentalWarning in runNodeSqliteBridge to keep host-boot.log noise-free and add forced-GC koffi runtime regression test in desk-host.test.mjs.
+
+### Verification
+
+- desk-host.test.mjs 72/72, tsc --noEmit
+
+---
+## 2026-11-27 - Retain koffi NVAPI/NVML/advapi/wevt handles across V8 GC in hardware-sensors
+
+- Version: `3.1.272`
+- Timestamp: 2026-11-27 14:59 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Retained shared _nvapiCore (nvapi64 library + QueryInterface + protos) and _lib handles on NVML/advapi32/wevtapi binding caches to stop V8 GC FreeLibrary segfaults (0xC0000005), added desk-host.test.mjs guards, and verified 28/28 P0001 desktop smoke pass.
+
+### Verification
+
+- desk-host.test.mjs 71/71, tsc --noEmit, --expose-gc 10/10, smoke-desktop-ui desk-core 28/28
+
+---
+## 2026-11-27 - Manifest-aware US wireproxy warm-pool pruning in PC optimizer
+
+- Version: `3.1.271`
+- Timestamp: 2026-11-27 06:17 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Reconcile wireproxy.exe ports 51400..51434 against active slots in wireproxy-us-pool.json instead of exempting shrunk warm-pool slots forever.
+
+### Verification
+
+- node Tool/scripts/dev-pc-health-watchdog.mjs --once
+
+---
+## 2026-11-27 - fix(host): fix koffi out-array stack smash in NvApiEnum and EvtNext
+
+- Version: `3.1.270`
+- Timestamp: 2026-11-27 06:04 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Pass caller-sized Buffers to NvApiEnum (64 pointers), EvtNext (30 pointers), NvmlGetName, and EvtRender in hardware-sensors.mjs instead of 1-element _Out_ void**/uint8_t*, eliminating 0xC0000005 crashes under Electron hostChild.
+
+### Verification
+
+- tsc --noEmit + desk-host.test.mjs + smoke-desktop-ui desk-core
+
+---
+## 2026-11-27 - fix(host): guard electron sqlite ABI crash in pc-optimizer & raise smoke timeout
+
+- Version: `3.1.269`
+- Timestamp: 2026-11-27 05:53 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Disable in-process better-sqlite3 under ELECTRON_RUN_AS_NODE in pc-optimizer so sweep-antigravity cleanly bridges to external CUI node:sqlite without 0xC0000005 crashes; check conversations_fts table existence; raise desk-core sweep timeout to 45s.
+
+### Verification
+
+- tsc --noEmit + desk-host.test.mjs + smoke-desktop-ui desk-core
+
+---
+## 2026-11-27 - Fix hub-identity subpath alias resolution order in Vite config
+
+- Version: `3.1.268`
+- Timestamp: 2026-11-27 05:30 (UTC+7)
+- Type: Patch
+- Status: Verified
+
+### Changes
+
+- Ordered the @tool-workspace/hub-identity subpath regex before the exact package alias and verified with hub-vite-alias-check, gate light/smoke, and typecheck.
+
+### Verification
+
+- node Tool/scripts/hub-vite-alias-check.mjs --code P0001 && pnpm --dir Tool/P0001-Desk-Console run typecheck && node Tool/scripts/gate.mjs --code P0001 --stage smoke
+
+---
 ## 2026-11-27 - fix(build): order vite hub-identity regex alias
 
 - Version: `3.1.267`

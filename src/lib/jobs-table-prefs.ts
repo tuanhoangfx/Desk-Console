@@ -2,6 +2,7 @@ import {
   countHiddenDirectoryTableColumns,
   createDirectoryFreezePrefs,
   createDirectoryTableColumnPrefs,
+  createDirectoryTableColumnPresetManager,
   prefIconMapFromHubDirectoryColumnMeta,
   withDirectoryColumnIcons,
   withDirectoryColumnLabelHints,
@@ -82,6 +83,13 @@ export const jobsDirectoryColumnPrefs = createDirectoryTableColumnPrefs({
   items: JOBS_DIRECTORY_COLUMN_ITEMS,
   defaultKeys: DEFAULT_JOBS_DIRECTORY_COLUMNS,
   changeEvent: JOBS_DIRECTORY_COLUMNS_CHANGE,
+});
+
+export const jobsColumnPresets = createDirectoryTableColumnPresetManager<JobsColumnKey>({
+  prefs: jobsDirectoryColumnPrefs,
+  presetsStorageKey: "p0009_jobs_column_presets_v1",
+  itemKeys: [...JOBS_COLUMN_KEYS],
+  defaultVisible: DEFAULT_JOBS_DIRECTORY_COLUMNS,
 });
 
 /** Visible columns in the order saved from Settings. */

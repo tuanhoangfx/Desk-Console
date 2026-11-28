@@ -1,40 +1,41 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { deskBulkActionIcon } from "./desk-bulk-action-icons";
 import {
-  hubDirectoryListResetKey,
-  HubBulkActionButton,
+  DIRECTORY_SEARCH_CLIENT_FILTER_OPTS,
+  HubDirectoryAdaptiveEditAction,
   HubDirectoryBulkActionBar,
   HubDirectoryBulkActionRail,
+  HubDirectoryBulkDetailModal,
   HubDirectoryBulkMoreMenu,
   HubDirectoryDeleteBulkAction,
-  HubDirectoryDetailAction,
   HubDirectoryNewBulkAction,
   HubDirectoryScreen,
   HubListChromeHeader,
   HubPaginatedCardGrid,
-  HubSplitDirectoryFilterBar,
-  HubSplitDirectoryPane,
-  KpiStrip,
   attachDirectoryKpiClicks,
+  directoryChartBandNode,
+  hubDirectoryListResetKey,
   isHubPrefVisible,
   kpiClearAllIfAny,
   kpiSetOrClear,
   matchesWorkspacePeriod,
   patchHubListPrefs,
   readHubListPrefsCore,
-  resolveDirectoryPanelFillRows,
   resolveDirectorySortMode,
   sameFilterValues,
   searchTextIncludes,
   subscribeHubListPrefs,
+  useDirectoryHaystackFilter,
   useDirectoryManualSortEnabled,
-  useHubClientDirectorySearchQuery,
+  useDirectorySearchQuery,
   useHubDirectorySelection,
   useHubTablePageSize,
+  useStableDirectoryFilterToolbar,
   useWorkspacePeriod,
   withPinnedFilterDefs,
   type FilterValues,
+  type HubDirectoryBulkDetailSection,
+  type HubDirectoryBulkMoreAction,
   type HubDirectoryLifecycleMode,
   type HubSortDir,
   type HubViewMode,
@@ -42,14 +43,14 @@ import {
 } from "@tool-workspace/hub-ui";
 import { DeskDirectorySearchToolbar } from "../../components/DeskDirectorySearchToolbar";
 import { TabHeaderActions } from "../../components/TabHeaderActions";
-import { DeskSplitHubChrome } from "./DeskSplitHubChrome";
-import type { AppScreen } from "../../lib/app-screen";
+import { useDeskDesktopUpdate } from "../../hooks/useDeskDesktopUpdate";
 import { useHostHeaderStats } from "../../hooks/useHostHeaderStats";
 import { deskVersionMetaItems } from "../../lib/app-release";
+import type { AppScreen } from "../../lib/app-screen";
 import { SCREEN_DISPLAY_PREFS } from "../../lib/display-prefs-registry";
+import { buildDeskDirectoryChartData } from "./desk-charts";
 import { DeskDirectoryCard } from "./DeskDirectoryCard";
 import { DeskDirectoryTable, type DeskRow } from "./DeskDirectoryTable";
-import { DESK_SCREEN_TITLE_EMOJI, DESK_STATUS_KPI_EMOJI } from "./desk-directory-stickers";
 import {
   DESK_FORMAT_FILTER_KEY,
   DESK_PROJECT_FILTER_KEY,
@@ -62,6 +63,7 @@ import {
   matchesDeskStatusFilter,
 } from "./desk-directory-filters";
 import { compareDeskDirectoryRows } from "./desk-directory-sort";
+import { DESK_SCREEN_TITLE_EMOJI, DESK_STATUS_KPI_EMOJI } from "./desk-directory-stickers";
 import { deskPrimaryDefaultSort } from "./desk-display-sort";
 import { deskManualSortPrefsFor } from "./desk-manual-sort-prefs";
 import type { DeskCol } from "./desk-table-prefs";
@@ -76,6 +78,28 @@ function readViewMode(screen: AppScreen): HubViewMode {
   }
 }
 
+export type DeskCrudBulkConfig = {
+  onNew?: () => void;
+  newTitle?: string;
+  newDisabled?: boolean;
+  onDelete?: (ids: string[]) => void;
+  deleteTitle?: string;
+  deleteLabel?: string;
+  deleteDisabled?: (ids: string[]) => boolean;
+  onDetail?: (ids: string[]) => void;
+  detailTitle?: string;
+  moreActions: (ctx: {
+    ids: string[];
+    selectedRows: DeskRow[];
+    hasSelection: boolean;
+  }) => HubDirectoryBulkMoreAction[];
+  bulkDetailSections?: (ctx: {
+    ids: string[];
+    selectedRows: DeskRow[];
+    closeBulkDetail: () => void;
+  }) => HubDirectoryBulkDetailSection[];
+};
+
 type Props = {
   screen: AppScreen;
   title: string;
@@ -84,28 +108,16 @@ type Props = {
   /** Tab header emoji sticker — overrides Lucide (hub SSOT). */
   titleEmojiGlyph?: string;
   sectionRuleLabel: string;
+  searchPlaceholder?: string;
   rows: DeskRow[];
   tabActive?: boolean;
   showPeriod?: boolean;
-  toolbarActions?: ReactNode;
-  sideRail?: ReactNode;
   onRowFocus?: (id: string) => void;
   onPinToggle?: (id: string, nextPinned: boolean) => void;
   opsHandlers?: import("./desk-directory-cells").DeskOpsCellHandlers;
-  bulkActions?: { label: string; tone?: "rose" | "neutral" | "emerald" | "amber"; icon?: string; onClick: (ids: string[]) => void }[];
   lifecycleMode?: HubDirectoryLifecycleMode;
   onLifecycleModeChange?: (mode: HubDirectoryLifecycleMode) => void;
-  crudBulk?: {
-    onNew: () => void;
-    onDelete: (ids: string[]) => void;
-    onDetail?: (ids: string[]) => void;
-    detailTitle?: string;
-    moreActions: (ctx: { ids: string[]; hasSelection: boolean }) => import("@tool-workspace/hub-ui").HubDirectoryBulkMoreAction[];
-    newTitle?: string;
-    newDisabled?: boolean;
-    deleteTitle?: string;
-    deleteLabel?: string;
-  };
+  crudBulk?: DeskCrudBulkConfig;
 };
 
 export function DeskDirectoryScreen({
@@ -115,26 +127,25 @@ export function DeskDirectoryScreen({
   titleIconClass = "text-emerald-300",
   titleEmojiGlyph = DESK_SCREEN_TITLE_EMOJI[screen],
   sectionRuleLabel,
+  searchPlaceholder = "Search…",
   rows,
   tabActive = true,
   showPeriod = true,
-  toolbarActions,
-  sideRail,
   onRowFocus,
   onPinToggle,
   opsHandlers,
-  bulkActions,
   lifecycleMode,
   onLifecycleModeChange,
   crudBulk,
 }: Props) {
-  const headerActions = <TabHeaderActions />;
   const centerStats = useHostHeaderStats();
+  const desktopUpdate = useDeskDesktopUpdate();
   const primaryDefault = deskPrimaryDefaultSort(screen);
-  const search = useHubClientDirectorySearchQuery();
+  const search = useDirectorySearchQuery(DIRECTORY_SEARCH_CLIENT_FILTER_OPTS);
   const [filterValues, setFilterValues] = useState<FilterValues>({});
   const [sortKey, setSortKey] = useState<DeskCol>(primaryDefault.sortKey);
   const [sortDir, setSortDir] = useState<HubSortDir>(primaryDefault.sortDir);
+  const [bulkDetailOpen, setBulkDetailOpen] = useState(false);
   const manualSortPrefs = deskManualSortPrefsFor(screen);
   const manualSortEnabled = useDirectoryManualSortEnabled(manualSortPrefs);
   const defaultSortOnly = resolveDirectorySortMode({ manualSortEnabled }) === "default-order-only";
@@ -144,6 +155,7 @@ export function DeskDirectoryScreen({
   const pageSize = useHubTablePageSize();
   const display = SCREEN_DISPLAY_PREFS[screen];
   const defaultKpiKeys = useMemo(() => new Set(display?.defaultKpiKeys ?? ["total"]), [display]);
+  const defaultChartKeys = useMemo(() => new Set(display?.defaultChartKeys ?? []), [display]);
   const defaultFilterKeys = useMemo(() => new Set(display?.defaultFilterKeys ?? ["status"]), [display]);
 
   useEffect(() => subscribeHubListPrefs(() => setPrefs(readHubListPrefsCore())), []);
@@ -173,6 +185,13 @@ export function DeskDirectoryScreen({
       /* ignore quota */
     }
   };
+
+  const { haystackOf } = useDirectoryHaystackFilter(
+    rows,
+    (row) => row.id,
+    (row) =>
+      `${row.id} ${row.name} ${row.schedule || ""} ${row.status} ${row.extra} ${row.log || ""} ${row.project || ""} ${row.stack || ""}`,
+  );
 
   const statusFilter = useMemo(() => deskStatusFilterDef(rows), [rows]);
   const formatFilter = useMemo(() => deskFormatFilterDef(rows), [rows]);
@@ -210,7 +229,11 @@ export function DeskDirectoryScreen({
 
   const periodRows = useMemo(() => {
     if (!showPeriod) return rows.slice();
-    return rows.filter((row) => matchesWorkspacePeriod(row.createdAt, periodPrefs));
+    return rows.filter((row) => {
+      const ts = row.createdAt?.trim() || row.updated?.trim();
+      if (!ts) return periodPrefs.range === "all";
+      return matchesWorkspacePeriod(ts, periodPrefs);
+    });
   }, [periodPrefs, rows, showPeriod]);
 
   const filtered = useMemo(() => {
@@ -220,17 +243,38 @@ export function DeskDirectoryScreen({
       if (!matchesDeskFormatFilter(row, filterValues)) return false;
       if (!matchesDeskProjectFilter(row, filterValues)) return false;
       if (!q) return true;
-      return searchTextIncludes(
-        `${row.name} ${row.schedule || ""} ${row.status} ${row.extra} ${row.log || ""} ${row.project || ""}`,
-        q,
-      );
+      return searchTextIncludes(haystackOf(row), q);
     });
     next.sort((a, b) => compareDeskDirectoryRows(a, b, sortKey, sortDir));
     return next;
-  }, [filterValues, periodRows, search.query, sortDir, sortKey]);
+  }, [filterValues, haystackOf, periodRows, search.query, sortDir, sortKey]);
 
   const selection = useHubDirectorySelection(filtered, (row) => row.id);
-  const listResetKey = hubDirectoryListResetKey(search.query, filterValues);
+  const listResetKey = useMemo(
+    () =>
+      hubDirectoryListResetKey(
+        search.query,
+        filterValues,
+        viewMode,
+        sortKey,
+        sortDir,
+        period.range,
+        period.customMonth,
+        period.customStartDate,
+        period.customEndDate,
+      ),
+    [
+      filterValues,
+      period.customEndDate,
+      period.customMonth,
+      period.customStartDate,
+      period.range,
+      search.query,
+      sortDir,
+      sortKey,
+      viewMode,
+    ],
+  );
 
   const kpis = useMemo<KpiTileData[]>(() => {
     if (!tabActive) return [];
@@ -264,8 +308,10 @@ export function DeskDirectoryScreen({
     }
     if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "up")) {
       tiles.push({
-        label: "Up",
-        value: filtered.filter((row) => row.status === "Up").length,
+        label: screen === "apps" ? "Active" : "Up",
+        value: filtered.filter((row) =>
+          screen === "apps" ? /active|installed|running|up/i.test(row.status) : row.status === "Up",
+        ).length,
         emojiGlyph: DESK_STATUS_KPI_EMOJI.up,
         tone: "emerald",
         prefKey: "up",
@@ -273,10 +319,11 @@ export function DeskDirectoryScreen({
     }
     if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "running")) {
       tiles.push({
-        label: "Running",
-        /** In-flight Start only — not Up (Up has its own tile). */
-        value: filtered.filter(
-          (row) => row.status === "Starting" || row.opsAction === "starting",
+        label: screen === "runners" ? "Starting" : "Running",
+        value: filtered.filter((row) =>
+          screen === "apps"
+            ? Boolean(row.opsUp) || /running/i.test(row.status)
+            : row.status === "Starting" || row.opsAction === "starting" || /running/i.test(row.status),
         ).length,
         emojiGlyph: DESK_STATUS_KPI_EMOJI.running,
         tone: "amber",
@@ -285,8 +332,10 @@ export function DeskDirectoryScreen({
     }
     if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "down")) {
       tiles.push({
-        label: "Down",
-        value: filtered.filter((row) => row.status === "Down").length,
+        label: screen === "apps" ? "Offline" : "Down",
+        value: filtered.filter((row) =>
+          screen === "apps" ? /offline|missing|down|stopped/i.test(row.status) : row.status === "Down",
+        ).length,
         emojiGlyph: DESK_STATUS_KPI_EMOJI.down,
         tone: "rose",
         prefKey: "down",
@@ -359,6 +408,33 @@ export function DeskDirectoryScreen({
         prefKey: "pinned",
       });
     }
+    if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "outdated")) {
+      tiles.push({
+        label: "Outdated",
+        value: filtered.filter((row) => Boolean(row.outdated) || /pending|conflict|outdated/i.test(row.status)).length,
+        emojiGlyph: "⚠️",
+        tone: "amber",
+        prefKey: "outdated",
+      });
+    }
+    if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "sxs")) {
+      tiles.push({
+        label: "SxS Builds",
+        value: filtered.filter((row) => row.appKind === "sxs" || row.project === "Antigravity SxS").length,
+        emojiGlyph: "🔀",
+        tone: "violet",
+        prefKey: "sxs",
+      });
+    }
+    if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "zalo")) {
+      tiles.push({
+        label: "Zalo Fleet",
+        value: filtered.filter((row) => row.project === "Zalo Desktop").length,
+        emojiGlyph: "💬",
+        tone: "sky",
+        prefKey: "zalo",
+      });
+    }
     if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "healthy")) {
       tiles.push({
         label: screen === "cron" ? "Exit 0" : "Healthy",
@@ -409,6 +485,24 @@ export function DeskDirectoryScreen({
         prefKey: "sample",
       });
     }
+    if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "links")) {
+      tiles.push({
+        label: "Links",
+        value: filtered.filter((row) => row.clipFormat === "Link").length,
+        emojiGlyph: "🌐",
+        tone: "emerald",
+        prefKey: "links",
+      });
+    }
+    if (isHubPrefVisible(prefs.kpi, defaultKpiKeys, "images")) {
+      tiles.push({
+        label: "Images",
+        value: filtered.filter((row) => row.clipFormat === "Image").length,
+        emojiGlyph: "🖼️",
+        tone: "violet",
+        prefKey: "images",
+      });
+    }
     return attachDirectoryKpiClicks(
       tiles,
       filterValues,
@@ -416,30 +510,38 @@ export function DeskDirectoryScreen({
       (key, current) => {
         if (key === "createdToday" || key === "createdThisWeek") return null;
         if (key === "total") return kpiClearAllIfAny(current) ?? {};
-        if (key === "up") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Up"]);
-        if (key === "running") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Starting"]);
-        if (key === "down") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Down"]);
+        if (key === "up" && screen !== "apps") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Up"]);
+        if (key === "running" && screen === "runners") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Starting"]);
+        if (key === "down" && screen !== "apps") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Down"]);
         if (key === "ready") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Active"]);
         if (key === "disabled") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Disabled"]);
         if (key === "daemon") return kpiSetOrClear(current, DESK_PROJECT_FILTER_KEY, ["Host Daemon"]);
         if (key === "schtask") return kpiSetOrClear(current, DESK_PROJECT_FILTER_KEY, ["Task Scheduler"]);
+        if (key === "sxs") return kpiSetOrClear(current, DESK_PROJECT_FILTER_KEY, ["Antigravity SxS"]);
+        if (key === "zalo") return kpiSetOrClear(current, DESK_PROJECT_FILTER_KEY, ["Zalo Desktop"]);
         if (key === "history") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["History"]);
         if (key === "sample") return kpiSetOrClear(current, DESK_STATUS_FILTER_KEY, ["Sample"]);
+        if (key === "links") return kpiSetOrClear(current, DESK_FORMAT_FILTER_KEY, ["Link"]);
+        if (key === "images") return kpiSetOrClear(current, DESK_FORMAT_FILTER_KEY, ["Image"]);
         return null;
       },
       (key, current) => {
         if (key === "createdToday") return period.range === "today";
         if (key === "createdThisWeek") return period.range === "thisWeek";
         if (key === "total") return Object.keys(current).length === 0;
-        if (key === "up") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Up"]);
-        if (key === "running") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Starting"]);
-        if (key === "down") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Down"]);
+        if (key === "up" && screen !== "apps") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Up"]);
+        if (key === "running" && screen === "runners") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Starting"]);
+        if (key === "down" && screen !== "apps") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Down"]);
         if (key === "ready") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Active"]);
         if (key === "disabled") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Disabled"]);
         if (key === "daemon") return sameFilterValues(current, DESK_PROJECT_FILTER_KEY, ["Host Daemon"]);
         if (key === "schtask") return sameFilterValues(current, DESK_PROJECT_FILTER_KEY, ["Task Scheduler"]);
+        if (key === "sxs") return sameFilterValues(current, DESK_PROJECT_FILTER_KEY, ["Antigravity SxS"]);
+        if (key === "zalo") return sameFilterValues(current, DESK_PROJECT_FILTER_KEY, ["Zalo Desktop"]);
         if (key === "history") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["History"]);
         if (key === "sample") return sameFilterValues(current, DESK_STATUS_FILTER_KEY, ["Sample"]);
+        if (key === "links") return sameFilterValues(current, DESK_FORMAT_FILTER_KEY, ["Link"]);
+        if (key === "images") return sameFilterValues(current, DESK_FORMAT_FILTER_KEY, ["Image"]);
         return false;
       },
     ).map((tile) => {
@@ -459,22 +561,43 @@ export function DeskDirectoryScreen({
       }
       return tile;
     });
-  }, [defaultKpiKeys, filterValues, filtered, period, prefs.kpi, tabActive]);
+  }, [defaultKpiKeys, filterValues, filtered, period, prefs.kpi, screen, tabActive]);
 
-  const filterToolbar = (
-    <DeskDirectorySearchToolbar
-      screen={screen}
-      viewMode={viewMode}
-      onViewModeChange={setViewMode}
-      countIcon={titleIcon}
-      shown={filtered.length}
-      total={periodRows.length}
-      countLabel={sectionRuleLabel.toLowerCase()}
-      showResultCount={viewMode === "card"}
-      showPeriod={showPeriod}
-      lifecycleMode={lifecycleMode}
-      onLifecycleModeChange={onLifecycleModeChange}
-    />
+  const visCharts = useMemo(() => prefs.charts ?? defaultChartKeys, [defaultChartKeys, prefs.charts]);
+  const chartData = useMemo(
+    () => (tabActive ? buildDeskDirectoryChartData(screen, filtered, rows) : {}),
+    [filtered, rows, screen, tabActive],
+  );
+  const chartsNode = useMemo(() => {
+    const defs = display?.charts ?? [];
+    if (!tabActive || defs.length === 0) return undefined;
+    return directoryChartBandNode({ visCharts, defs, data: chartData });
+  }, [chartData, display?.charts, tabActive, visCharts]);
+
+  const noun = sectionRuleLabel.toLowerCase();
+
+  const filterToolbar = useStableDirectoryFilterToolbar(
+    {
+      showResultCount: false,
+      shown: filtered.length,
+      total: periodRows.length,
+    },
+    () => (
+      <DeskDirectorySearchToolbar
+        screen={screen}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        countIcon={titleIcon}
+        shown={filtered.length}
+        total={periodRows.length}
+        countLabel={noun}
+        showResultCount={false}
+        showPeriod={showPeriod}
+        lifecycleMode={lifecycleMode}
+        onLifecycleModeChange={onLifecycleModeChange}
+      />
+    ),
+    [lifecycleMode, noun, onLifecycleModeChange, screen, showPeriod, titleIcon, viewMode],
   );
 
   const handleSort = (key: DeskCol) => {
@@ -486,166 +609,211 @@ export function DeskDirectoryScreen({
     }
   };
 
-  const noun = sectionRuleLabel.toLowerCase();
-  const selectedIds = [...selection.selectedIds];
+  const selectedIds = useMemo(() => [...selection.selectedIds], [selection.selectedIds]);
+  const selectedRows = selection.selectedRows;
 
-  const crudBulkRail = crudBulk ? (
-    <HubDirectoryBulkActionRail>
-      <HubDirectoryNewBulkAction
-        title={crudBulk.newTitle ?? "New"}
-        disabled={crudBulk.newDisabled}
-        onClick={crudBulk.onNew}
-      />
-      {crudBulk.onDetail ? (
-        <HubDirectoryDetailAction
-          disabled={selection.selectedIds.size !== 1}
-          onClick={() => crudBulk.onDetail!(selectedIds)}
-        />
-      ) : null}
-      <HubDirectoryDeleteBulkAction
-        title={crudBulk.deleteTitle ?? "Delete selected"}
-        label={crudBulk.deleteLabel ?? (lifecycleMode === "trash" ? "Delete forever" : "Delete")}
-        disabled={selection.selectedIds.size === 0}
-        onClick={() => crudBulk.onDelete(selectedIds)}
-      />
-      <HubDirectoryBulkMoreMenu
-        selectedCount={selection.selectedIds.size}
-        actions={crudBulk.moreActions({ ids: selectedIds, hasSelection: selection.selectedIds.size > 0 })}
-      />
-    </HubDirectoryBulkActionRail>
-  ) : null;
+  const openSingleDetail = () => {
+    if (crudBulk?.onDetail) {
+      crudBulk.onDetail(selectedIds);
+    } else if (selectedIds[0] && onRowFocus) {
+      onRowFocus(selectedIds[0]);
+    }
+  };
 
-  const legacyBulkButtons =
-    !crudBulk && selection.selectedIds.size > 0 && bulkActions?.length
-      ? bulkActions.map((a) => {
-          const emoji = a.icon ?? deskBulkActionIcon(a.label);
-          return (
-            <HubBulkActionButton
-              key={a.label}
-              icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>{emoji}</span>}
-              label={a.label}
-              title={a.label}
-              tone={a.tone ?? (a.label === "Delete" || a.label === "Stop" ? "rose" : "neutral")}
-              onClick={() => a.onClick(selectedIds)}
-            />
-          );
-        })
-      : null;
+  const bulkMoreActions = useMemo(
+    () =>
+      crudBulk
+        ? crudBulk.moreActions({
+            ids: selectedIds,
+            selectedRows,
+            hasSelection: selection.selectedIds.size > 0,
+          })
+        : [],
+    [crudBulk, selectedIds, selectedRows, selection.selectedIds.size],
+  );
 
-  const opsFilterBar = (
-    <HubSplitDirectoryFilterBar
-      shortcutScope={screen}
-      placeholder="Search…"
-      filters={filters}
-      query={search.queryInput}
-      onQueryChange={search.setQueryInput}
-      queryPending={search.queryPending}
-      values={filterValues}
-      onValuesChange={setFilterValues}
-      filterSelectionToolbar={{
-        selectedCount: selection.selectedIds.size,
+  const filterRowActions = (
+    <HubDirectoryBulkActionBar
+      selectAll={{
         visibleCount: filtered.length,
+        selectedCount: selection.selectedIds.size,
+        allVisibleSelected: selection.allVisibleSelected,
+        onToggleSelectAll: selection.toggleSelectAll,
         noun,
       }}
-      directoryViewMode={viewMode}
-      toolbar={filterToolbar}
-      row2Actions={
-        <>
-          {toolbarActions}
-          <HubDirectoryBulkActionBar
-            selectAll={{
-              visibleCount: filtered.length,
-              selectedCount: selection.selectedIds.size,
-              allVisibleSelected: selection.allVisibleSelected,
-              onToggleSelectAll: selection.toggleSelectAll,
-              noun,
-            }}
-          >
-            {crudBulkRail}
-            {legacyBulkButtons}
-          </HubDirectoryBulkActionBar>
-        </>
-      }
-    />
+    >
+      <HubDirectoryBulkActionRail>
+        {crudBulk?.onNew ? (
+          <HubDirectoryNewBulkAction
+            title={crudBulk.newTitle ?? "New"}
+            disabled={crudBulk.newDisabled}
+            onClick={crudBulk.onNew}
+          />
+        ) : null}
+        <HubDirectoryAdaptiveEditAction
+          selectedCount={selection.selectedIds.size}
+          onEditSingle={openSingleDetail}
+          onEditBulk={() => setBulkDetailOpen(true)}
+          singleLabel="Detail"
+          bulkLabel="Detail"
+          noneTitle={`Select 1 item for Detail, or 2+ items for Bulk Detail`}
+          singleTitle={crudBulk?.detailTitle ?? "Open Detail"}
+          bulkTitle="Open Bulk Detail & batch actions"
+        />
+        {crudBulk?.onDelete ? (
+          <HubDirectoryDeleteBulkAction
+            title={crudBulk.deleteTitle ?? "Delete selected"}
+            label={crudBulk.deleteLabel ?? (lifecycleMode === "trash" ? "Delete forever" : "Delete")}
+            disabled={
+              selection.selectedIds.size === 0 || Boolean(crudBulk.deleteDisabled?.(selectedIds))
+            }
+            onClick={() => crudBulk.onDelete!(selectedIds)}
+          />
+        ) : null}
+        {bulkMoreActions.length > 0 ? (
+          <HubDirectoryBulkMoreMenu
+            selectedCount={selection.selectedIds.size}
+            actions={bulkMoreActions}
+          />
+        ) : null}
+      </HubDirectoryBulkActionRail>
+    </HubDirectoryBulkActionBar>
   );
 
-  const directoryPane = (
-    <div className="stealth-profile-directory-pane desk-profile-directory-pane min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden">
-      <HubSplitDirectoryPane
-        className="stealth-profile-directory-frame hub-directory-frame"
-        panelFillRows={resolveDirectoryPanelFillRows(pageSize, filtered.length)}
-        partialPagePad="invisible"
-        kpiBand={kpis.length ? <KpiStrip items={kpis} /> : undefined}
-        filterBar={opsFilterBar}
-      >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {viewMode === "card" ? (
-            <HubPaginatedCardGrid
-              items={filtered}
-              resetKey={`${screen}-${search.query}`}
-              pageSize={pageSize}
-              ariaLabel={`${title} cards`}
-            >
-              {(pageRows) =>
-                pageRows.map((row) => (
-                  <DeskDirectoryCard
-                    key={row.id}
-                    row={row}
-                    selected={selection.selectedIds.has(row.id)}
-                    onToggleSelect={selection.toggleSelect}
-                    opsHandlers={opsHandlers}
-                  />
-                ))
-              }
-            </HubPaginatedCardGrid>
-          ) : (
-            <DeskDirectoryTable
-              screen={screen}
-              rows={filtered}
-              resetKey={listResetKey}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={handleSort}
-              defaultSortOnly={defaultSortOnly}
-              selectedIds={selection.selectedIds}
-              onToggleSelect={selection.toggleSelect}
-              onToggleSelectAll={selection.toggleSelectAll}
-              allVisibleSelected={selection.allVisibleSelected}
-              opsHandlers={opsHandlers}
-              onPinToggle={onPinToggle}
-              onRowClick={onRowFocus ? (row) => onRowFocus(row.id) : undefined}
-              pageSize={pageSize}
-              flushWrap
-              panelFill
-            />
-          )}
-        </div>
-      </HubSplitDirectoryPane>
-    </div>
-  );
+  const bulkDetailSections = useMemo<HubDirectoryBulkDetailSection[]>(() => {
+    if (crudBulk?.bulkDetailSections) {
+      return crudBulk.bulkDetailSections({
+        ids: selectedIds,
+        selectedRows,
+        closeBulkDetail: () => setBulkDetailOpen(false),
+      });
+    }
+    if (bulkMoreActions.length === 0) return [];
+    return [
+      {
+        id: "batch-ops",
+        label: "Batch Operations",
+        emoji: "⚡",
+        description: `Execute batch actions across ${selectedRows.length} selected ${noun}.`,
+        actions: bulkMoreActions.map((act) => ({
+          key: act.key,
+          label: act.label,
+          title: act.title || act.label,
+          tone:
+            act.tone === "rose"
+              ? ("rose" as const)
+              : act.tone === "amber"
+                ? ("amber" as const)
+                : act.tone === "emerald"
+                  ? ("emerald" as const)
+                  : ("indigo" as const),
+          disabled: act.disabled,
+          onClick: act.onClick,
+        })),
+      },
+    ];
+  }, [bulkMoreActions, crudBulk, noun, selectedIds, selectedRows]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DeskSplitHubChrome
-        ariaLabel={title}
-        title={title}
-        titleIcon={titleIcon}
-        titleIconClass={titleIconClass}
-        titleEmojiGlyph={titleEmojiGlyph}
+    <>
+      <HubDirectoryScreen
+        header={
+          <HubListChromeHeader
+            ariaLabel={title}
+            title={title}
+            titleIcon={titleIcon}
+            titleIconClass={titleIconClass}
+            titleEmojiGlyph={titleEmojiGlyph}
+            metaItems={deskVersionMetaItems()}
+            centerStats={centerStats}
+            versionReleaseNotesCode="P0001"
+            versionReleaseNotesDesktopUpdate={desktopUpdate}
+            actions={<TabHeaderActions />}
+          />
+        }
+        kpis={kpis.length > 0 ? kpis : undefined}
+        charts={chartsNode}
         sectionRuleLabel={sectionRuleLabel}
-        headerActions={headerActions}
+        filters={filters}
+        query={search.queryInput}
+        onQueryChange={search.setQueryInput}
+        queryPending={search.queryPending}
+        filterValues={filterValues}
+        onFilterValuesChange={setFilterValues}
+        filterPlaceholder={searchPlaceholder}
+        filterShortcutScope={screen}
+        filterSelectionToolbar={{
+          visibleCount: filtered.length,
+          selectedCount: selection.selectedIds.size,
+          noun,
+        }}
+        directoryViewMode={viewMode}
+        filterToolbar={filterToolbar}
+        filterRowActions={filterRowActions}
       >
-        {sideRail ? (
-          <div className="stealth-profile-layout desk-profile-layout flex min-h-0 flex-1 overflow-hidden">
-            {directoryPane}
-            <aside className="stealth-workflow-rail desk-ops-workflow-rail desk-ops-three-rail hub-runtime-rail-surface">{sideRail}</aside>
-          </div>
+        {viewMode === "card" ? (
+          <HubPaginatedCardGrid
+            items={filtered}
+            resetKey={listResetKey}
+            pageSize={pageSize}
+            ariaLabel={`${title} cards`}
+          >
+            {(pageRows) =>
+              pageRows.map((row) => (
+                <DeskDirectoryCard
+                  key={row.id}
+                  row={row}
+                  selected={selection.selectedIds.has(row.id)}
+                  onToggleSelect={selection.toggleSelect}
+                  onOpenDetail={onRowFocus}
+                  opsHandlers={opsHandlers}
+                />
+              ))
+            }
+          </HubPaginatedCardGrid>
         ) : (
-          <div className="folder-sync-shell-host flex min-h-0 flex-1 overflow-hidden">
-            {directoryPane}
-          </div>
+          <DeskDirectoryTable
+            screen={screen}
+            rows={filtered}
+            resetKey={listResetKey}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+            defaultSortOnly={defaultSortOnly}
+            selectedIds={selection.selectedIds}
+            onToggleSelect={selection.toggleSelect}
+            onToggleSelectAll={selection.toggleSelectAll}
+            allVisibleSelected={selection.allVisibleSelected}
+            opsHandlers={opsHandlers}
+            onPinToggle={onPinToggle}
+            onRowClick={onRowFocus ? (row) => onRowFocus(row.id) : undefined}
+            pageSize={pageSize}
+          />
         )}
-      </DeskSplitHubChrome>
-    </div>
+      </HubDirectoryScreen>
+
+      <HubDirectoryBulkDetailModal
+        open={bulkDetailOpen && selectedRows.length >= 2}
+        onClose={() => setBulkDetailOpen(false)}
+        entitySingular="item"
+        entityPlural={noun}
+        headerIcon={titleIcon}
+        panelTitle={`Batch ${title} Operations`}
+        panelTitleEmoji={titleEmojiGlyph || "⚡"}
+        selectedItems={selectedRows.map((row) => ({
+          id: row.id,
+          label: row.name,
+          sublabel: `${row.project ? `${row.project} · ` : ""}${row.status}`,
+          badge: row.status,
+          onOpenSingle: onRowFocus
+            ? () => {
+                setBulkDetailOpen(false);
+                onRowFocus(row.id);
+              }
+            : undefined,
+        }))}
+        sections={bulkDetailSections}
+      />
+    </>
   );
 }

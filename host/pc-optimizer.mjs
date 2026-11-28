@@ -2832,6 +2832,145 @@ export async function runNightlyDeepMaintenance(options = {}) {
     }
 
     // 3. Purge GPU/Shader/Code/Crashpad cache + Stale (>14d) Service Worker CacheStorage across 100% of closed profiles (async-yielding)
+    let cBeforeFreeBytes = 0;
+    try {
+      cBeforeFreeBytes = fs.statfsSync("C:\\").bavail * fs.statfsSync("C:\\").bsize;
+    } catch {
+      cBeforeFreeBytes = 0;
+    }
+
+    // 3a. Safe C: PC & Dev Cache sweep (unused >48h UUID profiles-dev, stale >24h *-updater .exe, safe Chromium shader caches, >48h Temp entries)
+    try {
+      const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+      const fortyEightHoursMs = 48 * 3600_000;
+      const twentyFourHoursMs = 24 * 3600_000;
+
+      // Unused >48h UUID profiles in stealth-browser-console-dev\profiles-dev (strictly skip locked)
+      const devProfRoot = path.join(appData, "stealth-browser-console-dev", "profiles-dev");
+      if (fs.existsSync(devProfRoot)) {
+        for (const ent of fs.readdirSync(devProfRoot, { withFileTypes: true })) {
+          if (!ent.isDirectory()) continue;
+          const pDir = path.join(devProfRoot, ent.name);
+          try {
+            const st = fs.statSync(pDir);
+            if (Date.now() - st.mtimeMs > fortyEightHoursMs && !isProfileDirectoryLocked(pDir)) {
+              fs.rmSync(pDir, { recursive: true, force: true });
+              prunedRunArtifacts++;
+            }
+          } catch {
+            /* ignore if locked */
+          }
+        }
+      }
+
+      // Stale >24h downloaded NSIS installers inside %LOCALAPPDATA%\*-updater
+      if (fs.existsSync(localAppData)) {
+        for (const ent of fs.readdirSync(localAppData, { withFileTypes: true })) {
+          if (!ent.isDirectory() || !/-updater$/i.test(ent.name)) continue;
+          const uDir = path.join(localAppData, ent.name);
+          const walkAndPruneExe = (dir, depth = 0) => {
+            if (depth > 2) return;
+            for (const sub of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, sub.name);
+              if (sub.isDirectory()) {
+                walkAndPruneExe(full, depth + 1);
+              } else if (sub.isFile() && /\.(exe|msi|7z|zip)$/i.test(sub.name)) {
+                try {
+                  const st = fs.statSync(full);
+                  if (Date.now() - st.mtimeMs > twentyFourHoursMs) {
+                    fs.rmSync(full, { force: true });
+                    prunedRunArtifacts++;
+                  }
+                } catch {
+                  /* ignore in use */
+                }
+              }
+            }
+          };
+          try {
+            walkAndPruneExe(uDir);
+          } catch {
+            /* ignore */
+          }
+        }
+
+        // Sweep old (>48h) files in %LOCALAPPDATA%\Temp
+        const localTemp = path.join(localAppData, "Temp");
+        if (fs.existsSync(localTemp)) {
+          for (const ent of fs.readdirSync(localTemp, { withFileTypes: true })) {
+            const full = path.join(localTemp, ent.name);
+            try {
+              const st = fs.statSync(full);
+              if (Date.now() - st.mtimeMs > fortyEightHoursMs) {
+                if (ent.isDirectory() && isProfileDirectoryLocked(full)) continue;
+                fs.rmSync(full, { recursive: true, force: true });
+                prunedRunArtifacts++;
+              }
+            } catch {
+              /* skip locked temp files */
+            }
+          }
+        }
+      }
+
+      // Safe Chromium render/shader caches inside desktop/dev app data dirs (never cookies/DB/sessions)
+      const safeAppCacheRoots = [
+        "stealth-browser-console",
+        "stealth-browser-console-dev",
+        "desk-console-dev",
+        "ide-console-dev",
+        "p0006-video-lab-dev",
+      ];
+      const safeCacheSubs = ["Cache", "GPUCache", "Code Cache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache"];
+      for (const appName of safeAppCacheRoots) {
+        const base = path.join(appData, appName);
+        if (!fs.existsSync(base)) continue;
+        for (const sub of safeCacheSubs) {
+          const target = path.join(base, sub);
+          if (fs.existsSync(target)) {
+            try {
+              fs.rmSync(target, { recursive: true, force: true });
+            } catch {
+              /* skip locked files */
+            }
+          }
+        }
+      }
+
+      // Safe Chromium caches for Discord / CocCoc / Chrome ONLY when the respective app is NOT running
+      if (!isProcessRunningNative("Discord.exe")) {
+        const discordBase = path.join(appData, "Discord");
+        if (fs.existsSync(discordBase)) {
+          for (const sub of safeCacheSubs) {
+            const t = path.join(discordBase, sub);
+            if (fs.existsSync(t)) fs.rmSync(t, { recursive: true, force: true });
+          }
+        }
+      }
+      const cleanClosedBrowserUserData = (userDataDir, exeName) => {
+        if (!fs.existsSync(userDataDir) || isProcessRunningNative(exeName)) return;
+        for (const ent of fs.readdirSync(userDataDir, { withFileTypes: true })) {
+          if (!ent.isDirectory()) continue;
+          const profDir = path.join(userDataDir, ent.name);
+          if (isProfileDirectoryLocked(profDir)) continue;
+          for (const sub of [...safeCacheSubs, "GrShaderCache", "ShaderCache"]) {
+            const t = path.join(profDir, sub);
+            if (fs.existsSync(t)) {
+              try {
+                fs.rmSync(t, { recursive: true, force: true });
+              } catch {
+                /* ignore locked */
+              }
+            }
+          }
+        }
+      };
+      cleanClosedBrowserUserData(path.join(localAppData, "CocCoc", "Browser", "User Data"), "browser.exe");
+      cleanClosedBrowserUserData(path.join(localAppData, "Google", "Chrome", "User Data"), "chrome.exe");
+    } catch {
+      /* non-fatal C: sweep */
+    }
+
     const profilesRoot = "D:\\StealthBrowser\\profiles";
     const fourteenDaysMs = 14 * 86400_000;
     let cleanedProfiles = 0;
@@ -2885,6 +3024,17 @@ export async function runNightlyDeepMaintenance(options = {}) {
     } catch {
       freedBytes = 0;
     }
+    let cFreedBytes = 0;
+    try {
+      const cAfter = fs.statfsSync("C:\\");
+      const cAfterFree = cAfter.bavail * cAfter.bsize;
+      if (cBeforeFreeBytes > 0 && cAfterFree > cBeforeFreeBytes) {
+        cFreedBytes = cAfterFree - cBeforeFreeBytes;
+      }
+    } catch {
+      cFreedBytes = 0;
+    }
+    freedBytes += cFreedBytes;
 
     const passFreedMB = Math.round((freedBytes / (1024 * 1024)) * 100) / 100;
     const nowIso = new Date().toISOString();

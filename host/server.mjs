@@ -37,7 +37,19 @@ import {
   dataRoot,
 } from "./store.mjs";
 import { hotkeysPayload, resetHotkeys, writeHotkeys } from "./hotkeys.mjs";
-import { getManagedAppsSnapshot, runManagedAppAction } from "./apps-versions.mjs";
+import {
+  getManagedAppsSnapshot,
+  invalidateAppsSnapshotCache,
+  runManagedAppAction,
+  syncAntigravityVaultIfDue,
+  syncZaloFleetIfDue,
+} from "./apps-versions.mjs";
+
+const THEME_MOD_URL = new URL("./antigravity-theme-mod.mjs", import.meta.url);
+async function loadAntigravityThemeMod() {
+  const mtimeMs = fs.existsSync(fileURLToPath(THEME_MOD_URL)) ? fs.statSync(fileURLToPath(THEME_MOD_URL)).mtimeMs : Date.now();
+  return import(`${THEME_MOD_URL.href}?v=${mtimeMs}`);
+}
 import { sampleHostMetrics } from "./host-metrics.mjs";
 import { ensureNvidiaDrsNormalPowerMode, launchHardwareTool, readHardwareHistory, sampleHardwareSensors } from "./hardware-sensors.mjs";
 import {
@@ -46,6 +58,7 @@ import {
   runRunnerWatchdogTick,
   setRunnerWatchdogEnabled,
   setRunnerWatchdogPinned,
+  shareRunnerTunnel,
   startRunner,
   startRunnerWatchdog,
   stopRunner,
@@ -63,6 +76,7 @@ import {
 } from "./ops-terminal.mjs";
 import {
   listPcBackupSnapshots,
+  manageStartMenuLayout,
   readHasleoSystemImageStatus,
   readPcBackupStatus,
   runHasleoSystemImageRun,
@@ -630,6 +644,20 @@ const BUILTIN_CRON_SPECS = [
     description: "Drive Sync Trash & Backup Retention Sweep",
     action: "drive-retention",
   },
+  {
+    id: "Daemon-Antigravity-Vault-Sync",
+    name: "Daemon-IDE-Vault-Sync",
+    schedule: "Every 6 hours",
+    description: "Auto-archive Antigravity & Cursor Releases + Pin Latest to Start Menu & Tiles + Telegram Alert",
+    action: "sync-antigravity-vault",
+  },
+  {
+    id: "Daemon-Zalo-Fleet-Sync",
+    name: "Daemon-Zalo-Fleet-Sync",
+    schedule: "Every 6 hours",
+    description: "Auto-sync Zalo fleet, auto-clean cache (>300 MB) & auto-offload data (>1.5 GB) to D:",
+    action: "sync-zalo-fleet",
+  },
 ];
 
 function daemonCronStatePath() {
@@ -827,6 +855,46 @@ async function runBuiltinDaemon(name) {
   } else if (spec.action === "drive-retention") {
     runBackupRetentionSweep();
     summary = "expired backup & trash directories swept";
+    appendTerminalLine(id, "task", opsConsoleOk(`${id} completed (${summary})`));
+  } else if (spec.action === "sync-antigravity-vault") {
+    const syncRes = await syncAntigravityVaultIfDue({
+      force: true,
+      unpackLatestCount: 3,
+      triggerDriveSyncFn: triggerIdeVaultDriveJobSync,
+    });
+    if (syncRes?.skipped) {
+      summary = `skipped (${syncRes.reason || "locked"})`;
+    } else if (syncRes?.ok === false) {
+      summary = `partial · dl=${syncRes.downloadedCount ?? 0} failed=${syncRes.antigravity?.failedCount ?? 0}`;
+    } else {
+      const agNew = Array.isArray(syncRes?.antigravityDownloaded) ? syncRes.antigravityDownloaded : [];
+      const curNew = Array.isArray(syncRes?.cursorDownloaded) ? syncRes.cursorDownloaded : [];
+      const tilesAdded = Array.isArray(syncRes?.startTilesPinned) ? syncRes.startTilesPinned : [];
+      const smAdded = Array.isArray(syncRes?.startMenuVersions) ? syncRes.startMenuVersions : [];
+      summary = [
+        `ag=${agNew.length} (${syncRes?.antigravity?.totalPublicCount ?? 0} feed)`,
+        `cursor=${curNew.length}`,
+        tilesAdded.length > 0 ? `StartTiles=+${tilesAdded.join(",")}` : smAdded.length > 0 ? `StartMenu=+${smAdded.join(",")}` : "Start=ok",
+      ].join(" · ");
+    }
+    appendTerminalLine(id, "task", opsConsoleOk(`${id} completed (${summary})`));
+  } else if (spec.action === "sync-zalo-fleet") {
+    const zaloRes = await syncZaloFleetIfDue({ force: true });
+    const cacheFreedBytes = Number(zaloRes?.cacheCleanup?.freedBytes) || 0;
+    const offloadFreedBytes = Number(zaloRes?.autoOffload?.freedBytes) || 0;
+    const totalFreed = cacheFreedBytes + offloadFreedBytes;
+    if (totalFreed > 0) {
+      freedMb = Number((totalFreed / (1024 * 1024)).toFixed(2));
+    }
+    if (zaloRes?.skipped) {
+      summary = `skipped (${zaloRes.reason || "interval"})`;
+    } else if (zaloRes?.ok === false) {
+      summary = `error · ${zaloRes.error || zaloRes.message || "failed"}`;
+    } else {
+      const cachePart = cacheFreedBytes > 0 ? ` · cacheFreed=${zaloRes.cacheCleanup.freedLabel}` : "";
+      const offloadPart = offloadFreedBytes > 0 ? ` · offloaded=${zaloRes.autoOffload.freedLabel}` : "";
+      summary = `v${zaloRes?.targetVersion || "?"} · synced=${zaloRes?.synced?.length ?? 0} · skipped=${zaloRes?.skipped?.length ?? 0}${cachePart}${offloadPart}`;
+    }
     appendTerminalLine(id, "task", opsConsoleOk(`${id} completed (${summary})`));
   }
   const durationMs = Math.max(1, Date.now() - t0);
@@ -1740,6 +1808,21 @@ async function handle(req, res) {
     return json(res, 200, await runHasleoSystemImageRun(body));
   }
 
+  if (method === "POST" && pathname === "/api/pc/backup/start-layout") {
+    const body = await readBody(req).catch(() => ({}));
+    const action = String(body?.action || "restore").toLowerCase() === "backup" ? "backup" : "restore";
+    const result = await manageStartMenuLayout(action);
+    appendOpsHistory({
+      target: "task:Dev-PC-Data-Backup",
+      action: `start-layout:${action}`,
+      ok: Boolean(result.ok),
+      message: result.ok
+        ? `${action === "backup" ? "Saved" : "Restored"} Start Menu Layout (${result.tileCount ?? 0} tiles · ${result.groupCount ?? 0} groups)`
+        : result.error || `Start Menu layout ${action} failed`,
+    });
+    return json(res, result.ok ? 200 : 400, result);
+  }
+
   if (method === "POST" && pathname === "/api/pc/backup/run") {
     const body = await readBody(req).catch(() => ({}));
     const mode = String(body?.mode || "full").toLowerCase() === "critical" ? "critical" : "full";
@@ -1816,8 +1899,21 @@ async function handle(req, res) {
   if (method === "GET" && pathname === "/api/clips") {
     const kind = url.searchParams.get("kind");
     const lifecycle = url.searchParams.get("lifecycle") === "trash" ? "trash" : "live";
-    const summary = url.searchParams.get("summary") === "1";
-    const rows = listClipRows({ lifecycle, summary });
+    const fullHydrate =
+      url.searchParams.get("hydrate") === "1" ||
+      url.searchParams.get("full") === "1" ||
+      url.searchParams.get("summary") === "0";
+    const summary = !fullHydrate;
+    const rows = listClipRows({ lifecycle, summary }).map((row) =>
+      row.hasImage && !row.imageDataUrl && !row.imageUrl
+        ? {
+            ...row,
+            imageUrl: `/api/clips/${encodeURIComponent(row.id)}/image${
+              row.imageMediaFile ? `?v=${encodeURIComponent(row.imageMediaFile)}` : ""
+            }`,
+          }
+        : row,
+    );
     const filtered = kind === "history" || kind === "sample" ? rows.filter((row) => row.kind === kind) : rows;
     return json(res, 200, { ok: true, rows: filtered });
   }
@@ -2040,6 +2136,33 @@ async function handle(req, res) {
     const watchdog = setRunnerWatchdogPinned(code, pinned);
     return json(res, 200, { ok: true, code: code.toUpperCase(), pinned, watchdog });
   }
+  const tunnelMatch = pathname.match(/^\/api\/runners\/([^/]+)\/tunnel$/);
+  if (method === "POST" && tunnelMatch) {
+    const code = decodeURIComponent(tunnelMatch[1]);
+    const body = await readBody(req).catch(() => ({}));
+    const action = body?.action === "start" || body?.action === "stop" ? body.action : "toggle";
+    try {
+      const tunnel = await shareRunnerTunnel(code, action);
+      appendTerminalLine(
+        code,
+        "runner",
+        opsConsoleOk(`tunnel ${code} state=${tunnel.state}${tunnel.url ? ` url=${tunnel.url}` : ""}`),
+      );
+      appendOpsHistory({
+        kind: "runner",
+        targetId: code,
+        action: `tunnel:${action}`,
+        ok: true,
+        message: tunnel.url ? `Preview tunnel ${tunnel.url}` : `Preview tunnel ${tunnel.state}`,
+      });
+      return json(res, 200, { ok: true, ...tunnel });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const status = /unknown runner/i.test(message) ? 404 : 400;
+      appendTerminalLine(code, "runner", opsConsoleCmd(`tunnel ${code} error: ${message}`));
+      return json(res, status, { ok: false, code: code.toUpperCase(), error: message });
+    }
+  }
   const runMatch = pathname.match(/^\/api\/runners\/([^/]+)\/(start|restart|recover|stop)$/);
   if (method === "POST" && runMatch) {
     const code = decodeURIComponent(runMatch[1]);
@@ -2079,9 +2202,26 @@ async function handle(req, res) {
     const forceReleases = url.searchParams.get("force") === "1";
     return json(res, 200, await getManagedAppsSnapshot({ includeReleases, forceReleases }));
   }
+  if (method === "GET" && pathname === "/api/apps/quota") {
+    const version = url.searchParams.get("version") || "";
+    const email = url.searchParams.get("email") || "";
+    const themeMod = await loadAntigravityThemeMod();
+    const out = themeMod.getAntigravityQuotaForTarget({ version, email });
+    return json(res, 200, out);
+  }
+  if (method === "POST" && pathname === "/api/apps/quota-sync") {
+    const body = await readBody(req).catch(() => ({}));
+    const themeMod = await loadAntigravityThemeMod();
+    const out = themeMod.syncIdeConsoleAccountCredits(body || {});
+    if (out?.updated) invalidateAppsSnapshotCache();
+    return json(res, out?.ok === false && out?.error === "missing_email" ? 400 : 200, out);
+  }
   if (method === "POST" && pathname === "/api/apps/action") {
     const body = await readBody(req).catch(() => ({}));
-    const out = await runManagedAppAction(body?.action, body || {});
+    const out = await runManagedAppAction(body?.action, {
+      ...(body || {}),
+      triggerDriveSyncFn: triggerIdeVaultDriveJobSync,
+    });
     if (out?.message || out?.error) {
       appendOpsHistory({
         kind: "apps",
@@ -2092,6 +2232,47 @@ async function handle(req, res) {
       });
     }
     return json(res, out?.ok === false ? 400 : 200, out);
+  }
+
+  if (method === "GET" && pathname === "/api/antigravity-theme-mod/status") {
+    const themeMod = await loadAntigravityThemeMod();
+    const out = themeMod.getAntigravityThemeModStatus();
+    return json(res, out?.ok === false ? out.statusCode || 500 : 200, out);
+  }
+  if (method === "GET" && pathname === "/api/antigravity-theme-mod/config") {
+    const themeMod = await loadAntigravityThemeMod();
+    return json(res, 200, { ok: true, ...themeMod.readAntigravityThemeModConfig() });
+  }
+  if (method === "POST" && pathname === "/api/antigravity-theme-mod/config") {
+    const body = await readBody(req).catch(() => ({}));
+    const themeMod = await loadAntigravityThemeMod();
+    const out = themeMod.saveAntigravityThemeModConfig(body);
+    appendOpsHistory({
+      kind: "apps",
+      targetId: "antigravity-theme-mod",
+      action: "save-config",
+      ok: true,
+      message: `Saved Theme Mod config (preset=${out.config?.preset || "twilight-tide"})`,
+    });
+    return json(res, 200, out);
+  }
+  if (method === "POST" && (pathname === "/api/antigravity-theme-mod/apply" || pathname === "/api/antigravity-theme-mod/restore")) {
+    const action = pathname.endsWith("/restore") ? "restore" : "apply";
+    const body = await readBody(req).catch(() => ({}));
+    const themeMod = await loadAntigravityThemeMod();
+    const out = themeMod.runAntigravityThemeModAction(action, body);
+    if (out?.ok !== false) {
+      const changed = (out.results || []).filter((r) => r.status === "installed" || r.status === "restored").length;
+      const skipped = (out.results || []).filter((r) => r.status === "skipped-running").length;
+      appendOpsHistory({
+        kind: "apps",
+        targetId: String(body?.version || "antigravity-theme-mod"),
+        action,
+        ok: true,
+        message: `Theme Mod ${action}: ${changed} updated${skipped > 0 ? `, ${skipped} running skipped` : ""}`,
+      });
+    }
+    return json(res, out?.ok === false ? out.statusCode || 400 : 200, out);
   }
 
   if (method === "GET" && pathname === "/api/tasks") {
@@ -2852,6 +3033,22 @@ async function handle(req, res) {
 
 const syncing = new Set();
 
+async function triggerIdeVaultDriveJobSync() {
+  try {
+    const jobs = readJobs();
+    const jb =
+      jobs.find((j) => String(j?.code || "").toUpperCase() === "JB0006") ||
+      jobs.find((j) => String(j?.remote || "") === "gdrive:IDE-Installers-Vault");
+    if (!jb?.id) {
+      return { ok: true, triggered: false, reason: "jb0006_not_found" };
+    }
+    void syncWatchedJob(jb.id).catch(() => undefined);
+    return { ok: true, triggered: true, jobId: jb.id, code: jb.code || "JB0006" };
+  } catch (err) {
+    return { ok: false, triggered: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 async function syncWatchedJob(jobId) {
   if (syncing.has(jobId)) return;
   const jobs = readJobs();
@@ -3030,6 +3227,7 @@ if (isMain) {
   server.listen(PORT, HOST, () => {
     console.log(`[desk-host] http://${HOST}:${PORT} (desk=${dataRoot()} · sync=${DATA_ROOT})`);
     startClipboardWatch();
+    void getManagedAppsSnapshot({ includeReleases: false }).catch(() => undefined);
     startAutoPcMaintenanceWatch();
     startCustomDaemonCronTimer();
     startRunnerWatchdog();
@@ -3048,6 +3246,100 @@ if (isMain) {
       void sampleHardwareSensors({ force: true }).catch(() => undefined);
     }, 15 * 60 * 1000);
     if (typeof telemetryTimer.unref === "function") telemetryTimer.unref();
+
+    const AG_VAULT_SYNC_INTERVAL_MS = 6 * 3600_000;
+    const runAgVaultAutoSyncIfEnabled = async () => {
+      try {
+        const cronState = readDaemonCronState();
+        if (cronState["Daemon-Antigravity-Vault-Sync"]?.enabled === false) return;
+        const probe = await syncAntigravityVaultIfDue({
+          force: false,
+          intervalMs: AG_VAULT_SYNC_INTERVAL_MS,
+          unpackLatestCount: 3,
+          triggerDriveSyncFn: triggerIdeVaultDriveJobSync,
+        });
+        if (!probe?.skipped) {
+          const nowIso = new Date().toISOString();
+          const prevEntry = cronState["Daemon-Antigravity-Vault-Sync"] || {};
+          const prevLogs = Array.isArray(prevEntry.activityLog) ? prevEntry.activityLog : [];
+          const smAdded = Array.isArray(probe?.startMenuVersions) ? probe.startMenuVersions : [];
+          const tilesAdded = Array.isArray(probe?.startTilesPinned) ? probe.startTilesPinned : [];
+          const curNew = Array.isArray(probe?.cursorDownloaded) ? probe.cursorDownloaded : [];
+          const summary = [
+            `auto · dl=${probe?.downloadedCount ?? 0}`,
+            curNew.length > 0 ? `cursor=+${curNew.join(",")}` : "",
+            tilesAdded.length > 0 ? `StartTiles=+${tilesAdded.join(",")}` : smAdded.length > 0 ? `StartMenu=+${smAdded.join(",")}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          writeDaemonCronState({
+            "Daemon-Antigravity-Vault-Sync": {
+              ...prevEntry,
+              enabled: true,
+              lastRun: nowIso,
+              lastResult: probe?.ok === false ? "1" : "0",
+              lastSummary: summary,
+              activityLog: [
+                { at: nowIso, message: summary, actor: { label: "Host Daemon", source: "system" } },
+                ...prevLogs,
+              ].slice(0, 20),
+            },
+          });
+        }
+      } catch {
+        /* non-fatal auto vault sync */
+      }
+    };
+    const agVaultWarmTimer = setTimeout(() => {
+      void runAgVaultAutoSyncIfEnabled();
+    }, 45_000);
+    if (typeof agVaultWarmTimer.unref === "function") agVaultWarmTimer.unref();
+    const agVaultIntervalTimer = setInterval(() => {
+      void runAgVaultAutoSyncIfEnabled();
+    }, AG_VAULT_SYNC_INTERVAL_MS);
+    if (typeof agVaultIntervalTimer.unref === "function") agVaultIntervalTimer.unref();
+
+    const ZALO_FLEET_SYNC_INTERVAL_MS = 6 * 3600_000;
+    const runZaloFleetAutoSyncIfEnabled = async () => {
+      try {
+        const cronState = readDaemonCronState();
+        if (cronState["Daemon-Zalo-Fleet-Sync"]?.enabled === false) return;
+        const res = await syncZaloFleetIfDue({ force: false, intervalMs: ZALO_FLEET_SYNC_INTERVAL_MS });
+        if (!res?.skipped) {
+          const nowIso = new Date().toISOString();
+          const prevEntry = cronState["Daemon-Zalo-Fleet-Sync"] || {};
+          const prevLogs = Array.isArray(prevEntry.activityLog) ? prevEntry.activityLog : [];
+          const cacheFreedBytes = Number(res?.cacheCleanup?.freedBytes) || 0;
+          const cacheFreedMb = cacheFreedBytes > 0 ? Number((cacheFreedBytes / (1024 * 1024)).toFixed(2)) : 0;
+          const cachePart = cacheFreedBytes > 0 ? ` · cacheFreed=${res.cacheCleanup.freedLabel}` : "";
+          const summary = `auto · v${res?.targetVersion || "?"} · synced=${res?.synced?.length ?? 0} · skipped=${res?.skipped?.length ?? 0}${cachePart}`;
+          writeDaemonCronState({
+            "Daemon-Zalo-Fleet-Sync": {
+              ...prevEntry,
+              enabled: true,
+              lastRun: nowIso,
+              lastResult: res?.ok === false ? "1" : "0",
+              ...(cacheFreedMb > 0 ? { lastFreedMb: cacheFreedMb } : {}),
+              lastSummary: summary,
+              activityLog: [
+                { at: nowIso, message: summary, actor: { label: "Host Daemon", source: "system" } },
+                ...prevLogs,
+              ].slice(0, 20),
+            },
+          });
+        }
+      } catch {
+        /* non-fatal auto zalo fleet sync */
+      }
+    };
+    const zaloFleetWarmTimer = setTimeout(() => {
+      void runZaloFleetAutoSyncIfEnabled();
+    }, 60_000);
+    if (typeof zaloFleetWarmTimer.unref === "function") zaloFleetWarmTimer.unref();
+    const zaloFleetIntervalTimer = setInterval(() => {
+      void runZaloFleetAutoSyncIfEnabled();
+    }, ZALO_FLEET_SYNC_INTERVAL_MS);
+    if (typeof zaloFleetIntervalTimer.unref === "function") zaloFleetIntervalTimer.unref();
   });
   if (PORT === 6010 && process.env.DESK_DISABLE_COMPAT_PORT !== "1") {
     const compatServer = createServer();

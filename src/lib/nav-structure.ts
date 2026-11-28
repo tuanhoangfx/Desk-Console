@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { flatMapNavScreenItems, type NavStructureEntry } from "@tool-workspace/hub-ui";
-import { Boxes, CalendarClock, ClipboardList, Cloud, FolderKanban, PlayCircle, TrendingUp } from "lucide-react";
+import { Boxes, CalendarClock, ClipboardList, Cloud, FolderKanban, PlayCircle, Settings2, TrendingUp } from "lucide-react";
 import type { AppScreen } from "./app-screen";
 
 /** Sidebar nav SSOT — Dashboard · Drive Sync (Jobs · Drives) · Clips · Runners · Cron · Apps. */
@@ -28,6 +28,7 @@ export const NAV_STRUCTURE: NavStructureEntry<AppScreen, (typeof NAV_GROUP_IDS)[
   { kind: "screen", screen: "runners", label: "Runners", icon: PlayCircle, iconTone: "amber" },
   { kind: "screen", screen: "cron", label: "Cron", icon: CalendarClock, iconTone: "cyan" },
   { kind: "screen", screen: "apps", label: "Apps", icon: Boxes, iconTone: "violet" },
+  { kind: "screen", screen: "system", label: "System", icon: Settings2, iconTone: "cyan" },
 ];
 
 const NAV_TONE_CLASS: Record<string, string> = {

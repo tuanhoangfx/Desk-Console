@@ -45,6 +45,42 @@ table.hub-users-table--desk-directory td.hub-desk-col--run {
   text-align: center;
 }
 
+table.hub-users-table--desk-directory col.hub-desk-col--version,
+table.hub-users-table--desk-directory th.hub-desk-col--version,
+table.hub-users-table--desk-directory td.hub-desk-col--version {
+  width: 7.25rem;
+  min-width: 7.25rem;
+  max-width: 7.25rem;
+  text-align: center;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--account,
+table.hub-users-table--desk-directory th.hub-desk-col--account,
+table.hub-users-table--desk-directory td.hub-desk-col--account {
+  width: 11.5rem;
+  min-width: 11.5rem;
+  max-width: 11.5rem;
+  text-align: left;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--ram,
+table.hub-users-table--desk-directory th.hub-desk-col--ram,
+table.hub-users-table--desk-directory td.hub-desk-col--ram {
+  width: 6.5rem;
+  min-width: 6.5rem;
+  max-width: 6.5rem;
+  text-align: center;
+}
+
+table.hub-users-table--desk-directory col.hub-desk-col--size,
+table.hub-users-table--desk-directory th.hub-desk-col--size,
+table.hub-users-table--desk-directory td.hub-desk-col--size {
+  width: 6.5rem;
+  min-width: 6.5rem;
+  max-width: 6.5rem;
+  text-align: center;
+}
+
 table.hub-users-table--desk-directory col.hub-desk-col--schedule,
 table.hub-users-table--desk-directory th.hub-desk-col--schedule,
 table.hub-users-table--desk-directory td.hub-desk-col--schedule {
@@ -105,8 +141,10 @@ table.hub-users-table--desk-directory td {
 }
 
 table.hub-users-table--desk-directory td.hub-desk-col--name .hub-directory-copy-wrap,
+table.hub-users-table--desk-directory td.hub-desk-col--account .hub-directory-copy-wrap,
 table.hub-users-table--desk-directory td.hub-desk-col--detail .hub-directory-copy-wrap,
 table.hub-users-table--desk-directory td.hub-desk-col--name .hub-directory-copy-control,
+table.hub-users-table--desk-directory td.hub-desk-col--account .hub-directory-copy-control,
 table.hub-users-table--desk-directory td.hub-desk-col--detail .hub-directory-copy-control {
   display: flex;
   width: 100%;
@@ -115,6 +153,7 @@ table.hub-users-table--desk-directory td.hub-desk-col--detail .hub-directory-cop
 }
 
 table.hub-users-table--desk-directory td.hub-desk-col--name .hub-directory-copy-control__value,
+table.hub-users-table--desk-directory td.hub-desk-col--account .hub-directory-copy-control__value,
 table.hub-users-table--desk-directory td.hub-desk-col--detail .hub-directory-copy-control__value {
   display: block;
   overflow: hidden;

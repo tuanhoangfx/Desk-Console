@@ -1,8 +1,7 @@
-/** body-only-directory — FilterBar lives on DrivesScreen (split-workspace). */
+/** body-only-directory · table-only-directory · no-form-directory — FilterBar lives on DrivesScreen (HubDirectoryScreen). */
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  HUB_DIRECTORY_TABLE_PANE_CHROME_SPLIT_CLASS,
-  HUB_DIRECTORY_TABLE_SCROLL_FLEX_CLASS,
+  HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS,
   HubDirectoryTableShell,
   buildDirectoryColgroupForShell,
   buildDirectoryColumns,
@@ -18,7 +17,7 @@ import { DRIVES_DIRECTORY_COLUMNS_CHANGE, drivesTableFreezePrefs, readDrivesDire
 import type { DriveAccount, SyncJob } from "../../lib/sync-api";
 import { renderDrivesDirectoryBodyCell } from "./drives-directory-cells";
 
-const WRAP_CLASS = `${HUB_DIRECTORY_TABLE_SCROLL_FLEX_CLASS} ${HUB_DIRECTORY_TABLE_PANE_CHROME_SPLIT_CLASS}`;
+const WRAP_CLASS = `${HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS} hub-scrollbar`;
 const DRIVES_STICKY_LEAD_CLASS = "p0009-drives-directory-table--sticky-lead";
 const HUB_META = toDrivesHubDirectoryColumnMeta(DRIVES_COLUMN_META);
 const FREEZE_SELECT = Boolean(1);
@@ -75,7 +74,7 @@ export const DrivesDirectoryTable = memo(function DrivesDirectoryTable({
     [columnKeys],
   );
   const colgroup = useMemo(() => buildDirectoryColgroupForShell(columns, { showSelect: true }), [columns]);
-  const { rootRef, stickyStyle } = useHubScopedFreeze({
+  const { rootRef, stickyStyle, scrollWrapClassName } = useHubScopedFreeze({
     prefs: drivesTableFreezePrefs,
     columns: columns.map((col) => ({ colClass: col.colClass, width: DRIVES_COLUMN_META[col.key].width })),
     scopeClass: DRIVES_STICKY_LEAD_CLASS,
@@ -111,7 +110,7 @@ export const DrivesDirectoryTable = memo(function DrivesDirectoryTable({
         items={sorted}
         ariaLabel="Google Drive accounts"
         tableClassName={`${hubDirectoryFrameTableClass("8")} p0009-drives-directory-table ${DRIVES_STICKY_LEAD_CLASS}`}
-        wrapClassName={WRAP_CLASS}
+        wrapClassName={scrollWrapClassName || WRAP_CLASS}
         flushWrap
         colgroup={colgroup}
         columns={columns}
@@ -129,8 +128,8 @@ export const DrivesDirectoryTable = memo(function DrivesDirectoryTable({
         pageSize={pageSize}
         resetKey={resetKey}
         hideWhenSinglePage={false}
-        padBodyRowsToPageSize
-        paginatedShellClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+        padBodyRowsToPageSize={false}
+        paginatedShellClassName="min-w-0"
         renderRowCells={renderRowCells}
       />
     </div>

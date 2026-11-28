@@ -27,7 +27,7 @@ export function DeskDirectorySearchToolbar({
   shown,
   total,
   countLabel,
-  showResultCount,
+  showResultCount = false,
   showPeriod = true,
   lifecycleMode,
   onLifecycleModeChange,

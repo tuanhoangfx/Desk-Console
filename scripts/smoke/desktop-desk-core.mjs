@@ -73,7 +73,7 @@ export default async function run({ session, rec, sleep }) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "sweep-antigravity" }),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(45_000),
   })
     .then((r) => r.json())
     .catch((err) => ({ ok: false, error: err?.message || String(err) }));

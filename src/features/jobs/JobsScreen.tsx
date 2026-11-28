@@ -2,22 +2,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DIRECTORY_SEARCH_CLIENT_FILTER_OPTS,
+  HubDirectoryBulkDetailModal,
   HubDirectoryCatalogBulkBar,
-  KpiStrip,
-  HubSplitDirectoryFilterBar,
-  HubSplitDirectoryPane,
-  HubSplitWorkspaceScreen,
+  HubDirectoryScreen,
   activeHubDirectoryKpiKey,
   buildHubDirectoryStandardKpis,
   buildSearchHaystackIndex,
+  directoryChartBandNode,
   hubDirectoryListResetKey,
   hubDirectoryPeriodRows,
+  isHubPrefVisible,
   matchesHubDirectoryDateFilters,
+  readHubListPrefsCore,
   selectHubDirectoryKpiFilter,
+  subscribeHubListPrefs,
   useDirectorySearchQuery,
   useHubDirectorySelection,
   useHubTablePageSize,
   useWorkspacePeriod,
+  withPinnedFilterDefs,
   type FilterDef,
   type FilterValues,
   type HubDirectoryLifecycleMode,
@@ -27,6 +30,8 @@ import {
 import { FolderSyncDirectoryToolbar } from "../../components/FolderSyncDirectoryToolbar";
 import { FolderSyncTabHeader } from "../../components/FolderSyncTabHeader";
 import { FolderSyncTabHeaderActions } from "../../components/FolderSyncTabHeaderActions";
+import { useDeskTabActive } from "../../lib/desk-active-screen";
+import { SCREEN_DISPLAY_PREFS } from "../../lib/display-prefs-registry";
 import {
   hydrateP0001JobsMirror,
   readCachedP0001Jobs,
@@ -46,15 +51,15 @@ import {
   type SyncJob,
 } from "../../lib/sync-api";
 import { applyJobsDirectoryFilterHints, JOBS_STATUS_HINT_LINES } from "../../lib/folder-sync-directory-column-hints";
-import { formatJobLiveProgressTooltip, JOB_MODE_OPTIONS, jobRunAction, jobStatusView } from "../../lib/job-mode";
+import { JOB_MODE_OPTIONS, jobRunAction, jobStatusView } from "../../lib/job-mode";
 import { formatDrivePath, remoteNameFromSpec } from "../../lib/remote-name";
 import { useDriveAccounts } from "../drives/use-drive-accounts";
+import { buildJobsChartData } from "./folder-sync-charts";
 import { JOB_STATUS_KPI_FILTERS, jobMatchesStatusFilter, jobStatusCounts } from "./jobs-kpi-filter";
 import { JobDetailModal } from "./JobDetailModal";
 import { JobsCreateModal } from "./JobsCreateModal";
 import { JobsDirectoryCards } from "./JobsDirectoryCards";
 import { JobsDirectoryTable } from "./JobsDirectoryTable";
-import { JobsMainAndRail } from "./JobsMainAndRail";
 import { useHostHeaderStats } from "../../hooks/useHostHeaderStats";
 import { navScreenChrome } from "../../lib/nav-structure";
 
@@ -87,25 +92,33 @@ const BASE_JOBS_FILTERS = applyJobsDirectoryFilterHints([
   STATUS_FILTER,
 ]);
 
-/** Jobs — P0003 Profiles: KPI + one full-height table | Setting / History / Console. */
+/** Jobs — Layout 1 Directory SSOT (P0020 Services parity: Header · Filters · 8 KPIs · 4 Charts · Table). */
 export function JobsScreen() {
+  const tabActive = useDeskTabActive("jobs");
   const { accounts: driveAccounts } = useDriveAccounts();
   const [jobs, setJobs] = useState<SyncJob[]>(() => readCachedP0001Jobs());
-  const [focusedId, setFocusedId] = useState<string>(() => readCachedP0001Jobs()[0]?.id || "");
   const search = useDirectorySearchQuery(DIRECTORY_SEARCH_CLIENT_FILTER_OPTS);
   const [filterValues, setFilterValues] = useState<FilterValues>({});
   const [viewMode, setViewMode] = useState<HubViewMode>("table");
   const [lifecycle, setLifecycle] = useState<HubDirectoryLifecycleMode>("live");
-  const period = useWorkspacePeriod("jobs");
+  const period = useWorkspacePeriod("jobs", "all");
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [bulkDetailOpen, setBulkDetailOpen] = useState(false);
   const [initialSyncFolder, setInitialSyncFolder] = useState<string>("");
   const [detailId, setDetailId] = useState<string>("");
+  const [prefs, setPrefs] = useState(readHubListPrefsCore);
   const pageSize = useHubTablePageSize();
   const centerStats = useHostHeaderStats();
   const jobsChrome = navScreenChrome("jobs");
+  const display = SCREEN_DISPLAY_PREFS.jobs;
+  const defaultKpiKeys = useMemo(() => new Set(display?.defaultKpiKeys ?? []), [display]);
+  const defaultChartKeys = useMemo(() => new Set(display?.defaultChartKeys ?? []), [display]);
+  const defaultFilterKeys = useMemo(() => new Set(display?.defaultFilterKeys ?? ["drive", "mode", "status"]), [display]);
+
+  useEffect(() => subscribeHubListPrefs(() => setPrefs(readHubListPrefsCore())), []);
 
   useEffect(() => {
     const onSyncFolder = (e: Event) => {
@@ -117,7 +130,6 @@ export function JobsScreen() {
     const onOpenEntity = (e: Event) => {
       const jobId = String((e as CustomEvent<{ jobId?: string }>).detail?.jobId || "").trim();
       if (!jobId) return;
-      setFocusedId(jobId);
       setDetailId(jobId);
     };
     window.addEventListener("desk:sync-folder", onSyncFolder);
@@ -133,7 +145,6 @@ export function JobsScreen() {
       const data = await fetchJobs();
       setJobs((prev) => reconcileP0001JobsDelta(prev, data.jobs).rows);
       setError(null);
-      setFocusedId((prev) => prev || data.jobs[0]?.id || "");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -149,13 +160,11 @@ export function JobsScreen() {
     void hydrateP0001JobsMirror().then((hydrated) => {
       if (cancelled || !hydrated.length) return;
       setJobs((prev) => reconcileP0001JobsDelta(prev, hydrated, { mode: "delta", persist: false }).rows);
-      setFocusedId((prev) => prev || hydrated[0]?.id || "");
     });
     const unsub = subscribeSyncEvents(
       (nextJobs) => {
         setJobs((prev) => reconcileP0001JobsDelta(prev, nextJobs).rows);
         setError(null);
-        setFocusedId((prev) => prev || nextJobs[0]?.id || "");
       },
       setSseConnected,
     );
@@ -166,6 +175,7 @@ export function JobsScreen() {
   }, []);
 
   useEffect(() => {
+    if (!tabActive) return;
     void reload();
     const onVisible = () => {
       if (document.visibilityState === "visible" && !sseConnected) void reload();
@@ -184,14 +194,15 @@ export function JobsScreen() {
       window.clearInterval(t);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [anyActiveJob, reload, sseConnected]);
+  }, [anyActiveJob, reload, sseConnected, tabActive]);
 
   const liveJobs = useMemo(() => jobs.filter((job) => !job.deletedAt), [jobs]);
   const inPeriod = useMemo(() => {
     const pool = lifecycle === "trash" ? jobs.filter((job) => job.deletedAt) : liveJobs;
     return hubDirectoryPeriodRows(pool, period);
   }, [jobs, liveJobs, lifecycle, period]);
-  const jobsFilters = useMemo<FilterDef[]>(() => {
+
+  const countedFilters = useMemo<FilterDef[]>(() => {
     const driveOptions = driveAccounts
       .filter((acc) => !acc.deletedAt)
       .map((acc) => {
@@ -216,6 +227,11 @@ export function JobsScreen() {
       : [];
     return [...driveFilter, ...BASE_JOBS_FILTERS];
   }, [driveAccounts]);
+
+  const jobsFilters = useMemo(() => {
+    const visible = countedFilters.filter((f) => isHubPrefVisible(prefs.hubFilters, defaultFilterKeys, f.key));
+    return withPinnedFilterDefs(countedFilters, visible, filterValues, ["drive", "mode", "status"]);
+  }, [countedFilters, defaultFilterKeys, filterValues, prefs.hubFilters]);
 
   const haystackIndex = useMemo(
     () =>
@@ -264,39 +280,13 @@ export function JobsScreen() {
     () => filtered.filter((j) => selection.selectedIds.has(j.id)),
     [filtered, selection.selectedIds],
   );
-  const focused = useMemo(
-    () => jobs.find((j) => j.id === focusedId) || null,
-    [jobs, focusedId],
-  );
   const detailJob = useMemo(
     () => jobs.find((j) => j.id === detailId) || null,
     [jobs, detailId],
   );
 
-  const consoleLines = useMemo(() => {
-    const head = error ? [`API error: ${error}`] : [];
-    if (!focused?.lastResult && !focused?.liveProgress) return head;
-    const progressLine = focused?.liveProgress ? `# ${formatJobLiveProgressTooltip(focused.liveProgress)}` : "";
-    if (!focused?.lastResult) {
-      return [...head, `# ${focused?.name || "Job"} · ${focused?.status || "running"}`, progressLine].filter(Boolean);
-    }
-    return [
-      ...head,
-      `# ${focused.name} · ${focused.lastResult.action || "—"} · ${focused.status}`,
-      progressLine,
-      focused.lastResult.backupDir ? `backup: ${focused.lastResult.backupDir}` : "",
-      focused.lastResult.conflictDir ? `conflicts: ${focused.lastResult.conflictDir}` : "",
-      focused.lastResult.trashPolicy ? `trash: ${focused.lastResult.trashPolicy}` : "",
-      "--- stdout ---",
-      focused.lastResult.stdout || "(empty)",
-      "--- stderr ---",
-      focused.lastResult.stderr || "(empty)",
-    ].filter(Boolean);
-  }, [error, focused]);
-
   async function runOne(id: string, action: "start" | "pause" | "stop" | "delete", opts?: { skipReload?: boolean }) {
     setBusyId(id);
-    setFocusedId(id);
     try {
       const job = jobs.find((row) => row.id === id);
       if (action === "pause") await updateJob(id, { status: "paused" });
@@ -362,24 +352,40 @@ export function JobsScreen() {
     const kind = jobRunAction(job, false).kind;
     return kind === "start" || kind === "retry";
   });
-  const statusCounts = jobStatusCounts(inPeriod.map((job) => ({ ...job, busy: busyId === job.id })));
-  const domainKpis: KpiTileData[] = [
-    { prefKey: "synced", label: "Synced", value: statusCounts.Synced ?? 0, emojiGlyph: "✅", tone: "emerald" },
-    { prefKey: "syncing", label: "Syncing", value: statusCounts.Syncing ?? 0, emojiGlyph: "▶️", tone: "sky" },
-    { prefKey: "failed", label: "Failed", value: statusCounts.Failed ?? 0, emojiGlyph: "⚠️", tone: "rose" },
-    { prefKey: "stopped", label: "Stopped", value: statusCounts.Stopped ?? 0, emojiGlyph: "⏹️", tone: "violet" },
-  ];
-  const kpiItems = buildHubDirectoryStandardKpis({
-    entityLabel: "Job",
-    entityEmoji: "📁",
-    entityPrefKey: "job",
-    rows: inPeriod,
-    domain: domainKpis,
-    activeKey: activeHubDirectoryKpiKey("job", filterValues, JOB_STATUS_KPI_FILTERS),
-    onSelect: (prefKey) => {
-      setFilterValues((current) => selectHubDirectoryKpiFilter(prefKey, "job", current, JOB_STATUS_KPI_FILTERS));
-    },
-  });
+
+  const kpiItems = useMemo(() => {
+    if (!tabActive) return [];
+    const statusCounts = jobStatusCounts(inPeriod.map((job) => ({ ...job, busy: busyId === job.id })));
+    const domainKpis: KpiTileData[] = [
+      { prefKey: "synced", label: "Synced", value: statusCounts.Synced ?? 0, emojiGlyph: "✅", tone: "emerald" },
+      { prefKey: "syncing", label: "Syncing", value: statusCounts.Syncing ?? 0, emojiGlyph: "▶️", tone: "sky" },
+      { prefKey: "failed", label: "Failed", value: statusCounts.Failed ?? 0, emojiGlyph: "⚠️", tone: "rose" },
+      { prefKey: "stopped", label: "Stopped", value: statusCounts.Stopped ?? 0, emojiGlyph: "⏹️", tone: "violet" },
+    ];
+    const all = buildHubDirectoryStandardKpis({
+      entityLabel: "Job",
+      entityEmoji: "📁",
+      entityPrefKey: "job",
+      rows: inPeriod,
+      domain: domainKpis,
+      activeKey: activeHubDirectoryKpiKey("job", filterValues, JOB_STATUS_KPI_FILTERS),
+      onSelect: (prefKey) => {
+        setFilterValues((current) => selectHubDirectoryKpiFilter(prefKey, "job", current, JOB_STATUS_KPI_FILTERS));
+      },
+    });
+    return all.filter((tile) => isHubPrefVisible(prefs.kpi, defaultKpiKeys, tile.prefKey || ""));
+  }, [tabActive, inPeriod, busyId, filterValues, prefs.kpi, defaultKpiKeys]);
+
+  const visCharts = useMemo(() => prefs.charts ?? defaultChartKeys, [defaultChartKeys, prefs.charts]);
+  const chartData = useMemo(
+    () => (tabActive ? buildJobsChartData(filtered, inPeriod, driveAccounts, busyId) : {}),
+    [tabActive, filtered, inPeriod, driveAccounts, busyId],
+  );
+  const chartsNode = useMemo(() => {
+    const defs = display?.charts ?? [];
+    if (!tabActive || defs.length === 0) return undefined;
+    return directoryChartBandNode({ visCharts, defs, data: chartData });
+  }, [chartData, display?.charts, tabActive, visCharts]);
 
   const soleSelectedJob = selectedRows.length === 1 ? selectedRows[0]! : null;
   const startableCount = selectedRows.filter((job) => {
@@ -391,177 +397,57 @@ export function JobsScreen() {
     return kind === "pause" || kind === "stop";
   }).length;
 
-  const filterBar = (
-    <HubSplitDirectoryFilterBar
-      shortcutScope="jobs"
-      placeholder="Search jobs…"
-      filters={jobsFilters}
-      query={search.queryInput}
-      onQueryChange={search.setQueryInput}
-      queryPending={search.queryPending}
-      values={filterValues}
-      onValuesChange={setFilterValues}
-      filterSelectionToolbar={{
-        selectedCount: selection.selectedIds.size,
-        visibleCount: filtered.length,
-        noun: "jobs",
-      }}
-      directoryViewMode={viewMode}
-      toolbar={
-        <FolderSyncDirectoryToolbar
-          screen="jobs"
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          lifecycleMode={lifecycle}
-          onLifecycleModeChange={setLifecycle}
-          shown={filtered.length}
-          total={inPeriod.length}
-          countLabel="jobs"
-        />
-      }
-      row2Actions={
-        <HubDirectoryCatalogBulkBar
-          noun="jobs"
-          visibleCount={filtered.length}
-          selectedCount={selection.selectedIds.size}
-          allVisibleSelected={selection.allVisibleSelected}
-          onToggleSelectAll={selection.toggleSelectAll}
-          lifecycleMode={lifecycle}
-          onNew={() => setCreateOpen(true)}
-          newTitle="Create sync job"
-          onDetail={() => {
-            if (soleSelectedJob) {
-              setFocusedId(soleSelectedJob.id);
-              setDetailId(soleSelectedJob.id);
-            }
-          }}
-          onBulkDetail={() => {
-            const first = selectedRows[0];
-            if (first) {
-              setFocusedId(first.id);
-              setDetailId(first.id);
-            }
-          }}
-          noneTitle="Select one job"
-          singleTitle="Open Job Detail Modal"
-          bulkTitle="Open the first selected job in Detail Modal"
-          onRestore={() => {
-            void (async () => {
-              for (const job of selectedRows) {
-                await restoreJob(job.id);
-              }
-              await reload();
-            })();
-          }}
-          onDelete={() => {
-            if (lifecycle === "trash") {
-              void (async () => {
-                for (const job of selectedRows) {
-                  await deleteJobForever(job.id);
-                }
-                await reload();
-              })();
-            } else {
-              void runBulk("delete");
-            }
-          }}
-          deleteDisabled={!!busyId}
-          deleteTitle={lifecycle === "trash" ? "Remove selected jobs permanently" : "Move selected jobs to Trash"}
-          moreActions={[
-            {
-              key: "start",
-              label: `Start ${startableCount || ""}`.trim(),
-              emoji: "▶️",
-              tone: "emerald",
-              disabled: !hasSelection || !anySelectedIdle || !!busyId,
-              title: "Start Stopped or Manual jobs, and retry Failed jobs",
-              onClick: () => void runBulk("start"),
-            },
-            {
-              key: "stop",
-              label: `Stop ${stoppableCount || ""}`.trim(),
-              emoji: "⏹️",
-              tone: "rose",
-              disabled: !hasSelection || (!anySelectedRunning && !anySelectedArmed) || !!busyId,
-              title: "Stop 24/7 sync, or stop a pass that is running",
-              onClick: () => {
-                void (async () => {
-                  for (const job of selectedRows) {
-                    const kind = jobRunAction(job, false).kind;
-                    if (kind === "stop") await runOne(job.id, "stop", { skipReload: true });
-                    else if (kind === "pause") await runOne(job.id, "pause", { skipReload: true });
-                  }
-                  await reload();
-                })();
-              },
-            },
-            ...(hasSelection && lifecycle === "live"
-              ? [
-                  {
-                    key: "bulk-reset-defaults",
-                    label: "Reset Defaults (1m · Inherit)",
-                    emoji: "🔄",
-                    tone: "sky" as const,
-                    disabled: !!busyId,
-                    title: "Reset Debounce (1m), Proxy (Inherit), and Max Size (Unlimited) for selected jobs",
-                    onClick: () => void runBulkPatch({ settleSec: 60, proxyUrl: "", maxFileSize: "" }),
-                  },
-                  {
-                    key: "bulk-clean-excluded",
-                    label: "Clean Excluded on Drive",
-                    emoji: "🗑️",
-                    tone: "amber" as const,
-                    disabled: !!busyId,
-                    title: "Move excluded files (node_modules, .git, dist, etc.) on Google Drive into Google Drive Trash for all selected jobs",
-                    onClick: () => void runBulkCleanExcluded(),
-                  },
-                ]
-              : []),
-          ]}
-        />
-      }
-    />
-  );
-
-  const jobsPane = (
-    <HubSplitDirectoryPane
-      scroll={false}
-      className="hub-directory-frame hub-directory-frame--panel-fill folder-sync-directory-body stealth-profile-directory-frame"
-      kpiBand={<KpiStrip items={kpiItems} />}
-      filterBar={filterBar}
-    >
-      {viewMode === "card" ? (
-        <JobsDirectoryCards
-          items={filtered}
-          selectedIds={selection.selectedIds}
-          onToggleSelect={selection.toggleSelect}
-          onOpen={(row) => {
-            setFocusedId(row.id);
-            setDetailId(row.id);
-          }}
-          busyId={busyId}
-        />
-      ) : (
-        <JobsDirectoryTable
-          items={filtered}
-          selectedIds={selection.selectedIds}
-          onToggleSelect={selection.toggleSelect}
-          onToggleSelectAll={selection.toggleSelectAll}
-          allVisibleSelected={selection.allVisibleSelected}
-          onRowClick={(row) => {
-            setFocusedId(row.id);
-            setDetailId(row.id);
-          }}
-          pageSize={pageSize}
-          resetKey={listResetKey}
-          onStart={(id) => void runOne(id, "start")}
-          onPause={(id) => void runOne(id, "pause")}
-          onStop={(id) => void runOne(id, "stop")}
-          busyId={busyId}
-        />
-      )}
-    </HubSplitDirectoryPane>
-  );
+  const moreActions = [
+    {
+      key: "start",
+      label: `Start ${startableCount || ""}`.trim(),
+      emoji: "▶️",
+      tone: "emerald" as const,
+      disabled: !hasSelection || !anySelectedIdle || !!busyId,
+      title: "Start Stopped or Manual jobs, and retry Failed jobs",
+      onClick: () => void runBulk("start"),
+    },
+    {
+      key: "stop",
+      label: `Stop ${stoppableCount || ""}`.trim(),
+      emoji: "⏹️",
+      tone: "rose" as const,
+      disabled: !hasSelection || (!anySelectedRunning && !anySelectedArmed) || !!busyId,
+      title: "Stop 24/7 sync, or stop a pass that is running",
+      onClick: () => {
+        void (async () => {
+          for (const job of selectedRows) {
+            const kind = jobRunAction(job, false).kind;
+            if (kind === "stop") await runOne(job.id, "stop", { skipReload: true });
+            else if (kind === "pause") await runOne(job.id, "pause", { skipReload: true });
+          }
+          await reload();
+        })();
+      },
+    },
+    ...(hasSelection && lifecycle === "live"
+      ? [
+          {
+            key: "bulk-reset-defaults",
+            label: "Reset Defaults (1m · Inherit)",
+            emoji: "🔄",
+            tone: "sky" as const,
+            disabled: !!busyId,
+            title: "Reset Debounce (1m), Proxy (Inherit), and Max Size (Unlimited) for selected jobs",
+            onClick: () => void runBulkPatch({ settleSec: 60, proxyUrl: "", maxFileSize: "" }),
+          },
+          {
+            key: "bulk-clean-excluded",
+            label: "Clean Excluded on Drive",
+            emoji: "🗑️",
+            tone: "amber" as const,
+            disabled: !!busyId,
+            title: "Move excluded files (node_modules, .git, dist, etc.) on Google Drive into Google Drive Trash for all selected jobs",
+            onClick: () => void runBulkCleanExcluded(),
+          },
+        ]
+      : []),
+  ];
 
   return (
     <>
@@ -580,37 +466,166 @@ export function JobsScreen() {
         }}
         onCreate={async (draft) => {
           const { job } = await createJob(draft);
-          setFocusedId(job.id);
           setInitialSyncFolder("");
           await reload();
         }}
       />
 
-      <div className="hub-split-workspace anim-fade flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <HubSplitWorkspaceScreen
-          bodyClassName="folder-sync-workspace-body flex min-h-0 flex-1 overflow-hidden"
-          sectionRuleLabel="Jobs"
-          header={
-            <FolderSyncTabHeader
-              screen="jobs"
-              ariaLabel="Jobs"
-              title="Jobs"
-              titleIcon={jobsChrome.icon}
-              titleIconClass={jobsChrome.iconClass}
-              centerStats={centerStats}
-              actions={<FolderSyncTabHeaderActions />}
-            />
-          }
-        >
-          <JobsMainAndRail
-            jobsPane={jobsPane}
-            jobs={liveJobs}
-            focusedId={focusedId}
-            consoleLines={consoleLines}
-            onSelect={setFocusedId}
+      <HubDirectoryScreen
+        header={
+          <FolderSyncTabHeader
+            screen="jobs"
+            ariaLabel="Jobs"
+            title="Jobs"
+            titleIcon={jobsChrome.icon}
+            titleIconClass={jobsChrome.iconClass}
+            centerStats={centerStats}
+            actions={<FolderSyncTabHeaderActions />}
           />
-        </HubSplitWorkspaceScreen>
-      </div>
+        }
+        kpis={kpiItems.length > 0 ? kpiItems : undefined}
+        charts={chartsNode}
+        sectionRuleLabel="Jobs"
+        filters={jobsFilters}
+        query={search.queryInput}
+        onQueryChange={search.setQueryInput}
+        queryPending={search.queryPending}
+        filterValues={filterValues}
+        onFilterValuesChange={setFilterValues}
+        filterPlaceholder="Search jobs…"
+        filterShortcutScope="jobs"
+        filterSelectionToolbar={{
+          visibleCount: filtered.length,
+          selectedCount: selection.selectedIds.size,
+          noun: "jobs",
+        }}
+        directoryViewMode={viewMode}
+        filterToolbar={
+          <FolderSyncDirectoryToolbar
+            screen="jobs"
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            lifecycleMode={lifecycle}
+            onLifecycleModeChange={setLifecycle}
+            shown={filtered.length}
+            total={inPeriod.length}
+            countLabel="jobs"
+          />
+        }
+        filterRowActions={
+          <HubDirectoryCatalogBulkBar
+            noun="jobs"
+            visibleCount={filtered.length}
+            selectedCount={selection.selectedIds.size}
+            allVisibleSelected={selection.allVisibleSelected}
+            onToggleSelectAll={selection.toggleSelectAll}
+            lifecycleMode={lifecycle}
+            onNew={() => setCreateOpen(true)}
+            newTitle="Create sync job"
+            onDetail={() => {
+              if (soleSelectedJob) setDetailId(soleSelectedJob.id);
+            }}
+            onBulkDetail={() => setBulkDetailOpen(true)}
+            noneTitle="Select one job for Detail, or multiple for Bulk Detail"
+            singleTitle="Open Job Detail Modal"
+            bulkTitle="Open Bulk Detail & batch operations"
+            onRestore={() => {
+              void (async () => {
+                for (const job of selectedRows) {
+                  await restoreJob(job.id);
+                }
+                await reload();
+              })();
+            }}
+            onDelete={() => {
+              if (lifecycle === "trash") {
+                void (async () => {
+                  for (const job of selectedRows) {
+                    await deleteJobForever(job.id);
+                  }
+                  await reload();
+                })();
+              } else {
+                void runBulk("delete");
+              }
+            }}
+            deleteDisabled={!!busyId}
+            deleteTitle={lifecycle === "trash" ? "Remove selected jobs permanently" : "Move selected jobs to Trash"}
+            moreActions={moreActions}
+          />
+        }
+      >
+        {viewMode === "card" ? (
+          <JobsDirectoryCards
+            items={filtered}
+            selectedIds={selection.selectedIds}
+            onToggleSelect={selection.toggleSelect}
+            onOpen={(row) => setDetailId(row.id)}
+            busyId={busyId}
+            pageSize={pageSize}
+            resetKey={listResetKey}
+          />
+        ) : (
+          <JobsDirectoryTable
+            items={filtered}
+            selectedIds={selection.selectedIds}
+            onToggleSelect={selection.toggleSelect}
+            onToggleSelectAll={selection.toggleSelectAll}
+            allVisibleSelected={selection.allVisibleSelected}
+            onRowClick={(row) => setDetailId(row.id)}
+            pageSize={pageSize}
+            resetKey={listResetKey}
+            onStart={(id) => void runOne(id, "start")}
+            onPause={(id) => void runOne(id, "pause")}
+            onStop={(id) => void runOne(id, "stop")}
+            busyId={busyId}
+            emptyMessage={error || "No jobs — click New to create a sync job."}
+          />
+        )}
+      </HubDirectoryScreen>
+
+      <HubDirectoryBulkDetailModal
+        open={bulkDetailOpen && selectedRows.length >= 2}
+        onClose={() => setBulkDetailOpen(false)}
+        entitySingular="job"
+        entityPlural="jobs"
+        headerIcon={jobsChrome.icon}
+        panelTitle="Batch Jobs Operations"
+        panelTitleEmoji="📁"
+        selectedItems={selectedRows.map((row) => ({
+          id: row.id,
+          label: row.name,
+          sublabel: `${row.code ? `${row.code} · ` : ""}${jobStatusView({ ...row, busy: busyId === row.id }).label}`,
+          badge: jobStatusView({ ...row, busy: busyId === row.id }).label,
+          onOpenSingle: () => {
+            setBulkDetailOpen(false);
+            setDetailId(row.id);
+          },
+        }))}
+        sections={[
+          {
+            id: "batch-ops",
+            label: "Batch Operations",
+            emoji: "⚡",
+            description: `Execute batch actions across ${selectedRows.length} selected jobs.`,
+            actions: moreActions.map((act) => ({
+              key: act.key,
+              label: act.label,
+              title: act.title || act.label,
+              tone:
+                act.tone === "rose"
+                  ? ("rose" as const)
+                  : act.tone === "amber"
+                    ? ("amber" as const)
+                    : act.tone === "emerald"
+                      ? ("emerald" as const)
+                      : ("indigo" as const),
+              disabled: act.disabled,
+              onClick: act.onClick,
+            })),
+          },
+        ]}
+      />
     </>
   );
 }

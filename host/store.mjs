@@ -367,10 +367,25 @@ export function ensureSampleSeed() {
   return seeded;
 }
 
+const SUMMARY_TEXT_MAX_CHARS = 2048;
+
+function toSummaryClipRow(row) {
+  if (!row || typeof row.text !== "string" || row.text.length <= SUMMARY_TEXT_MAX_CHARS) {
+    return row;
+  }
+  return {
+    ...row,
+    text: row.text.slice(0, SUMMARY_TEXT_MAX_CHARS),
+    textLength: row.text.length,
+    textTruncated: true,
+  };
+}
+
 /** Combined directory — samples first, then history. */
 export function listClipRows(options = {}) {
   const lifecycle = options.lifecycle === "trash" ? "trash" : "live";
-  const hydrate = options.summary ? false : options.hydrate !== false;
+  const summary = Boolean(options.summary);
+  const hydrate = summary ? false : options.hydrate !== false;
   const currentHistory = listHistory({ hydrate });
   const currentSamples = listSamples({ hydrate });
   const purgedHistory = purgeExpiredTrash(currentHistory);
@@ -378,10 +393,11 @@ export function listClipRows(options = {}) {
   if (purgedHistory.length !== currentHistory.length) saveHistory(purgedHistory);
   if (purgedSamples.length !== currentSamples.length) saveSamples(purgedSamples);
   const active = [...purgedSamples, ...purgedHistory];
-  if (lifecycle === "trash") {
-    return active.filter((row) => isTrashRow(row));
-  }
-  return active.filter((row) => !row.deletedAt);
+  const filtered =
+    lifecycle === "trash"
+      ? active.filter((row) => isTrashRow(row))
+      : active.filter((row) => !row.deletedAt);
+  return summary ? filtered.map(toSummaryClipRow) : filtered;
 }
 
 export function listClips(options = {}) {

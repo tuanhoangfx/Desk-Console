@@ -10,6 +10,11 @@ import { DEV_ROOT } from "./windows.mjs";
 import { dataRoot } from "./store.mjs";
 import { appendOpsHistory } from "./ops-history.mjs";
 import {
+  getRunnerTunnelSnapshot,
+  stopRunnerTunnel,
+  toggleRunnerTunnel,
+} from "./runner-tunnel.mjs";
+import {
   appendTerminalLine,
   opsConsoleCmd,
   opsConsoleErr,
@@ -304,6 +309,10 @@ async function refreshRunners() {
     const idKey = String(row.id).toUpperCase();
     const outcome = startOutcome.get(idKey) || (row.kind === "ui" ? startOutcome.get(upperCode) : undefined);
     const up = stabilizeRunnerProbe(row.id, probed[i]);
+    if (!up) {
+      stopRunnerTunnel(row.id);
+    }
+    const tunnel = up ? getRunnerTunnelSnapshot(row.id) : null;
     const gateChangedAt = probeGate.get(String(row.id || ""))?.changedAt ?? 0;
     const latestMs = Math.max(
       Number(outcome?.exitedAt || 0),
@@ -324,10 +333,28 @@ async function refreshRunners() {
       startStartedAt: outcome?.startedAt,
       startExitedAt: outcome?.exitedAt,
       startExitCode: outcome?.exitCode,
+      tunnelUrl: tunnel?.url ?? null,
+      tunnelState: tunnel?.state ?? null,
     };
   });
   cache = { at: Date.now(), rows };
   return rows;
+}
+
+export async function shareRunnerTunnel(codeOrId, action = "toggle") {
+  const doc = loadPorts();
+  const target = resolveRunnerTarget(codeOrId, doc);
+  if (!target || !target.port) {
+    throw new Error(`Runner ${codeOrId} not found`);
+  }
+  const prod = doc.products?.[target.code];
+  const openPath = target.kind === "ui" ? String(prod?.openPath || "/") : "/";
+  const res = await toggleRunnerTunnel(
+    { id: target.id, code: target.code, port: target.port, openPath },
+    action,
+  );
+  cache = { at: 0, rows: [] };
+  return { ...res, id: target.id, code: target.code, port: target.port };
 }
 
 export async function listRunners() {
@@ -461,6 +488,8 @@ export async function stopRunner(code, opts = {}) {
   const port = Number(opts.portOverride) > 0 ? Number(opts.portOverride) : target?.port ?? resolveRunnerPort(upper);
   if (!port) return { ok: false, error: "not found" };
   if (!opts.portOverride) {
+    stopRunnerTunnel(logId);
+    stopRunnerTunnel(upper);
     if (!target || target.kind === "ui") {
       setRunnerWatchdogPinned(target?.code || upper, false);
     }
@@ -554,6 +583,9 @@ export async function startRunner(code, mode = "start") {
 
   if (!isWorker && (mode === "start" || mode === "restart")) {
     setRunnerWatchdogPinned(codeUpper, true);
+  }
+  if (mode === "restart") {
+    stopRunnerTunnel(logTarget);
   }
   if (isWorker && mode === "restart" && target?.port) {
     await stopRunner(logTarget, { portOverride: target.port });

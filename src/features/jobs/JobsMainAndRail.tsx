@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Cloud, FolderKanban, ScrollText, Terminal } from "lucide-react";
 import {
   HubPanel,
@@ -8,18 +8,32 @@ import {
   compactIconSize,
 } from "@tool-workspace/hub-ui";
 import type { OpsConsoleEntry } from "../../lib/api";
+import { formatJobLiveProgressTooltip } from "../../lib/job-mode";
 import type { SyncJob } from "../../lib/sync-api";
 import { clearDeskOpsLogs, readDeskOpsLogs, subscribeDeskOpsLogs } from "../desk/desk-ops-session-log";
 import { JobsConsoleRail } from "./JobsConsoleRail";
 import { JobsHistoryRail } from "./JobsHistoryRail";
 
-type Props = {
-  jobsPane: ReactNode;
-  jobs: SyncJob[];
-  focusedId: string;
-  consoleLines: string[];
-  onSelect: (id: string) => void;
-};
+export function buildJobConsoleLines(job: SyncJob | null | undefined, error?: string | null): string[] {
+  const head = error ? [`API error: ${error}`] : [];
+  if (!job?.lastResult && !job?.liveProgress) return head;
+  const progressLine = job?.liveProgress ? `# ${formatJobLiveProgressTooltip(job.liveProgress)}` : "";
+  if (!job?.lastResult) {
+    return [...head, `# ${job?.name || "Job"} · ${job?.status || "running"}`, progressLine].filter(Boolean);
+  }
+  return [
+    ...head,
+    `# ${job.name} · ${job.lastResult.action || "—"} · ${job.status}`,
+    progressLine,
+    job.lastResult.backupDir ? `backup: ${job.lastResult.backupDir}` : "",
+    job.lastResult.conflictDir ? `conflicts: ${job.lastResult.conflictDir}` : "",
+    job.lastResult.trashPolicy ? `trash: ${job.lastResult.trashPolicy}` : "",
+    "--- stdout ---",
+    job.lastResult.stdout || "(empty)",
+    "--- stderr ---",
+    job.lastResult.stderr || "(empty)",
+  ].filter(Boolean);
+}
 
 type SyncLogRow = {
   id: string;
@@ -140,20 +154,31 @@ function JobsLogRail({ jobs, focusedId }: { jobs: SyncJob[]; focusedId: string }
   );
 }
 
-/** Jobs & Drives table | History · Log · Console (3:3:4 split SSOT parity with DeskOpsRuntimeRail). */
-export function JobsMainAndRail({ jobsPane, jobs, focusedId, consoleLines, onSelect }: Props) {
-  const focusedJob = jobs.find((j) => j.id === focusedId) || null;
+/** Embedded Console, History & Log section for JobDetailModal / DriveDetailModal (Layout 3 SSOT). */
+export function JobsRuntimeDetailPanel({
+  jobs,
+  focusedId,
+  onSelect,
+}: {
+  jobs: SyncJob[];
+  focusedId: string;
+  onSelect?: (id: string) => void;
+}) {
+  const focusedJob = jobs.find((j) => j.id === focusedId) || jobs[0] || null;
+  const consoleLines = useMemo(() => buildJobConsoleLines(focusedJob), [focusedJob]);
   return (
-    <div className="stealth-profile-layout flex min-h-0 flex-1 overflow-hidden">
-      <div className="stealth-profile-directory-pane">{jobsPane}</div>
-      <aside
-        className="stealth-workflow-rail desk-ops-three-rail"
-        aria-label="Runtime History, Log, and Console rail"
-      >
-        <JobsHistoryRail jobs={jobs} focusedId={focusedId} onSelect={onSelect} />
-        <JobsLogRail jobs={jobs} focusedId={focusedId} />
+    <div className="flex flex-col gap-3">
+      <div className="grid h-[210px] min-h-0 grid-cols-1 gap-3 md:grid-cols-2">
+        <JobsHistoryRail
+          jobs={jobs}
+          focusedId={focusedJob?.id || ""}
+          onSelect={onSelect || (() => undefined)}
+        />
+        <JobsLogRail jobs={jobs} focusedId={focusedJob?.id || ""} />
+      </div>
+      <div className="h-[250px] min-h-0">
         <JobsConsoleRail lines={consoleLines} focusedJob={focusedJob} />
-      </aside>
+      </div>
     </div>
   );
 }

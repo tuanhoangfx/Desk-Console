@@ -16,6 +16,7 @@ import {
 } from "@tool-workspace/hub-ui";
 import type { RunnerRow } from "../../lib/api";
 import { DeskDetailNoteLogRails } from "../desk/DeskDetailNoteLogRails";
+import { DeskOpsRuntimeRail } from "../desk/DeskOpsRuntimeRail";
 import { DeskDetailReadonlyField } from "../desk/desk-detail-fields";
 import { DeskStatusKpiLabel } from "../desk/DeskStatusKpiLabel";
 import { DESK_STATUS_KPI_EMOJI } from "../desk/desk-directory-stickers";
@@ -31,14 +32,16 @@ import {
 const RUNNER_DETAIL_TOC = [
   { id: "desk-runner-status", label: "Status", emoji: "🚦" },
   { id: "desk-runner-identity", label: "Identity", emoji: "📛" },
+  { id: "desk-runner-console", label: "Console & History", emoji: "🖥️" },
 ] as const;
 
 type Props = {
   row: RunnerRow;
+  onToggleShare?: () => void;
   onClose: () => void;
 };
 
-export function RunnerDetailModal({ row, onClose }: Props) {
+export function RunnerDetailModal({ row, onToggleShare, onClose }: Props) {
   const sectionIds = useMemo(() => RUNNER_DETAIL_TOC.map((item) => item.id), []);
   const title = row.kind === "worker" ? `${row.code} · host API` : `${row.code} · UI`;
   const probedAt = row.probedAt ?? new Date().toISOString();
@@ -102,6 +105,31 @@ export function RunnerDetailModal({ row, onClose }: Props) {
                     <DeskDetailReadonlyField label="URL" headerEmoji="🌐">
                       <HubDirectoryReadonlyCopyText value={row.url} />
                     </DeskDetailReadonlyField>
+                    <DeskDetailReadonlyField label="Mobile Preview (HTTPS)" headerEmoji="📱">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {row.tunnelUrl ? (
+                          <HubDirectoryReadonlyCopyText value={row.tunnelUrl} />
+                        ) : (
+                          <span className="text-xs text-slate-400">
+                            {row.up ? "Not shared" : "Start runner first"}
+                          </span>
+                        )}
+                        {row.up && onToggleShare ? (
+                          <button
+                            type="button"
+                            onClick={onToggleShare}
+                            className="shrink-0 rounded border border-sky-400/35 bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold text-sky-100 hover:bg-sky-500/25"
+                          >
+                            {row.tunnelUrl ? "Stop" : "Share"}
+                          </button>
+                        ) : null}
+                      </div>
+                    </DeskDetailReadonlyField>
+                  </div>
+                </HubAdmSectionBlock>
+                <HubAdmSectionBlock {...deskDetailSectionProps({ id: "desk-runner-console", label: "Live Console & History", emoji: "🖥️" })}>
+                  <div className="h-[420px] overflow-hidden rounded-xl border border-white/10">
+                    <DeskOpsRuntimeRail kind="runner" targetId={row.id} targetLabel={title} tabActive />
                   </div>
                 </HubAdmSectionBlock>
               </div>

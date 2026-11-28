@@ -53,6 +53,7 @@ import { collectOutlineFormats, matchesOutlineRow } from "../../lib/outline-open
 import { remotePathFromSpec } from "../../lib/remote-name";
 import { jobMatchesStatusFilter, jobStatusCounts } from "../jobs/jobs-kpi-filter";
 import { JobsDirectoryTable } from "../jobs/JobsDirectoryTable";
+import { JobsRuntimeDetailPanel } from "../jobs/JobsMainAndRail";
 import { DRIVE_JOB_COLUMN_KEYS } from "../../lib/jobs-directory-meta";
 import { DetailLogScopeTitle, logActor, useDetailLogScope } from "../log/DetailLogScope";
 import type { BrowseRow, DriveAccount, NetworkProbeResult, SyncJob } from "../../lib/sync-api";
@@ -69,6 +70,7 @@ import { SyncTreeSection } from "../tree/SyncTreeSection";
 const ACCOUNT_SECTION = "p0009-drive-account";
 const FILES_SECTION = "p0009-drive-files";
 const JOBS_SECTION = "p0009-drive-jobs";
+const RUNTIME_SECTION = "p0009-drive-runtime";
 
 const DRIVE_JOB_MODE_FILTER: FilterDef = {
   key: "mode",
@@ -219,6 +221,7 @@ export function DriveDetailModal({
   const [emptyingTrash, setEmptyingTrash] = useState(false);
   const [confirmEmptyTrashOpen, setConfirmEmptyTrashOpen] = useState(false);
   const [trashMsg, setTrashMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [runtimeJobId, setRuntimeJobId] = useState("");
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
   const drivesChrome = navScreenChrome("drives");
@@ -366,7 +369,7 @@ export function DriveDetailModal({
       size="detail"
       shellClassName={hubAccountDetailShellClass()}
       scrollRootSelector={HUB_ACCOUNT_DETAIL_MAIN_SCROLL_ROOT}
-      sectionIds={[ACCOUNT_SECTION, JOBS_SECTION, FILES_SECTION]}
+      sectionIds={[ACCOUNT_SECTION, JOBS_SECTION, FILES_SECTION, RUNTIME_SECTION]}
       toc={
         <HubToolDetailRail title="Navigate" titleEmoji="🧭" className="twofa-adm-rail--toc" scroll={false} ariaLabel="Sections">
           <HubTocSectionNav
@@ -374,6 +377,7 @@ export function DriveDetailModal({
               { id: ACCOUNT_SECTION, label: "Account", emoji: HUB_ACCOUNT_DETAIL_ACCOUNT_EMOJI },
               { id: JOBS_SECTION, label: "Jobs", emoji: HUB_ACCOUNT_DETAIL_JOB_EMOJI },
               { id: FILES_SECTION, label: "Files", emoji: "📄" },
+              { id: RUNTIME_SECTION, label: "Console & History", emoji: "🖥️" },
             ]}
             scrollRootSelector={HUB_ACCOUNT_DETAIL_MAIN_SCROLL_ROOT}
             admNav
@@ -708,6 +712,13 @@ export function DriveDetailModal({
                       }
                     />
                   </div>
+                </HubToolDetailSection>
+                <HubToolDetailSection id={RUNTIME_SECTION} title="Console & History" emoji="🖥️">
+                  <JobsRuntimeDetailPanel
+                    jobs={jobs}
+                    focusedId={runtimeJobId || jobs[0]?.id || ""}
+                    onSelect={setRuntimeJobId}
+                  />
                 </HubToolDetailSection>
               </HubToolDetailSections>
             </>

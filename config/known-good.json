@@ -1,19 +1,26 @@
-﻿{
-    "schemaVersion":  1,
-    "label":  "stable-2.1.1",
-    "version":  "2.1.1",
-    "gitCommit":  "7f9f5da6f56e6054814be00a6394ba88045c18cf",
-    "gitTag":  "v2.1.1-stable",
-    "productType":  "Desktop",
-    "backup":  {
-                   "dir":  "D:/DevStore/known-good/P0001",
-                   "capturedAt":  "2026-09-04T12:05:35.011Z",
-                   "note":  "Run pnpm desktop:dist then snapshot-known-good.mjs --with-artifacts"
-               },
-    "notes":  "Restore: git checkout v0.1.8-stable Â· pnpm install Â· pnpm dev",
-    "restore":  {
-                    "gitCheckout":  "v2.1.1-stable",
-                    "verify":  "node host/desk-host.test.mjs",
-                    "purgeRuntime":  null
-                }
+{
+  "schemaVersion": 1,
+  "label": "v3.1.267-stable",
+  "version": "3.1.267",
+  "gitCommit": "3e52f209ad3fbb7215c1110bee312c6a1565e9ef",
+  "gitTag": "v3.1.267-stable",
+  "productType": "Desktop",
+  "backup": {
+    "dir": "D:/DevStore/known-good/P0001",
+    "installer": "Desk-Console-Setup-3.1.267.exe",
+    "winUnpacked": "win-unpacked",
+    "exeName": "Desk Console.exe",
+    "installedSubdir": "desk-console",
+    "healthUrl": "http://127.0.0.1:6010/api/health",
+    "sha512": "qa1nXkwdfiy61ZqMnHP3EB9D9/PqBzIxJNtmghIwUAQeMPpqPmLKbZEkKOYCkJIzawBv+rXhIDoiP89dFpraaQ==",
+    "capturedAt": "2026-11-26T22:27:05.652Z"
+  },
+  "notes": "Restore: git checkout v0.1.8-stable Â· pnpm install Â· pnpm dev",
+  "restore": {
+    "gitCheckout": "v2.1.1-stable",
+    "verify": "node host/desk-host.test.mjs",
+    "purgeRuntime": null
+  },
+  "productCode": "P0001",
+  "packageVersion": "3.1.267"
 }

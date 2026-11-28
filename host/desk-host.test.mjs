@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -38,6 +40,17 @@ import {
   toNum,
 } from "./hardware-sensors.mjs";
 import { getManagedAppsSnapshot, runManagedAppAction } from "./apps-versions.mjs";
+import {
+  buildHeadlessPowerShellCommandForRunas,
+  cleanZaloCacheIfDue,
+  inspectZaloDesktopInstances,
+  offloadZaloDataIfDue,
+  offloadZaloDataToDriveD,
+  probeRemoteZaloDataStats,
+  repairZaloShortcuts,
+  syncZaloDesktopInstances,
+  syncZaloFleetIfDue,
+} from "./zalo-desktop-instances.mjs";
 import {
   dibBufferToClipboardImage,
   getClipboardSequenceNumber,
@@ -426,11 +439,12 @@ test("runners screen uses DeskDirectoryScreen with ops runtime rail and Tasks sc
   assert.doesNotMatch(app, /TasksScreen/);
   assert.doesNotMatch(app, /OpsScreen/);
   assert.match(runners, /DeskDirectoryScreen/);
-  assert.match(runners, /DeskOpsRuntimeRail/);
-  assert.match(runners, /sideRail/);
+  assert.match(runners, /crudBulk=\{\{/);
+  const runnerModal = fs.readFileSync(path.join(srcRoot, "features", "runners", "RunnerDetailModal.tsx"), "utf8");
+  assert.match(runnerModal, /DeskOpsRuntimeRail/);
   const deskScreen = fs.readFileSync(path.join(srcRoot, "features", "desk", "DeskDirectoryScreen.tsx"), "utf8");
-  assert.match(deskScreen, /HubSplitDirectoryPane/);
-  assert.match(deskScreen, /desk-ops-three-rail/);
+  assert.match(deskScreen, /HubDirectoryScreen/);
+  assert.match(deskScreen, /HubDirectoryBulkDetailModal/);
   assert.match(fs.readFileSync(path.join(srcRoot, "features", "desk", "DeskOpsRuntimeRail.tsx"), "utf8"), /HubConsoleCrtLine/);
   const hubStyles = fs.readFileSync(path.join(srcRoot, "styles", "hub-ui-styles.css"), "utf8");
   assert.match(hubStyles, /hub-console-crt\.css/);
@@ -443,10 +457,10 @@ test("runners screen uses DeskDirectoryScreen with ops runtime rail and Tasks sc
   assert.doesNotMatch(sidebar, /emojiGlyph/);
   assert.doesNotMatch(sidebar, /screen:\s*"tasks"/);
   assert.match(deskScreen, /desk-directory-filters/);
-  assert.match(deskScreen, /panelFillRows/);
-  assert.match(deskScreen, /resolveDirectoryPanelFillRows/);
+  assert.match(deskScreen, /directoryChartBandNode/);
+  assert.match(deskScreen, /useStableDirectoryFilterToolbar/);
   const deskTableSrc = fs.readFileSync(path.join(srcRoot, "features", "desk", "DeskDirectoryTable.tsx"), "utf8");
-  assert.match(deskTableSrc, /padBodyRowsToPageSize/);
+  assert.match(deskTableSrc, /useHubScopedFreeze/);
   assert.match(app, /maxMounted:\s*(4|5)/);
   assert.match(app, /JobsScreen/);
   assert.match(app, /DrivesScreen/);
@@ -465,8 +479,9 @@ test("runners screen uses DeskDirectoryScreen with ops runtime rail and Tasks sc
   assert.ok(histIdx > 0 && logIdx > histIdx && conIdx > logIdx, "DeskOpsRuntimeRail must render History · Log · Console in order");
   const cronSrc = fs.readFileSync(path.join(srcRoot, "features", "cron", "CronScreen.tsx"), "utf8");
   assert.match(cronSrc, /DeskDirectoryScreen/);
-  assert.match(cronSrc, /DeskOpsRuntimeRail/);
   assert.match(cronSrc, /CronDetailModal/);
+  const cronModalSrc = fs.readFileSync(path.join(srcRoot, "features", "cron", "CronDetailModal.tsx"), "utf8");
+  assert.match(cronModalSrc, /DeskOpsRuntimeRail/);
   const dashSrc = fs.readFileSync(path.join(srcRoot, "features", "dashboard", "DashboardScreen.tsx"), "utf8");
   assert.match(dashSrc, /DashboardGrowthChart/);
   assert.match(dashSrc, /MiniBarChart/);
@@ -477,17 +492,26 @@ test("runners screen uses DeskDirectoryScreen with ops runtime rail and Tasks sc
   );
   assert.match(crtCss, /--hub-crt-accent/);
   assert.match(crtCss, /--hub-crt-text/);
-  assert.equal(fs.existsSync(path.join(srcRoot, "features", "system")), false, "retired SystemScreen folder must not exist");
+  assert.equal(
+    fs.existsSync(path.join(srcRoot, "features", "system", "SystemScreen.tsx")),
+    false,
+    "retired SystemScreen component must not exist",
+  );
+  assert.equal(
+    fs.existsSync(path.join(srcRoot, "features", "system", "design-template", "DesignTemplatePage.tsx")),
+    true,
+    "System DesignTemplatePage must exist under features/system/design-template",
+  );
   const styles = fs.readFileSync(path.join(srcRoot, "styles.css"), "utf8");
   assert.match(styles, /hub-ui-styles\.css/);
   assert.match(hubStyles, /hub-account-detail-modal\.css/);
-  assert.match(deskScreen, /DeskSplitHubChrome/);
+  assert.match(deskScreen, /HubListChromeHeader/);
   assert.match(runners, /RunnerDetailModal/);
   assert.match(runners, /onStop/);
   assert.doesNotMatch(runners, /onRestart/);
   assert.match(runners, /label: "Stop"/);
-  assert.match(runners, /label: "Detail"/);
-  assert.match(deskScreen, /deskBulkActionIcon/);
+  assert.match(runners, /onDetail:/);
+  assert.match(deskScreen, /HubDirectoryAdaptiveEditAction/);
   const cells = fs.readFileSync(path.join(srcRoot, "features", "desk", "desk-directory-cells.tsx"), "utf8");
   assert.doesNotMatch(cells, /onRestart/);
   assert.match(cells, /Start \$\{label\}/);
@@ -632,7 +656,7 @@ test("Desk status cells use HubUsersStatusLabel Dot Color with live pulse (Campa
   assert.match(filters, /statusDot:\s*deskStatusDotTone/);
   assert.match(filters, /hub-users-status-dot--/);
   assert.match(colMeta, /getDeskColumnMeta/);
-  assert.match(colMeta, /statusDot:\s*deskStatusDotTone\(label\)/);
+  assert.match(colMeta, /statusDot:\s*deskStatusDotTone\(label/);
   assert.match(colMeta, /created:\s*col\("Created"/);
   assert.match(colMeta, /log:\s*col\("Log"/);
   assert.match(tablePrefs, /"created"/);
@@ -769,6 +793,15 @@ test("GET /api/clips?summary=1 strips base64 imageDataUrl while GET /api/clips/:
     assert.equal(summaryRow.hasImage, true);
     assert.equal(summaryRow.contentType, "image");
     assert.equal(summaryRow.imageDataUrl, undefined);
+    assert.match(String(summaryRow.imageUrl || ""), /^\/api\/clips\/[^/]+\/image\?v=sha256-[0-9a-f]{64}\.png$/);
+
+    const bareRes = await fetch(`http://127.0.0.1:${port}/api/clips`);
+    assert.equal(bareRes.status, 200);
+    const bareBody = await bareRes.json();
+    const bareRow = bareBody.rows.find((r) => r.id === created.id);
+    assert.ok(bareRow);
+    assert.equal(bareRow.imageDataUrl, undefined);
+    assert.match(String(bareRow.imageUrl || ""), /^\/api\/clips\/[^/]+\/image/);
 
     const detailRes = await fetch(`http://127.0.0.1:${port}/api/clips/${encodeURIComponent(created.id)}`);
     assert.equal(detailRes.status, 200);
@@ -932,7 +965,17 @@ test("end-user PC without E:\\Dev workspace boots host/server.mjs and generates 
   const { spawn } = await import("node:child_process");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-enduser-fresh-"));
   const rcloneConf = path.join(tmpDir, "rclone", "rclone.conf");
-  const port = 16092;
+  const getEphemeralPort = () =>
+    new Promise((resolve, reject) => {
+      const probe = net.createServer();
+      probe.once("error", reject);
+      probe.listen(0, "127.0.0.1", () => {
+        const addr = probe.address();
+        const freePort = typeof addr === "object" && addr ? addr.port : 0;
+        probe.close((err) => (err ? reject(err) : resolve(freePort)));
+      });
+    });
+  const port = await getEphemeralPort();
   const hostDir = path.dirname(fileURLToPath(import.meta.url));
   const serverPath = path.join(hostDir, "server.mjs");
   const rcloneExe = path.join(hostDir, "..", "resources", "rclone", "rclone.exe");
@@ -948,6 +991,7 @@ test("end-user PC without E:\\Dev workspace boots host/server.mjs and generates 
       RCLONE_CONFIG: rcloneConf,
       RCLONE_PATH: rcloneExe,
     },
+    windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -1140,12 +1184,16 @@ test("native getClipboardSequenceNumber and readClipboardImageAsync run without 
   assert.equal(typeof seq, "number");
   assert.ok(seq >= 0);
 
+  // Warm up koffi/user32 handles once so cold DLL init does not skew latency measurement
+  await readClipboardImageAsync(500);
+
   const t0 = performance.now();
   const img = await readClipboardImageAsync(500);
   const elapsedMs = performance.now() - t0;
-  // Native koffi read completes in < 80ms (usually < 1ms when text-only), versus 250-900ms for PowerShell .NET
-  assert.ok(elapsedMs < 150, `Expected fast native clipboard image check, took ${elapsedMs.toFixed(1)}ms`);
-  if (img !== null) {
+  // Empty/text-only native Win32 probe runs in milliseconds vs 250-900ms for PowerShell .NET
+  if (img === null) {
+    assert.ok(elapsedMs < 250, `Expected fast native clipboard image check, took ${elapsedMs.toFixed(1)}ms`);
+  } else {
     assert.ok(img.imageWidth > 0 && img.imageHeight > 0);
     assert.match(img.imageDataUrl, /^data:image\/png;base64,/);
   }
@@ -1955,12 +2003,367 @@ test("getManagedAppsSnapshot & runManagedAppAction inspect monorepo IDEs and rej
   assert.ok(primaryAg);
   assert.ok("primaryLockConflict" in primaryAg);
   assert.ok(Array.isArray(primaryAg.brokenTaskbarPins));
-  assert.ok(snap.rows.some((r) => r.id === "app:cursor"));
-  assert.ok(snap.rows.some((r) => r.id === "app:claude-code"));
+  assert.ok("accountLabel" in primaryAg);
+  assert.ok(snap.rows.some((r) => r.id === "app:cursor" && r.brandId === "cursor"));
+  assert.ok(snap.rows.some((r) => r.id === "app:claude-code" && r.brandId === "claude"));
 
   const bad = await runManagedAppAction("unsupported-action", {});
   assert.equal(bad.ok, false);
   assert.match(String(bad.error || ""), /Unknown app management action/i);
+
+  const serverSrc = fs.readFileSync(path.join(import.meta.dirname, "server.mjs"), "utf8");
+  const appsModalSrc = fs.readFileSync(
+    path.join(import.meta.dirname, "..", "src", "features", "apps", "AppVersionDetailModal.tsx"),
+    "utf8",
+  );
+  assert.match(serverSrc, /Daemon-Antigravity-Vault-Sync/);
+  assert.match(serverSrc, /Daemon-Zalo-Fleet-Sync/);
+  assert.match(serverSrc, /syncZaloFleetIfDue/);
+  assert.match(appsModalSrc, /limit:\s*0,\s*unpackLatestCount:\s*3/);
+  assert.match(appsModalSrc, /sync-start-menu-latest/);
+  assert.match(appsModalSrc, /sync-drive-vault/);
+  assert.match(appsModalSrc, /repair-zalo-shortcuts/);
+  assert.match(appsModalSrc, /clean-zalo-cache/);
+  assert.match(appsModalSrc, /isCursor/);
+  assert.match(appsModalSrc, /isZalo/);
+  assert.ok("driveVaultSync" in snap);
+  assert.ok(snap.rows.some((r) => r.product === "zalo"));
+  const zaloRow = snap.rows.find((r) => r.product === "zalo" && r.installed);
+  if (zaloRow) {
+    assert.ok(typeof zaloRow.sizeBytes === "number");
+    assert.ok(Boolean(zaloRow.accountLabel));
+  }
+  assert.equal(typeof repairZaloShortcuts, "function");
+  assert.equal(typeof syncZaloFleetIfDue, "function");
+  assert.match(serverSrc, /void getManagedAppsSnapshot\(\{\s*includeReleases:\s*false\s*\}\)/);
+});
+
+test("inspectZaloDesktopInstances & syncZaloDesktopInstances detect outdated builds, sync from verified golden source, verify SHA1, and prune old versions", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "desk-zalo-sync-"));
+  const localDir = path.join(tmpRoot, "LocalZalo");
+  const portableRoot = path.join(tmpRoot, "PortableZalo");
+  const zalo04 = path.join(portableRoot, "Zalo 04");
+  const zalo02 = path.join(portableRoot, "Zalo 02");
+  const zalo03 = path.join(portableRoot, "Zalo 03");
+  try {
+    const newAsarContent = Buffer.from("zalo-26-11-20-asar-payload");
+    const newSha1 = (await import("node:crypto")).createHash("sha1").update(newAsarContent).digest("hex");
+
+    // Seed golden Zalo 04 (26.11.20 + excluded fallback 27.12.31)
+    fs.mkdirSync(path.join(zalo04, "Zalo-26.11.20", "resources"), { recursive: true });
+    fs.mkdirSync(path.join(zalo04, "Zalo-27.12.31", "resources"), { recursive: true });
+    fs.mkdirSync(path.join(zalo04, "resources"), { recursive: true });
+    fs.writeFileSync(path.join(zalo04, "Zalo.exe"), "launcher-26.11.20-payload");
+    fs.writeFileSync(path.join(zalo04, "Uninstall Zalo.exe"), "uninstall-26.11.20");
+    fs.writeFileSync(path.join(zalo04, "resources", "elevate.exe"), "elevate-26.11.20");
+    fs.writeFileSync(path.join(zalo04, "Zalo-26.11.20", "Zalo.exe"), "app-26.11.20");
+    fs.writeFileSync(path.join(zalo04, "Zalo-26.11.20", "ZaloExecutable.exe"), "launcher-26.11.20-payload");
+    fs.writeFileSync(path.join(zalo04, "Zalo-26.11.20", "resources", "app.asar"), newAsarContent);
+    fs.writeFileSync(
+      path.join(zalo04, "Zalo-26.11.20", "update_meta.json"),
+      JSON.stringify({ verify: [{ file: "resources\\app.asar", sha1: newSha1 }] }),
+    );
+
+    // Seed outdated Zalo 02 & Zalo 03 (26.8.10 + dead 26.7.10)
+    for (const dir of [zalo02, zalo03]) {
+      for (const oldVer of ["Zalo-26.7.10", "Zalo-26.8.10"]) {
+        fs.mkdirSync(path.join(dir, oldVer, "resources"), { recursive: true });
+        fs.writeFileSync(path.join(dir, oldVer, "Zalo.exe"), "old-app");
+        fs.writeFileSync(path.join(dir, oldVer, "ZaloExecutable.exe"), "old-launcher");
+        fs.writeFileSync(path.join(dir, oldVer, "resources", "app.asar"), "old-asar");
+      }
+      fs.writeFileSync(path.join(dir, "Zalo.exe"), "old-launcher");
+    }
+
+    const before = inspectZaloDesktopInstances({
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      runningProcesses: [],
+    });
+    assert.equal(before.latestVersion, "26.11.20");
+    assert.equal(before.outdatedCount, 2);
+    const row02Before = before.instances.find((i) => i.id === "zalo:zalo-02");
+    assert.equal(row02Before?.status, "Update");
+    assert.equal(row02Before?.outdated, true);
+    assert.equal(row02Before?.winUser, "PC02");
+    assert.match(String(row02Before?.accountLabel || ""), /Infi Open/);
+
+    const syncRes = await syncZaloDesktopInstances({
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      runningProcesses: [],
+    });
+    assert.equal(syncRes.ok, true);
+    assert.equal(syncRes.synced.length, 2);
+
+    const after = inspectZaloDesktopInstances({
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      runningProcesses: [],
+      verifyChecksum: true,
+    });
+    assert.equal(after.outdatedCount, 0);
+    for (const id of ["zalo:zalo-02", "zalo:zalo-03", "zalo:zalo-04"]) {
+      const row = after.instances.find((i) => i.id === id);
+      assert.equal(row?.status, "Ready");
+      assert.equal(row?.activeVersion, "26.11.20");
+      assert.equal(row?.launcherSynced, true);
+    }
+    assert.equal(fs.existsSync(path.join(zalo02, "Zalo-26.8.10")), false);
+    assert.equal(fs.existsSync(path.join(zalo02, "Zalo-26.7.10")), false);
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
+
+test("offloadZaloDataToDriveD rejects non-allowlisted folders, blocks while running, and swaps allowlisted media via NTFS junction", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "desk-zalo-offload-"));
+  const localDir = path.join(tmpRoot, "LocalZalo");
+  const portableRoot = path.join(tmpRoot, "PortableZalo");
+  const fakeData = path.join(tmpRoot, "ZaloData");
+  const targetBase = path.join(portableRoot, "ZaloData-Primary");
+  try {
+    fs.mkdirSync(path.join(localDir, "Zalo-26.11.20", "resources"), { recursive: true });
+    fs.writeFileSync(path.join(localDir, "Zalo.exe"), "launcher");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "Zalo.exe"), "app");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "ZaloExecutable.exe"), "launcher");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "resources", "app.asar"), "asar");
+
+    fs.mkdirSync(path.join(fakeData, "media", "thumbs"), { recursive: true });
+    fs.writeFileSync(path.join(fakeData, "media", "thumbs", "sample.jpg"), Buffer.alloc(4096, 7));
+
+    const badFolder = await offloadZaloDataToDriveD({
+      instanceId: "zalo:primary",
+      folder: "../Windows",
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      targetBaseDir: targetBase,
+      runningProcesses: [],
+    });
+    assert.equal(badFolder.ok, false);
+    assert.match(String(badFolder.error || ""), /not allowlisted/i);
+
+    const runningBlocked = await offloadZaloDataToDriveD({
+      instanceId: "zalo:primary",
+      folder: "media",
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      targetBaseDir: targetBase,
+      runningProcesses: [{ name: "Zalo.exe", pid: 4242, exePath: path.join(localDir, "Zalo.exe"), workingSetBytes: 1024 }],
+    });
+    assert.equal(runningBlocked.ok, false);
+    assert.match(String(runningBlocked.error || ""), /running/i);
+
+    const res = await offloadZaloDataToDriveD({
+      instanceId: "zalo:primary",
+      folder: "media",
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      targetBaseDir: targetBase,
+      runningProcesses: [],
+    });
+    assert.equal(res.ok, true);
+    assert.equal(res.files, 1);
+    assert.equal(res.bytes, 4096);
+    assert.equal(fs.lstatSync(path.join(fakeData, "media")).isSymbolicLink(), true);
+    assert.equal(fs.existsSync(path.join(targetBase, "media", "thumbs", "sample.jpg")), true);
+
+    const secondPass = await offloadZaloDataToDriveD({
+      instanceId: "zalo:primary",
+      folder: "media",
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      targetBaseDir: targetBase,
+      runningProcesses: [],
+    });
+    assert.equal(secondPass.ok, true);
+    assert.equal(secondPass.alreadyLinked, true);
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
+
+test("cleanZaloCacheIfDue respects running processes and thresholdBytes while preserving chat Database", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "desk-zalo-autoclean-"));
+  const localDir = path.join(tmpRoot, "LocalZalo");
+  const portableRoot = path.join(tmpRoot, "PortableZalo");
+  const fakeData = path.join(tmpRoot, "ZaloData");
+  try {
+    fs.mkdirSync(path.join(localDir, "Zalo-26.11.20", "resources"), { recursive: true });
+    fs.writeFileSync(path.join(localDir, "Zalo.exe"), "launcher");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "Zalo.exe"), "app");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "ZaloExecutable.exe"), "launcher");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "resources", "app.asar"), "asar");
+
+    fs.mkdirSync(path.join(fakeData, "Cache"), { recursive: true });
+    fs.mkdirSync(path.join(fakeData, "Database"), { recursive: true });
+    fs.writeFileSync(path.join(fakeData, "Cache", "data_0"), Buffer.alloc(8192, 3));
+    fs.writeFileSync(path.join(fakeData, "Database", "ftsm_001.db"), "chat-db-keep");
+
+    const runningSkip = await cleanZaloCacheIfDue({
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      thresholdBytes: 1024,
+      runningProcesses: [{ name: "Zalo.exe", pid: 7777, exePath: path.join(localDir, "Zalo.exe"), workingSetBytes: 1024 }],
+    });
+    assert.equal(runningSkip.cleaned.length, 0);
+    assert.equal(fs.existsSync(path.join(fakeData, "Cache", "data_0")), true);
+
+    const belowThreshold = await cleanZaloCacheIfDue({
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      thresholdBytes: 64 * 1024,
+      runningProcesses: [],
+    });
+    assert.equal(belowThreshold.cleaned.length, 0);
+    assert.equal(fs.existsSync(path.join(fakeData, "Cache", "data_0")), true);
+
+    const overThreshold = await cleanZaloCacheIfDue({
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      thresholdBytes: 4096,
+      runningProcesses: [],
+    });
+    assert.equal(overThreshold.ok, true);
+    assert.equal(overThreshold.cleaned.length, 1);
+    assert.equal(overThreshold.freedBytes, 8192);
+    assert.equal(fs.existsSync(path.join(fakeData, "Cache")), false);
+    assert.equal(fs.existsSync(path.join(fakeData, "Database", "ftsm_001.db")), true);
+  } finally {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
+
+test("offloadZaloDataToDriveD and probeRemoteZaloDataStats handle cross-user remote PS results & fail closed without /savecred", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "desk-zalo-remote-"));
+  const localDir = path.join(tmpRoot, "LocalZalo");
+  const portableRoot = path.join(tmpRoot, "PortableZalo");
+  const zalo02 = path.join(portableRoot, "Zalo 02");
+  const remoteStatsPath = path.join(tmpRoot, "zalo-remote-stats.json");
+  const prevEnv = process.env.P0001_ZALO_REMOTE_STATS_PATH;
+  process.env.P0001_ZALO_REMOTE_STATS_PATH = remoteStatsPath;
+  try {
+    fs.mkdirSync(path.join(zalo02, "Zalo-26.11.20", "resources"), { recursive: true });
+    fs.writeFileSync(path.join(zalo02, "Zalo.exe"), "launcher");
+    fs.writeFileSync(path.join(zalo02, "Zalo-26.11.20", "Zalo.exe"), "app");
+    fs.writeFileSync(path.join(zalo02, "Zalo-26.11.20", "ZaloExecutable.exe"), "launcher");
+    fs.writeFileSync(path.join(zalo02, "Zalo-26.11.20", "resources", "app.asar"), "asar");
+
+    const before = inspectZaloDesktopInstances({
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      runningProcesses: [],
+    });
+    const inst02 = before.instances.find((i) => i.id === "zalo:zalo-02");
+    assert.ok(inst02);
+    if (inst02.savedCredReady) {
+      const probed = await probeRemoteZaloDataStats({
+        instanceIds: ["zalo:zalo-02"],
+        localProgramsDir: localDir,
+        portableRootDir: portableRoot,
+        remoteExecutor: async ({ resultPath }) => {
+          fs.writeFileSync(
+            resultPath,
+            JSON.stringify({
+              ok: true,
+              stats: {
+                accessible: true,
+                onCBytes: 120 * 1024 * 1024,
+                onDBytes: 2 * 1024 * 1024 * 1024,
+                totalBytes: 2 * 1024 * 1024 * 1024 + 120 * 1024 * 1024,
+                cacheBytes: 50 * 1024 * 1024,
+                junctions: {
+                  media: { linked: true, target: "D:\\Apps Data\\Zalo\\ZaloData-Zalo02\\media", bytes: 2 * 1024 * 1024 * 1024 },
+                  database: { linked: false, target: null, bytes: 80 * 1024 * 1024 },
+                },
+              },
+            }),
+            "utf8",
+          );
+        },
+      });
+      assert.equal(probed.ok, true);
+      assert.equal(probed.probed.length, 1);
+      const afterProbe = inspectZaloDesktopInstances({
+        localProgramsDir: localDir,
+        portableRootDir: portableRoot,
+        runningProcesses: [],
+      }).instances.find((i) => i.id === "zalo:zalo-02");
+      assert.equal(afterProbe?.zaloDataAccessible, true);
+      assert.equal(afterProbe?.zaloDataJunctions?.media?.linked, true);
+      assert.match(String(afterProbe?.detail || ""), /Junction D: media/);
+
+      const remoteOffload = await offloadZaloDataToDriveD({
+        instanceId: "zalo:zalo-02",
+        folder: "Database",
+        localProgramsDir: localDir,
+        portableRootDir: portableRoot,
+        runningProcesses: [],
+        remoteExecutor: async ({ resultPath }) => {
+          fs.writeFileSync(
+            resultPath,
+            JSON.stringify({
+              ok: true,
+              srcDir: "C:\\Users\\PC02\\AppData\\Roaming\\ZaloData\\Database",
+              destDir: path.join(portableRoot, "ZaloData-Zalo02", "Database"),
+              files: 120,
+              bytes: 80 * 1024 * 1024,
+            }),
+            "utf8",
+          );
+        },
+      });
+      assert.equal(remoteOffload.ok, true);
+      assert.equal(remoteOffload.remote, true);
+      assert.equal(remoteOffload.files, 120);
+    }
+
+    // Also test offloadZaloDataIfDue threshold + running skip on isolated primary dir
+    const fakeData = path.join(tmpRoot, "ZaloDataPrimary");
+    const fakeTarget = path.join(portableRoot, "ZaloData-AutoTest");
+    fs.mkdirSync(path.join(localDir, "Zalo-26.11.20", "resources"), { recursive: true });
+    fs.writeFileSync(path.join(localDir, "Zalo.exe"), "launcher");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "Zalo.exe"), "app");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "ZaloExecutable.exe"), "launcher");
+    fs.writeFileSync(path.join(localDir, "Zalo-26.11.20", "resources", "app.asar"), "asar");
+    fs.mkdirSync(path.join(fakeData, "media"), { recursive: true });
+    fs.writeFileSync(path.join(fakeData, "media", "big.bin"), Buffer.alloc(16384, 5));
+
+    const skipAuto = await offloadZaloDataIfDue({
+      thresholdBytes: 64 * 1024,
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      targetBaseDir: fakeTarget,
+      runningProcesses: [],
+    });
+    assert.equal(skipAuto.offloaded.length, 0);
+
+    const runAuto = await offloadZaloDataIfDue({
+      thresholdBytes: 8192,
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      zaloDataDirOverride: fakeData,
+      targetBaseDir: fakeTarget,
+      runningProcesses: [],
+    });
+    assert.equal(runAuto.ok, true);
+    assert.equal(runAuto.offloaded.length, 1);
+    assert.equal(runAuto.offloaded[0].folder, "media");
+    assert.equal(fs.lstatSync(path.join(fakeData, "media")).isSymbolicLink(), true);
+    assert.equal(typeof offloadZaloDataToDriveD, "function");
+  } finally {
+    if (prevEnv === undefined) delete process.env.P0001_ZALO_REMOTE_STATS_PATH;
+    else process.env.P0001_ZALO_REMOTE_STATS_PATH = prevEnv;
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
 });
 
 test("sweepAntigravityStaleTranscripts prunes dead daemon/hub_*.json, old ls_*.log, stale presence locks, applies 24h TTL on stopped SxS roots, and DashboardScreen formats LS ghosts toast", () => {
@@ -2422,4 +2825,370 @@ test("HTTP host runtime modules forbid blocking execSync, spawnSync, and sync de
   const serverSrc = fs.readFileSync(path.join(hostDir, "server.mjs"), "utf8");
   assert.equal(/\bstartDetached\s*\(/.test(serverSrc), false, "server.mjs must use startDetachedAsync");
   assert.match(serverSrc, /\bawait startDetachedAsync\(/);
+  const optSrc = fs.readFileSync(path.join(hostDir, "pc-optimizer.mjs"), "utf8");
+  assert.match(optSrc, /if\s*\(\s*process\.versions\?\.electron\s*\)\s*\{\s*throw\s+new\s+Error/);
+  assert.doesNotMatch(optSrc, /koffi\.decode\(\s*ptrVal/);
+  const hwSrc = fs.readFileSync(path.join(hostDir, "hardware-sensors.mjs"), "utf8");
+  assert.doesNotMatch(hwSrc, /_Out_\s+void\*\*\s+(?:handles|Events)\b/);
+  assert.doesNotMatch(hwSrc, /_Out_\s+uint8_t\*\s+(?:name|Buffer)\b/);
+  assert.match(hwSrc, /_nvapiCore\s*=\s*\{[^}]*nvapi[^}]*qi/, "nvapi64 koffi lib and qi must stay retained across GC");
+  assert.match(hwSrc, /_core:\s*core/, "decoded NVAPI bindings must retain _nvapiCore");
+  assert.match(hwSrc, /_lib:\s*(?:nvml|adv|wevt)/, "koffi DLL handles must stay retained on binding caches");
+  assert.match(optSrc, /--no-warnings=ExperimentalWarning/, "runNodeSqliteBridge must silence SQLite stderr warning spam");
+});
+
+test(
+  "hardware-sensors NVAPI/NVML/DRS koffi bindings survive forced V8 GC cycles",
+  { skip: process.platform !== "win32" },
+  () => {
+    const hwUrl = new URL("./hardware-sensors.mjs", import.meta.url).href;
+    const probeScript = [
+      `import { sampleHardwareSensors, readNvidiaDrsPowerModeInProcess } from ${JSON.stringify(hwUrl)};`,
+      `for (let i = 0; i < 3; i += 1) {`,
+      `  await sampleHardwareSensors({ force: true });`,
+      `  readNvidiaDrsPowerModeInProcess();`,
+      `  if (typeof global.gc === "function") global.gc();`,
+      `}`,
+      `console.log("GC_PASS");`,
+    ].join("\n");
+    const probe = spawnSync(
+      process.execPath,
+      ["--expose-gc", "--input-type=module", "-e", probeScript],
+      { encoding: "utf8", windowsHide: true, timeout: 25_000 },
+    );
+    assert.equal(probe.status, 0, `expected exit 0 after forced GC cycles (status=${probe.status}, stderr=${probe.stderr})`);
+    assert.match(probe.stdout || "", /GC_PASS/);
+  },
+);
+
+test("antigravity-theme-mod adapter manages config persistence, safe apply/restore, quota cache & HTTP routes", async () => {
+  const {
+    ensureClosedSxsPatchedIfEnabled,
+    getAntigravityQuotaForTarget,
+    getAntigravityThemeModStatus,
+    readIdeConsoleQuotaByEmailMap,
+    saveAntigravityThemeModConfig,
+    syncIdeConsoleAccountCredits,
+    runAntigravityThemeModAction,
+  } = await import("./antigravity-theme-mod.mjs");
+  const tmpSxs = fs.mkdtempSync(path.join(os.tmpdir(), "agy-mod-test-"));
+  const cfgPath = path.join(tmpSxs, "custom-theme-settings.json");
+  const patchedVers = new Set(["v2.34.0"]);
+  const mockPatcher = {
+    getRunningAntigravityVersions: () => new Set(["v2.35.2"]),
+    listVersions: () => ["v2.34.0", "v2.35.0", "v2.35.2"],
+    inspectVersion: (v, runningSet) => ({
+      version: v,
+      exists: true,
+      running: runningSet.has(v),
+      patched: patchedVers.has(v),
+      hasBackup: patchedVers.has(v),
+    }),
+    installVersion: (info) => {
+      patchedVers.add(info.version);
+      return { version: info.version, status: "installed" };
+    },
+    uninstallVersion: (info) => {
+      patchedVers.delete(info.version);
+      return { version: info.version, status: "restored" };
+    },
+  };
+
+  const saved = saveAntigravityThemeModConfig(
+    { preset: "midnight-aurora", sidebarOpacity: 0.42, backdropDim: 0.3, opaqueNativeDialogs: false },
+    { sxsRoot: tmpSxs, configPath: cfgPath },
+  );
+  assert.equal(saved.ok, true);
+  assert.equal(saved.config.preset, "midnight-aurora");
+  assert.equal(saved.config.sidebarOpacity, 0.42);
+  assert.equal(saved.config.opaqueNativeDialogs, false);
+
+  const scoped = saveAntigravityThemeModConfig(
+    { scopeKey: "version:v2.35.0", scopePatch: { preset: "cyber-horizon" } },
+    { sxsRoot: tmpSxs, configPath: cfgPath },
+  );
+  assert.equal(scoped.config.overrides["version:v2.35.0"].preset, "cyber-horizon");
+
+  const cleared = saveAntigravityThemeModConfig(
+    { scopeKey: "version:v2.35.0", clearScopeOverride: true },
+    { sxsRoot: tmpSxs, configPath: cfgPath },
+  );
+  assert.equal(cleared.config.overrides["version:v2.35.0"], undefined);
+
+  const defaultCfg = saveAntigravityThemeModConfig(
+    { preset: "cyber-horizon" },
+    { sxsRoot: tmpSxs, configPath: path.join(tmpSxs, "fresh-default.json") },
+  );
+  assert.equal(defaultCfg.config.composerGradient, "cyan-indigo");
+  assert.equal(defaultCfg.config.quotaAccent, "cyan");
+
+  const initialStatus = getAntigravityThemeModStatus({ sxsRoot: tmpSxs, configPath: cfgPath, patcher: mockPatcher });
+  assert.equal(initialStatus.ok, true);
+  assert.equal(initialStatus.settingsExists, true);
+  assert.equal(initialStatus.versions.length, 3);
+  assert.equal(initialStatus.versions[0].version, "v2.35.2");
+  assert.equal(initialStatus.versions[0].running, true);
+
+  const applied = runAntigravityThemeModAction("apply", {}, { sxsRoot: tmpSxs, configPath: cfgPath, patcher: mockPatcher });
+  assert.equal(applied.ok, true);
+  assert.deepEqual(
+    applied.results.map((r) => `${r.version}:${r.status}`),
+    ["v2.34.0:installed", "v2.35.0:installed", "v2.35.2:skipped-running"],
+  );
+
+  const restored = runAntigravityThemeModAction(
+    "restore",
+    { version: "v2.35.0" },
+    { sxsRoot: tmpSxs, configPath: cfgPath, patcher: mockPatcher },
+  );
+  assert.equal(restored.ok, true);
+  assert.deepEqual(restored.results, [{ version: "v2.35.0", status: "restored" }]);
+
+  const autoApplied = ensureClosedSxsPatchedIfEnabled({ sxsRoot: tmpSxs, configPath: cfgPath, patcher: mockPatcher });
+  assert.equal(autoApplied.ok, true);
+  assert.equal(patchedVers.has("v2.35.0"), true);
+
+  // Quota summary extraction from ~/.ide_console fixture + SxS binding
+  const tmpIdeDir = fs.mkdtempSync(path.join(os.tmpdir(), "agy-quota-cache-"));
+  fs.mkdirSync(path.join(tmpIdeDir, "accounts"), { recursive: true });
+  fs.mkdirSync(path.join(tmpSxs, "home-2.35.0", ".gemini"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tmpSxs, "home-2.35.0", ".gemini", "sxs-bound-account.json"),
+    JSON.stringify({ email: "demo@example.com", tier: "PRO" }),
+  );
+  fs.writeFileSync(
+    path.join(tmpIdeDir, "accounts.json"),
+    JSON.stringify({ accounts: [{ id: "acc-1", email: "demo@example.com" }] }),
+  );
+  fs.writeFileSync(
+    path.join(tmpIdeDir, "accounts", "acc-1.json"),
+    JSON.stringify({
+      id: "acc-1",
+      email: "demo@example.com",
+      usage_updated_at: 1795800000,
+      quota: {
+        subscription_tier: "g1-pro-tier",
+        models: [
+          { name: "gemini-4-hydrogen-high", percentage: 75, reset_time: "2026-11-28T05:00:00Z" },
+          { name: "claude-opus-5-5-high", percentage: 40, reset_time: "2026-11-28T06:00:00Z" },
+        ],
+      },
+    }),
+  );
+  const { byEmail } = readIdeConsoleQuotaByEmailMap({ ideConsoleDir: tmpIdeDir, forceRefresh: true });
+  assert.equal(byEmail.get("demo@example.com")?.geminiPct, 75);
+  assert.equal(byEmail.get("demo@example.com")?.claudePct, 40);
+  assert.equal(byEmail.get("demo@example.com")?.quotaLabel, "G 75% · C 40%");
+
+  const resolvedQuota = getAntigravityQuotaForTarget({
+    version: "2.35.0",
+    sxsRoot: tmpSxs,
+    ideConsoleDir: tmpIdeDir,
+  });
+  assert.equal(resolvedQuota.ok, true);
+  assert.equal(resolvedQuota.email, "demo@example.com");
+  assert.equal(resolvedQuota.tierLabel, "Google AI Pro");
+  assert.equal(resolvedQuota.groups.length, 2);
+
+  // Ultra account whose tier_id or boundTier says free/pro must still resolve to Google AI Ultra
+  fs.mkdirSync(path.join(tmpSxs, "home-2.35.2", ".gemini"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tmpSxs, "home-2.35.2", ".gemini", "sxs-bound-account.json"),
+    JSON.stringify({ email: "ultra@example.com", tier: "PRO" }),
+  );
+  fs.writeFileSync(
+    path.join(tmpIdeDir, "accounts.json"),
+    JSON.stringify({
+      accounts: [
+        { id: "acc-1", email: "demo@example.com" },
+        { id: "acc-ultra", email: "ultra@example.com" },
+      ],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(tmpIdeDir, "accounts", "acc-ultra.json"),
+    JSON.stringify({
+      id: "acc-ultra",
+      email: "ultra@example.com",
+      usage_updated_at: 1795810000,
+      quota: {
+        tier_id: "g1-pro-tier",
+        subscription_tier: "g1-ultra-tier",
+        credits: [{ credit_type: "GOOGLE_ONE_AI", credit_amount: "25000" }],
+        models: [{ name: "gemini-4-hydrogen-high", percentage: 90, reset_time: "2026-11-28T05:00:00Z" }],
+      },
+    }),
+  );
+  const { byEmail: refreshedMap } = readIdeConsoleQuotaByEmailMap({ ideConsoleDir: tmpIdeDir, forceRefresh: true });
+  assert.equal(refreshedMap.get("ultra@example.com")?.tierLabel, "Google AI Ultra");
+  assert.equal(refreshedMap.get("ultra@example.com")?.aiCredits, 25000);
+  assert.equal(refreshedMap.get("ultra@example.com")?.creditsLabel, "25,000 credits");
+  const resolvedUltra = getAntigravityQuotaForTarget({
+    version: "2.35.2",
+    sxsRoot: tmpSxs,
+    ideConsoleDir: tmpIdeDir,
+  });
+  assert.equal(resolvedUltra.tierLabel, "Google AI Ultra");
+  assert.equal(resolvedUltra.aiCredits, 25000);
+  assert.equal(resolvedUltra.creditsLabel, "25,000 credits");
+  assert.ok(resolvedUltra.updatedAt);
+
+  const synced = syncIdeConsoleAccountCredits({
+    email: "ultra@example.com",
+    aiCredits: 24320,
+    aiCreditsLimit: 25000,
+    tierLabel: "Google AI Pro", // must never downgrade existing Ultra tier
+    ideConsoleDir: tmpIdeDir,
+  });
+  assert.equal(synced.ok, true);
+  assert.equal(synced.updated, true);
+  assert.equal(synced.aiCredits, 24320);
+  const noopSync = syncIdeConsoleAccountCredits({
+    email: "ultra@example.com",
+    aiCredits: 24320,
+    aiCreditsLimit: 25000,
+    ideConsoleDir: tmpIdeDir,
+  });
+  assert.equal(noopSync.ok, true);
+  assert.equal(noopSync.updated, false);
+  const postSyncQuota = getAntigravityQuotaForTarget({
+    version: "2.35.2",
+    sxsRoot: tmpSxs,
+    ideConsoleDir: tmpIdeDir,
+  });
+  assert.equal(postSyncQuota.tierLabel, "Google AI Ultra");
+  assert.equal(postSyncQuota.aiCredits, 24320);
+  assert.equal(postSyncQuota.creditsLabel, "24,320 / 25,000");
+
+  // AES-256-GCM encrypted account envelope (cockpit-store-crypto parity)
+  const cryptoMod = await import("node:crypto");
+  const encKey = cryptoMod.randomBytes(32);
+  fs.writeFileSync(path.join(tmpIdeDir, "secure-account-storage.key"), encKey.toString("base64"));
+  const encNonce = cryptoMod.randomBytes(12);
+  const encCipher = cryptoMod.createCipheriv("aes-256-gcm", encKey, encNonce);
+  const encPlain = Buffer.from(
+    JSON.stringify({
+      id: "acc-enc",
+      email: "enc@example.com",
+      usage_updated_at: 1795820000,
+      quota: {
+        subscription_tier: "g1-ultra-tier",
+        credits: [],
+        models: [{ name: "gemini-4-neon-low", percentage: 39, reset_time: "2026-11-28T05:00:00Z" }],
+      },
+    }),
+    "utf8",
+  );
+  const encOut = Buffer.concat([encCipher.update(encPlain), encCipher.final()]);
+  fs.writeFileSync(
+    path.join(tmpIdeDir, "accounts.json"),
+    JSON.stringify({
+      accounts: [
+        { id: "acc-1", email: "demo@example.com" },
+        { id: "acc-ultra", email: "ultra@example.com" },
+        { id: "acc-enc", email: "enc@example.com" },
+      ],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(tmpIdeDir, "accounts", "acc-enc.json"),
+    JSON.stringify({
+      version: 1,
+      nonce: encNonce.toString("base64"),
+      ciphertext: Buffer.concat([encOut, encCipher.getAuthTag()]).toString("base64"),
+    }),
+  );
+  const { byEmail: encMap } = readIdeConsoleQuotaByEmailMap({ ideConsoleDir: tmpIdeDir, forceRefresh: true });
+  assert.equal(encMap.get("enc@example.com")?.geminiPct, 39);
+  assert.equal(encMap.get("enc@example.com")?.tierLabel, "Google AI Ultra");
+
+  const encSync = syncIdeConsoleAccountCredits({
+    email: "enc@example.com",
+    aiCredits: 500,
+    aiCreditsLimit: 50000,
+    ideConsoleDir: tmpIdeDir,
+  });
+  assert.equal(encSync.ok, true);
+  assert.equal(encSync.updated, true);
+  const stillEncryptedRaw = JSON.parse(fs.readFileSync(path.join(tmpIdeDir, "accounts", "acc-enc.json"), "utf8"));
+  assert.ok(stillEncryptedRaw.nonce && stillEncryptedRaw.ciphertext);
+  const { byEmail: encMapAfter } = readIdeConsoleQuotaByEmailMap({ ideConsoleDir: tmpIdeDir, forceRefresh: true });
+  assert.equal(encMapAfter.get("enc@example.com")?.creditsLabel, "500 / 50,000");
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "desk-console-theme-http-"));
+  process.env.DESK_CONSOLE_DATA = dir;
+  const server = createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = server.address();
+    const statusRes = await fetch(`http://127.0.0.1:${port}/api/antigravity-theme-mod/status`).then((r) => r.json());
+    assert.equal(statusRes.ok, true);
+    assert.ok(Array.isArray(statusRes.presets));
+    const cfgRes = await fetch(`http://127.0.0.1:${port}/api/antigravity-theme-mod/config`).then((r) => r.json());
+    assert.equal(cfgRes.ok, true);
+    assert.equal(typeof cfgRes.config.preset, "string");
+    const quotaHttp = await fetch(`http://127.0.0.1:${port}/api/apps/quota?version=2.31.2`).then((r) => r.json());
+    assert.equal(typeof quotaHttp.ok, "boolean");
+    assert.ok(Array.isArray(quotaHttp.groups));
+    const syncMissingEmail = await fetch(`http://127.0.0.1:${port}/api/apps/quota-sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aiCredits: 100 }),
+    });
+    assert.equal(syncMissingEmail.status, 400);
+  } finally {
+    server.close();
+  }
+});
+
+test("buildHeadlessPowerShellCommandForRunas wraps conhost --headless and cleanZaloCacheIfDue skips cached zero-byte secondary profiles", async () => {
+  const fakeConhost = process.execPath;
+  const cmd = buildHeadlessPowerShellCommandForRunas('-ExecutionPolicy Bypass -File "D:\\op.ps1"', {
+    conhostPath: fakeConhost,
+  });
+  if (process.platform === "win32") {
+    assert.match(cmd, /--headless powershell\.exe -NoProfile -NonInteractive -WindowStyle Hidden/);
+  }
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "desk-zalo-headless-meta-"));
+  const localDir = path.join(tmpRoot, "LocalZalo");
+  const portableRoot = path.join(tmpRoot, "PortableZalo");
+  const zalo02 = path.join(portableRoot, "Zalo 02");
+  const remoteStatsPath = path.join(tmpRoot, "zalo-remote-stats.json");
+  const prevEnv = process.env.P0001_ZALO_REMOTE_STATS_PATH;
+  process.env.P0001_ZALO_REMOTE_STATS_PATH = remoteStatsPath;
+  try {
+    fs.mkdirSync(path.join(zalo02, "Zalo-26.11.20", "resources"), { recursive: true });
+    fs.writeFileSync(path.join(zalo02, "Zalo.exe"), "launcher");
+    fs.writeFileSync(path.join(zalo02, "Zalo-26.11.20", "Zalo.exe"), "app");
+    fs.writeFileSync(path.join(zalo02, "Zalo-26.11.20", "ZaloExecutable.exe"), "launcher");
+    fs.writeFileSync(path.join(zalo02, "Zalo-26.11.20", "resources", "app.asar"), "asar");
+    fs.writeFileSync(
+      remoteStatsPath,
+      JSON.stringify({
+        pc02: {
+          accessible: true,
+          totalBytes: 1024,
+          onCBytes: 1024,
+          onDBytes: 0,
+          cacheBytes: 0,
+          updatedAt: new Date().toISOString(),
+        },
+      }),
+      "utf8",
+    );
+    const res = await cleanZaloCacheIfDue({
+      localProgramsDir: localDir,
+      portableRootDir: portableRoot,
+      thresholdBytes: 1024 * 1024,
+      runningProcesses: [],
+    });
+    assert.equal(res.ok, true);
+    assert.equal(res.cleaned.length, 0);
+    const saved = JSON.parse(fs.readFileSync(remoteStatsPath, "utf8"));
+    assert.ok(Number(saved?._meta?.lastCacheCleanAt) > 0);
+  } finally {
+    if (prevEnv === undefined) delete process.env.P0001_ZALO_REMOTE_STATS_PATH;
+    else process.env.P0001_ZALO_REMOTE_STATS_PATH = prevEnv;
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
 });

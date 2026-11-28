@@ -27,12 +27,13 @@ import { DrivesScreen } from "./features/drives/DrivesScreen";
 import { JobsScreen } from "./features/jobs/JobsScreen";
 import { FolderSyncGuidedTourModal, shouldAutoShowGuidedTour } from "./features/onboarding/FolderSyncGuidedTourModal";
 import { RunnersScreen } from "./features/runners/RunnersScreen";
+import { SystemDesignTemplateScreen } from "./features/system/SystemDesignTemplateScreen";
 import { bootAppScreen, readAppScreen, writeAppScreen, type AppScreen } from "./lib/app-screen";
 import { deskApi } from "./lib/api";
-import { setDeskActiveScreen } from "./lib/desk-active-screen";
+import { setDeskActiveScreen, useDeskTabActive } from "./lib/desk-active-screen";
 import { fetchJobs, fetchRemotes } from "./lib/sync-api";
 
-const SCREENS: AppScreen[] = ["dashboard", "clips", "jobs", "drives", "runners", "cron", "apps"];
+const SCREENS: AppScreen[] = ["dashboard", "clips", "jobs", "drives", "runners", "cron", "apps", "system"];
 
 function isPastePicker() {
   return new URLSearchParams(window.location.search).get("picker") === "1";
@@ -40,15 +41,17 @@ function isPastePicker() {
 
 /**
  * Stable keep-alive body — props are only `id`, so parent tab switches do not reconcile
- * inactive directory trees (was ~1s hitch from re-rendering ~700-node Clips on every leave).
+ * inactive directory trees while `useDeskTabActive(id)` pauses background polls on parked tabs.
  */
 const DeskScreenSlot = memo(function DeskScreenSlot({ id }: { id: AppScreen }) {
-  if (id === "dashboard") return <DashboardScreen />;
+  const tabActive = useDeskTabActive(id);
+  if (id === "dashboard") return <DashboardScreen tabActive={tabActive} />;
   if (id === "jobs") return <JobsScreen />;
   if (id === "drives") return <DrivesScreen />;
   if (id === "runners") return <RunnersScreen />;
-  if (id === "cron") return <CronScreen />;
+  if (id === "cron") return <CronScreen tabActive={tabActive} />;
   if (id === "apps") return <AppsScreen />;
+  if (id === "system") return <SystemDesignTemplateScreen />;
   return <ClipsScreen />;
 });
 
@@ -61,6 +64,7 @@ const SCREEN_SLOTS: Record<AppScreen, ReactElement> = {
   runners: <DeskScreenSlot id="runners" />,
   cron: <DeskScreenSlot id="cron" />,
   apps: <DeskScreenSlot id="apps" />,
+  system: <DeskScreenSlot id="system" />,
 };
 
 export default function App() {
@@ -170,8 +174,7 @@ function DeskApp() {
   }, []);
 
   const visited = useHubVisitedTabsLru(screen, {
-    maxMounted: 5,
-    pinned: ["dashboard", "clips", "jobs", "drives", "runners", "cron", "apps"],
+    maxMounted: 4,
   });
 
   useLayoutEffect(() => {

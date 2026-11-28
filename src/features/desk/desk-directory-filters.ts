@@ -145,15 +145,15 @@ export function matchesDeskKindFilter(row: DeskRow, values: FilterValues): boole
   return selected.includes(row.opsKind);
 }
 
-export function deskStatusFilterDef(rows: readonly DeskRow[]): FilterDef {
+export function deskStatusFilterDef(rows: readonly DeskRow[], screen?: string): FilterDef {
   const seen = new Set<string>();
   const options: FilterDef["options"] = [];
   for (const row of rows) {
     const value = row.status.trim();
     if (!value || seen.has(value)) continue;
     seen.add(value);
-    const tone = deskStatusDotTone(value);
-    const tip = deskStatusKpiDetail(value);
+    const tone = row.statusTone ?? deskStatusDotTone(value, screen);
+    const tip = deskStatusKpiDetail(value, screen);
     options.push({
       value,
       label: value,
@@ -173,9 +173,9 @@ export function deskStatusFilterDef(rows: readonly DeskRow[]): FilterDef {
       ? {
           title: "Status",
           lines: options.map((opt) => ({
-            statusDot: deskStatusDotTone(opt.value),
+            statusDot: deskStatusDotTone(opt.value, screen),
             label: opt.label,
-            detail: opt.tip || deskStatusKpiDetail(opt.value),
+            detail: opt.tip || deskStatusKpiDetail(opt.value, screen),
           })),
         }
       : undefined,

@@ -62,6 +62,29 @@ const wasRunningBeforeAssemble = killPackLocks();
 const appDir = path.join(out, "resources", "app");
 fs.mkdirSync(appDir, { recursive: true });
 
+function rmSyncWithRetry(target, opts = {}) {
+  if (!fs.existsSync(target)) return;
+  try {
+    fs.rmSync(target, { maxRetries: 5, retryDelay: 200, ...opts });
+  } catch (err) {
+    if (err && (err.code === "EPERM" || err.code === "EBUSY")) {
+      const parked = `${target}.stale-${Date.now()}`;
+      try {
+        fs.renameSync(target, parked);
+        try {
+          fs.rmSync(parked, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 });
+        } catch {
+          /* best effort cleanup after parking */
+        }
+        return;
+      } catch {
+        /* fall through to original error */
+      }
+    }
+    throw err;
+  }
+}
+
 for (const rel of ["electron", "host", "dist", "package.json"]) {
   const src = path.join(root, rel);
   if (!fs.existsSync(src)) {
@@ -70,7 +93,7 @@ for (const rel of ["electron", "host", "dist", "package.json"]) {
   }
   const dst = path.join(appDir, rel === "package.json" ? "package.json" : rel);
   if (rel !== "package.json") {
-    fs.rmSync(dst, { recursive: true, force: true });
+    rmSyncWithRetry(dst, { recursive: true, force: true });
   }
   fs.cpSync(src, dst, { recursive: true });
 }
@@ -204,7 +227,7 @@ if (!koffiStageWarm) {
     const real = fs.realpathSync(linkOrDir);
     if (name === "koffi") ensureKoffiPrebuild(real);
     const dest = path.join(nmDest, name);
-    fs.rmSync(dest, { recursive: true, force: true });
+    rmSyncWithRetry(dest, { recursive: true, force: true });
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.cpSync(real, dest, { recursive: true });
     console.log(`[assemble] node_modules/${name} ← ${real}`);
@@ -282,12 +305,12 @@ if (!koffiStageWarm) {
 // Prefer unpacked app/ over a stale asar or app.asar.unpacked left by an older electron-builder build.
 const staleAsar = path.join(out, "resources", "app.asar");
 if (fs.existsSync(staleAsar)) {
-  fs.rmSync(staleAsar, { force: true });
+  rmSyncWithRetry(staleAsar, { force: true });
   console.log("[assemble] removed stale resources/app.asar (app/ is SSOT for this path)");
 }
 const staleAsarUnpacked = path.join(out, "resources", "app.asar.unpacked");
 if (fs.existsSync(staleAsarUnpacked)) {
-  fs.rmSync(staleAsarUnpacked, { recursive: true, force: true });
+  rmSyncWithRetry(staleAsarUnpacked, { recursive: true, force: true });
   console.log("[assemble] removed stale resources/app.asar.unpacked (app/ is SSOT for this path)");
 }
 

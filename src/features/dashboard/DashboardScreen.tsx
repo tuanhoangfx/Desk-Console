@@ -197,6 +197,7 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
   const [optimizingAction, setOptimizingAction] = useState<string | null>(null);
   const [triggeringBackup, setTriggeringBackup] = useState<"full" | "critical" | null>(null);
   const [verifyingDrill, setVerifyingDrill] = useState(false);
+  const [startLayoutAction, setStartLayoutAction] = useState<"backup" | "restore" | null>(null);
   const [restoreOpen, setRestoreOpen] = useState(false);
 
   const refreshPcBackup = useCallback(async () => {
@@ -388,6 +389,32 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
       });
     }
   }, [pushToast, refreshPcBackup]);
+
+  const handleManageStartLayout = useCallback(
+    async (action: "backup" | "restore") => {
+      setStartLayoutAction(action);
+      try {
+        const res = await deskApi.manageStartMenuLayout(action);
+        pushToast({
+          type: res.ok ? "success" : "error",
+          title: action === "backup" ? "Backup Start Menu Layout" : "Restore Start Menu Layout",
+          message: res.ok
+            ? `${action === "backup" ? "Saved" : "Restored"} ${res.tileCount ?? 0} tiles across ${res.groupCount ?? 0} groups (${Math.round((res.bytes ?? 0) / 1024)} KB)`
+            : res.error || `Start Menu layout ${action} failed`,
+        });
+        await refreshPcBackup();
+      } catch (err) {
+        pushToast({
+          type: "error",
+          title: action === "backup" ? "Backup Start Menu Layout" : "Restore Start Menu Layout",
+          message: err instanceof Error ? err.message : `Failed to ${action} Start Menu layout`,
+        });
+      } finally {
+        setStartLayoutAction(null);
+      }
+    },
+    [pushToast, refreshPcBackup],
+  );
 
   const handleQuickOptimize = useCallback(
     async (action: PcOptimizeAction, label: string) => {
@@ -1104,10 +1131,12 @@ export function DashboardScreen({ tabActive = true }: { tabActive?: boolean }) {
             status={pcBackup}
             triggeringMode={triggeringBackup}
             verifyingDrill={verifyingDrill}
+            startLayoutAction={startLayoutAction}
             onRunBackup={(mode) => void handleRunPcBackup(mode)}
             onRunDrill={() => void handleRunPcBackupDrill()}
             onOpenRestore={() => setRestoreOpen(true)}
             onRunSystemImage={() => void handleRunSystemImage()}
+            onManageStartLayout={(action) => void handleManageStartLayout(action)}
             onRefresh={() => void refreshPcBackup()}
             onOpenCron={() => jumpTo("cron")}
           />

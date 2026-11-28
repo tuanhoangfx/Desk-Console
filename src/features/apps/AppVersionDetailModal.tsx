@@ -27,8 +27,14 @@ import {
   HubToolDetailModalSecondaryAction,
   type FilterOption,
 } from "@tool-workspace/hub-ui";
-import type { ManagedAppReleaseItem, ManagedAppRow } from "../../lib/api";
+import type {
+  DriveVaultSyncStatus,
+  ManagedAppReleaseItem,
+  ManagedAppRow,
+  ManagedAppsResponse,
+} from "../../lib/api";
 import { DeskDetailNoteLogRails } from "../desk/DeskDetailNoteLogRails";
+import { DeskOpsRuntimeRail } from "../desk/DeskOpsRuntimeRail";
 import { DeskDetailReadonlyField } from "../desk/desk-detail-fields";
 import {
   DESK_DETAIL_FORM_ROW_ALIGNED_3,
@@ -44,6 +50,9 @@ import { DESK_STATUS_KPI_EMOJI } from "../desk/desk-directory-stickers";
 type Props = {
   row: ManagedAppRow;
   releases: ManagedAppReleaseItem[];
+  cursorReleases?: ManagedAppReleaseItem[];
+  driveVaultSync?: DriveVaultSyncStatus | null;
+  themeMod?: ManagedAppsResponse["themeMod"] | null;
   busyAction: string | null;
   onAction: (action: string, payload?: Record<string, unknown>) => Promise<void>;
   onRefreshReleases: (force: boolean) => Promise<void>;
@@ -53,46 +62,98 @@ type Props = {
 export function AppVersionDetailModal({
   row,
   releases,
+  cursorReleases = [],
+  driveVaultSync = null,
+  themeMod = null,
   busyAction,
   onAction,
   onRefreshReleases,
   onClose,
 }: Props) {
   const isAntigravity = row.product === "antigravity";
+  const isCursor = row.product === "cursor";
+  const isZalo = row.product === "zalo";
   const isPrimaryIde = row.kind === "primary" && (row.product === "antigravity" || row.product === "cursor");
   const isSxs = row.kind === "sxs";
   const busy = busyAction !== null;
+  const activeReleases = isCursor ? cursorReleases : releases;
 
   const [selectedReleaseVer, setSelectedReleaseVer] = useState<string>("");
   useEffect(() => {
-    if (!releases.length) return;
+    if (!activeReleases.length) return;
     setSelectedReleaseVer((prev) => {
-      if (prev && releases.some((r) => r.version === prev)) return prev;
-      return (releases.find((r) => !r.archived) || releases[0])?.version || "";
+      if (prev && activeReleases.some((r) => r.version === prev)) return prev;
+      return (
+        activeReleases.find((r) => !r.archived && !r.unavailable) ||
+        activeReleases.find((r) => r.archived) ||
+        activeReleases[0]
+      )?.version || "";
     });
-  }, [releases]);
+  }, [activeReleases]);
 
   const toc = useMemo(
     () => [
       { id: "desk-app-overview", label: "Version & Status", emoji: "📦" },
+      ...(isAntigravity ? [{ id: "desk-app-theme", label: "Theme & Quota", emoji: "🎨" }] : []),
       ...(isPrimaryIde ? [{ id: "desk-app-guard", label: "Update Guard", emoji: "🛡️" }] : []),
       ...(isPrimaryIde ? [{ id: "desk-app-installers", label: "Rollback Vault", emoji: "🗂️" }] : []),
       ...(isSxs ? [{ id: "desk-app-sxs", label: "Side-by-Side", emoji: "🔀" }] : []),
+      ...(isZalo ? [{ id: "desk-app-zalo", label: "Zalo Multi-Instance", emoji: "💬" }] : []),
       ...(isPrimaryIde ? [{ id: "desk-app-snapshots", label: "State Snapshots", emoji: "💾" }] : []),
       ...(isPrimaryIde ? [{ id: "desk-app-vsix", label: "Core VSIX", emoji: "🧩" }] : []),
+      { id: "desk-app-console", label: "Console & History", emoji: "🖥️" },
     ],
-    [isPrimaryIde, isSxs],
+    [isAntigravity, isPrimaryIde, isSxs, isZalo],
   );
   const sectionIds = useMemo(() => toc.map((t) => t.id), [toc]);
 
+  const themePresets = useMemo(
+    () =>
+      themeMod?.presets || [
+        { id: "cyber-horizon", label: "Cyber Horizon", kind: "procedural", accentColor: "#818cf8" },
+        { id: "twilight-tide", label: "Twilight Tide", kind: "image", accentColor: "#38bdf8" },
+        { id: "midnight-aurora", label: "Midnight Aurora", kind: "procedural", accentColor: "#2dd4bf" },
+        { id: "obsidian-ember", label: "Obsidian Ember", kind: "procedural", accentColor: "#f59e0b" },
+      ],
+    [themeMod?.presets],
+  );
+  const globalPresetId = themeMod?.config?.preset || "cyber-horizon";
+  const globalPresetLabel = themePresets.find((p) => p.id === globalPresetId)?.label || "Cyber Horizon";
+  const sxsThemeOptions = useMemo<FilterOption[]>(
+    () => [
+      ...(isSxs
+        ? [{ value: "inherit", label: `Default (${globalPresetLabel})`, emoji: "🎨" }]
+        : []),
+      ...themePresets.map((p) => ({
+        value: p.id,
+        label: p.label,
+        emoji: p.id === "cyber-horizon" ? "🌌" : "🖼️",
+      })),
+    ],
+    [globalPresetLabel, isSxs, themePresets],
+  );
+  const currentSxsThemeChoice = isSxs
+    ? row.themeOverride
+      ? row.themePreset || globalPresetId
+      : "inherit"
+    : globalPresetId;
+
   const releaseOptions = useMemo<FilterOption[]>(
     () =>
-      releases.map((rel) => ({
+      activeReleases.map((rel) => ({
         value: rel.version,
-        label: `v${rel.version}${rel.archived ? " · Vaulted" : " · GCS Official"}`,
-        emoji: rel.archived ? "✅" : "☁️",
+        label: `v${rel.version}${
+          rel.archived
+            ? " · Vaulted"
+            : rel.unavailable
+              ? ` · Unavailable (${rel.unavailableStatus || 404})`
+              : isCursor
+                ? " · Cursor Official"
+                : " · GCS Official"
+        }`,
+        emoji: rel.archived ? "✅" : rel.unavailable ? "⛔" : "☁️",
       })),
-    [releases],
+    [activeReleases, isCursor],
   );
 
   const installerItems = row.installerItems || [];
@@ -182,6 +243,40 @@ export function AppVersionDetailModal({
                     ) : null}
                   </>
                 ) : null}
+                {isZalo ? (
+                  <>
+                    <HubToolDetailModalSecondaryAction
+                      label={row.isRunning ? "Relaunch" : "Launch"}
+                      icon={Layers}
+                      tone="emerald"
+                      disabled={busy}
+                      onClick={() => void onAction("launch-zalo", { id: row.id, relaunch: row.isRunning })}
+                    />
+                    {row.isRunning ? (
+                      <HubToolDetailModalSecondaryAction
+                        label="Stop"
+                        icon={Square}
+                        tone="rose"
+                        disabled={busy}
+                        onClick={() => void onAction("stop-zalo", { id: row.id })}
+                      />
+                    ) : null}
+                    <HubToolDetailModalSecondaryAction
+                      label="Sync to Latest"
+                      icon={ShieldCheck}
+                      tone="amber"
+                      disabled={busy}
+                      onClick={() =>
+                        void onAction("sync-zalo-instances", {
+                          instanceIds: [row.id],
+                          includePrimary: row.kind === "primary",
+                          stopRunning: true,
+                          pruneOld: true,
+                        })
+                      }
+                    />
+                  </>
+                ) : null}
                 <HubToolDetailModalSecondaryAction
                   label="Refresh Feed"
                   icon={RefreshCw}
@@ -204,9 +299,9 @@ export function AppVersionDetailModal({
             <>
               <HubAdmRecordMetaRow
                 vaultId={<HubCrmDetailVaultIdBadge id={row.id} title="Copy app ID" />}
-                created={<HubAdmPlainRelativeTime at={row.updated} />}
+                created={<HubAdmPlainRelativeTime at={row.createdAt || row.updated} />}
                 updated={<HubAdmPlainRelativeTime at={row.updated} />}
-                createdLabel="Checked"
+                createdLabel="Created"
                 updatedLabel="Update"
               />
               <div className={DESK_DETAIL_FORM_STACK_CLASS}>
@@ -220,13 +315,13 @@ export function AppVersionDetailModal({
                 >
                   <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
                     <DeskDetailReadonlyField label="Status" headerEmoji="🚦">
-                      <DeskStatusKpiLabel status={row.status} />
+                      <DeskStatusKpiLabel status={row.status} screen="apps" />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Installed Version" headerEmoji="🏷️">
                       {row.version ? `v${row.version}` : "Not installed"}
                     </DeskDetailReadonlyField>
-                    <DeskDetailReadonlyField label="Product" headerEmoji="🖥️">
-                      {row.product} ({row.kind})
+                    <DeskDetailReadonlyField label="Account" headerEmoji="👤">
+                      {row.accountLabel || row.boundEmail || row.winUser || `${row.product} (${row.kind})`}
                     </DeskDetailReadonlyField>
                   </div>
                   <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
@@ -241,15 +336,26 @@ export function AppVersionDetailModal({
                         />
                       ) : null}
                     </DeskDetailReadonlyField>
-                    <DeskDetailReadonlyField label="Update Lock" headerEmoji="🔒">
-                      {row.updatePinned
-                        ? row.aclLocked
-                          ? "Pinned OFF + ACL Locked"
-                          : "Pinned OFF"
-                        : "Unpinned (Auto-update possible)"}
+                    <DeskDetailReadonlyField label="Live RAM" headerEmoji="🧠" empty={!row.ramLabel}>
+                      {row.ramLabel ? <span className="font-mono text-emerald-300">{row.ramLabel}</span> : null}
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Pending Update" headerEmoji="⚠️">
                       {row.pendingUpdatePresent ? row.pendingFileName || "Staged updater detected" : "Clean (None)"}
+                    </DeskDetailReadonlyField>
+                  </div>
+                  <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
+                    <DeskDetailReadonlyField
+                      label="Disk Size"
+                      headerEmoji="💾"
+                      empty={!row.sizeLabel}
+                    >
+                      {row.sizeLabel ? <span className="font-mono">{row.sizeLabel}</span> : null}
+                    </DeskDetailReadonlyField>
+                    <DeskDetailReadonlyField label="Created" headerEmoji="📅">
+                      <HubAdmPlainRelativeTime at={row.createdAt || row.updated} />
+                    </DeskDetailReadonlyField>
+                    <DeskDetailReadonlyField label="Last Updated" headerEmoji="🕒">
+                      <HubAdmPlainRelativeTime at={row.updated} />
                     </DeskDetailReadonlyField>
                   </div>
                   {row.primaryLockConflict ? (
@@ -267,6 +373,352 @@ export function AppVersionDetailModal({
                     </div>
                   ) : null}
                 </HubAdmSectionBlock>
+
+                {isAntigravity ? (
+                  <HubAdmSectionBlock
+                    {...deskDetailSectionProps({
+                      id: "desk-app-theme",
+                      label: "Theme & Quota",
+                      emoji: "🎨",
+                    })}
+                  >
+                    <div className={DESK_DETAIL_FORM_ROW_ALIGNED_3}>
+                      <DeskDetailReadonlyField label="ASAR Patch State" headerEmoji="🧩">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span>
+                            {isSxs
+                              ? row.themePatched
+                                ? `Patched${row.themeHasBackup ? " · Backup ready" : ""}`
+                                : "Stock (Unpatched)"
+                              : `${themeMod?.patchedCount ?? 0}/${themeMod?.totalCount ?? 0} SxS Patched`}
+                          </span>
+                          {row.themeHookRestartNeeded ? (
+                            <span
+                              className="rounded-full border border-amber-400/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-200"
+                              title="electron-hook.cjs was updated after this Antigravity window launched — restart IDE to load main-process changes"
+                            >
+                              Restart needed
+                            </span>
+                          ) : null}
+                        </div>
+                      </DeskDetailReadonlyField>
+                      <DeskDetailReadonlyField label="Active Preset" headerEmoji="🌌">
+                        {isSxs
+                          ? `${row.themePresetLabel || globalPresetLabel}${row.themeOverride ? " (Override)" : " (Default)"}`
+                          : globalPresetLabel}
+                      </DeskDetailReadonlyField>
+                      <DeskDetailReadonlyField label="Model Quota" headerEmoji="📊">
+                        {row.quotaLabel || row.quotaCreditsLabel ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {row.quotaLabel ? <span className="font-mono text-emerald-300">{row.quotaLabel}</span> : null}
+                            {row.quotaTierLabel ? (
+                              <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] text-sky-200">
+                                {row.quotaTierLabel}
+                              </span>
+                            ) : null}
+                            {row.quotaCreditsLabel ? (
+                              <span
+                                className="rounded-full border border-purple-400/35 bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] text-purple-200"
+                                title="AI Credits"
+                              >
+                                {row.quotaCreditsLabel}
+                              </span>
+                            ) : null}
+                            {row.quotaUpdatedAt ? (
+                              <span
+                                className="text-[10px] text-[var(--muted)]"
+                                title={new Date(row.quotaUpdatedAt).toLocaleString()}
+                              >
+                                Synced <HubAdmPlainRelativeTime at={row.quotaUpdatedAt} /> (
+                                {new Date(row.quotaUpdatedAt).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                  hour12: false,
+                                })}
+                                )
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : themeMod?.config?.showSidebarQuota === false ? (
+                          "Sidebar Quota Hidden"
+                        ) : (
+                          "Live Sidebar Quota (Ctrl+Shift+M Zen)"
+                        )}
+                      </DeskDetailReadonlyField>
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                      <span className="text-[11px] text-[var(--muted)]">
+                        {isSxs
+                          ? `Select visual preset for Antigravity v${row.version} (defaults to Cyber Horizon).`
+                          : "Global default visual theme for all Antigravity builds — lightweight single-pass glass + seamless borderless sidebar."}
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <HubSingleFilterDropdown
+                          filterKey={isSxs ? `p0001-theme-${row.version}` : "p0001-theme-global"}
+                          label="Theme"
+                          options={sxsThemeOptions}
+                          value={currentSxsThemeChoice}
+                          onChange={(nextVal) => {
+                            if (isSxs && row.version) {
+                              const scopeKey = `version:v${row.version.replace(/^v/i, "")}`;
+                              if (nextVal === "inherit") {
+                                void onAction("theme-config", { scopeKey, clearScopeOverride: true });
+                              } else {
+                                void onAction("theme-config", {
+                                  scopeKey,
+                                  scopePatch: { preset: nextVal },
+                                });
+                              }
+                            } else {
+                              const picked = themePresets.find((p) => p.id === nextVal);
+                              void onAction("theme-config", {
+                                preset: nextVal,
+                                ...(picked ? { accentColor: picked.accentColor } : {}),
+                              });
+                            }
+                          }}
+                          disabled={busy}
+                          usePortal
+                          triggerFormat="value"
+                        />
+                        <HubBulkActionButton
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🎨</span>}
+                          label={isSxs ? (row.themePatched ? "Re-apply Mod" : "Apply Theme") : "Apply Closed SxS"}
+                          title={
+                            isSxs && row.isRunning
+                              ? "Close this Antigravity window first before patching ASAR"
+                              : "Inject seamless glass backdrop, Cyber Horizon palette & live Sidebar Quota"
+                          }
+                          tone="emerald"
+                          variant="filled"
+                          disabled={busy || Boolean(isSxs && row.isRunning)}
+                          onClick={() =>
+                            void onAction("theme-apply", isSxs && row.version ? { version: row.version } : {})
+                          }
+                        />
+                        {(!isSxs || row.themeHasBackup) ? (
+                          <HubBulkActionButton
+                            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>↩️</span>}
+                            label={isSxs ? "Restore Stock" : "Restore All"}
+                            title="Restore original unpatched app.asar from .agy-theme.bak"
+                            tone="amber"
+                            variant="filled"
+                            disabled={busy || Boolean(isSxs && row.isRunning)}
+                            onClick={() =>
+                              void onAction("theme-restore", isSxs && row.version ? { version: row.version } : {})
+                            }
+                          />
+                        ) : null}
+                        {!isSxs ? (
+                          <HubBulkActionButton
+                            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🌌</span>}
+                            label="Reset Cyber Horizon"
+                            title="Reset global Theme Mod defaults to lightweight Cyber Horizon + Live Quota"
+                            tone="sky"
+                            variant="filled"
+                            disabled={busy}
+                            onClick={() =>
+                              void onAction("theme-config", {
+                                enabled: true,
+                                preset: "cyber-horizon",
+                                composerGradient: "cyan-indigo",
+                                quotaAccent: "cyan",
+                                accentColor: "#818cf8",
+                                backdropDim: 0.24,
+                                sidebarOpacity: 0.42,
+                                panelOpacity: 0.72,
+                                codeOpacity: 0.74,
+                                quotaOpacity: 0.56,
+                                composerOpacity: 0.8,
+                                wallpaperBlurPx: 0,
+                                showSidebarQuota: true,
+                                overrides: {},
+                              })
+                            }
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  </HubAdmSectionBlock>
+                ) : null}
+
+                {isZalo ? (
+                  <HubAdmSectionBlock
+                    {...deskDetailSectionProps({
+                      id: "desk-app-zalo",
+                      label: "Zalo Multi-Instance Controls",
+                      emoji: "💬",
+                      sectionKey: "identity",
+                    })}
+                  >
+                    <div className="space-y-2 text-xs">
+                      <div className="text-[11px] text-[var(--muted)]">
+                        Account:{" "}
+                        <span className="font-mono text-emerald-300">{row.accountLabel || row.winUser || "Current User"}</span> · Active:{" "}
+                        <span className="font-mono text-[var(--text)]">
+                          {row.version ? `v${row.version}` : "None"}
+                        </span>{" "}
+                        · Latest Fleet:{" "}
+                        <span className="font-mono text-sky-300">
+                          {row.latestVersion ? `v${row.latestVersion}` : "Unknown"}
+                        </span>{" "}
+                        · Live RAM:{" "}
+                        <span className="font-mono text-emerald-300">
+                          {row.ramLabel || (row.isRunning ? `${row.runningPids?.length ?? 0} procs` : "Stopped")}
+                        </span>{" "}
+                        · ZaloData:{" "}
+                        <span className="font-mono text-[var(--text)]">
+                          {row.zaloDataAccessible
+                            ? row.zaloDataOnDBytes
+                              ? `On C: ${row.zaloDataOnCLabel || "0 B"} · Junction D: ${row.zaloDataOnDLabel || "0 B"}`
+                              : `${row.zaloDataLabel || "0 B"}`
+                            : row.winUser
+                              ? `User ACL (${row.winUser})`
+                              : "Unavailable"}
+                        </span>{" "}
+                        {row.zaloDataAccessible &&
+                        (row.zaloDataJunctions?.media?.linked || row.zaloDataJunctions?.database?.linked) ? (
+                          <>
+                            · Junctions:{" "}
+                            <span className="font-mono text-sky-300">
+                              {[
+                                row.zaloDataJunctions?.media?.linked
+                                  ? `media→D (${row.zaloDataJunctions.media.label || "linked"})`
+                                  : null,
+                                row.zaloDataJunctions?.database?.linked
+                                  ? `Database→D (${row.zaloDataJunctions.database.label || "linked"})`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>{" "}
+                          </>
+                        ) : null}
+                        · Cred:{" "}
+                        <span className={row.savedCredReady ? "font-mono text-emerald-300" : "font-mono text-amber-300"}>
+                          {row.savedCredReady ? "Saved (/savecred)" : "Needs /savecred"}
+                        </span>
+                      </div>
+                      {!row.savedCredReady && row.savecredCommand ? (
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+                          <div>One-time Credential setup for {row.winUser} (run once in elevated/user cmd to cache password):</div>
+                          <div className="mt-1">
+                            <HubDirectoryReadonlyCopyText value={row.savecredCommand} />
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <HubBulkActionButton
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔄</span>}
+                          label={row.outdated ? `Upgrade to v${row.latestVersion || "Latest"}` : "Verify & Repair Instance"}
+                          title="Sync this Zalo Desktop directory from the newest verified local build"
+                          tone={row.outdated ? "amber" : "emerald"}
+                          variant="filled"
+                          disabled={busy}
+                          onClick={() =>
+                            void onAction("sync-zalo-instances", {
+                              instanceIds: [row.id],
+                              includePrimary: row.kind === "primary",
+                              stopRunning: true,
+                              pruneOld: true,
+                            })
+                          }
+                        />
+                        <HubBulkActionButton
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🖥️</span>}
+                          label={row.isRunning ? "Relaunch Zalo" : "Launch Zalo"}
+                          title={`Launch ${row.name} via ${row.winUser || "current user"}`}
+                          tone="indigo"
+                          variant="filled"
+                          disabled={busy}
+                          onClick={() => void onAction("launch-zalo", { id: row.id, relaunch: row.isRunning })}
+                        />
+                        {row.isRunning ? (
+                          <HubBulkActionButton
+                            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>⏹️</span>}
+                            label="Stop Zalo"
+                            title={`Stop ${row.name}`}
+                            tone="rose"
+                            variant="filled"
+                            disabled={busy}
+                            onClick={() => void onAction("stop-zalo", { id: row.id })}
+                          />
+                        ) : null}
+                        <HubBulkActionButton
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🧹</span>}
+                          label={
+                            row.zaloDataAccessible && (row.zaloDataCacheBytes ?? 0) > 0 && row.zaloDataCacheLabel
+                              ? `Clean Cache (${row.zaloDataCacheLabel})`
+                              : "Clean Cache"
+                          }
+                          title="Safely delete Chromium Cache / GPUCache / Code Cache / DawnCache (preserves chat DB & sessions)"
+                          tone="sky"
+                          variant="filled"
+                          disabled={busy}
+                          onClick={() => void onAction("clean-zalo-cache", { instanceIds: [row.id] })}
+                        />
+                        {(row.zaloDataAccessible || row.savedCredReady) && !row.zaloDataJunctions?.media?.linked ? (
+                          <HubBulkActionButton
+                            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>💾</span>}
+                            label={
+                              row.zaloDataJunctions?.media?.label
+                                ? `Offload Media -> D: (${row.zaloDataJunctions.media.label})`
+                                : "Offload Media -> D:"
+                            }
+                            title={
+                              row.isRunning
+                                ? "Stop Zalo before offloading media to D:"
+                                : row.savecredCommand
+                                  ? `Safely copy ${row.winUser} ZaloData/media to D: via /savecred and replace with an NTFS Directory Junction`
+                                  : "Safely copy ZaloData/media to D: and replace with an NTFS Directory Junction"
+                            }
+                            tone="amber"
+                            variant="filled"
+                            disabled={busy || row.isRunning}
+                            onClick={() => void onAction("offload-zalo-data", { instanceId: row.id, folder: "media" })}
+                          />
+                        ) : null}
+                        {(row.zaloDataAccessible || row.savedCredReady) && !row.zaloDataJunctions?.database?.linked ? (
+                          <HubBulkActionButton
+                            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🗄️</span>}
+                            label={
+                              row.zaloDataJunctions?.database?.label
+                                ? `Offload DB -> D: (${row.zaloDataJunctions.database.label})`
+                                : "Offload DB -> D:"
+                            }
+                            title={
+                              row.isRunning
+                                ? "Stop Zalo before offloading Database to D:"
+                                : row.savecredCommand
+                                  ? `Safely copy ${row.winUser} ZaloData/Database to D: via /savecred and replace with an NTFS Directory Junction`
+                                  : "Safely copy ZaloData/Database to D: and replace with an NTFS Directory Junction"
+                            }
+                            tone="amber"
+                            variant="filled"
+                            disabled={busy || row.isRunning}
+                            onClick={() => void onAction("offload-zalo-data", { instanceId: row.id, folder: "Database" })}
+                          />
+                        ) : null}
+                        <HubBulkActionButton
+                          icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🔗</span>}
+                          label="Repair Shortcuts"
+                          title={`Create or repair Start Menu & Desktop shortcuts for ${row.name}`}
+                          tone="sky"
+                          variant="filled"
+                          disabled={busy}
+                          onClick={() =>
+                            void onAction("repair-zalo-shortcuts", {
+                              instanceIds: [row.id],
+                              createStartMenu: true,
+                              createDesktop: true,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </HubAdmSectionBlock>
+                ) : null}
 
                 {isPrimaryIde ? (
                   <HubAdmSectionBlock
@@ -347,15 +799,51 @@ export function AppVersionDetailModal({
                     })}
                   >
                     <div className="space-y-3 text-xs">
-                      {isAntigravity && releaseOptions.length > 0 ? (
+                      {(isAntigravity || isCursor) ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                          <div className="space-y-0.5 text-[11px] text-[var(--muted)]">
+                            <div>
+                              Cloud Mirror:{" "}
+                              <code className="font-mono text-[var(--text)]">
+                                {driveVaultSync?.code || "JB0006"} · {driveVaultSync?.remote || "gdrive:IDE-Installers-Vault"}
+                              </code>
+                            </div>
+                            <div>
+                              {driveVaultSync
+                                ? `${driveVaultSync.syncedCount} synced file(s) · Status: ${driveVaultSync.status}${
+                                    driveVaultSync.lastSuccessfulSyncAt
+                                      ? ` · Last mirror: ${new Date(driveVaultSync.lastSuccessfulSyncAt).toLocaleString()}`
+                                      : ""
+                                  }`
+                                : "Configure JB0006 in Folder Sync jobs"}
+                            </div>
+                          </div>
+                          <HubBulkActionButton
+                            icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>☁️</span>}
+                            label={
+                              busyAction === "sync-drive-vault" || driveVaultSync?.status === "running"
+                                ? "Syncing JB0006..."
+                                : "Sync Drive Vault"
+                            }
+                            title="Run JB0006 mirror-local upload to gdrive:IDE-Installers-Vault now"
+                            tone="indigo"
+                            variant="filled"
+                            disabled={busy || !driveVaultSync?.jobId || driveVaultSync.status === "running"}
+                            onClick={() => void onAction("sync-drive-vault")}
+                          />
+                        </div>
+                      ) : null}
+
+                      {(isAntigravity || isCursor) && releaseOptions.length > 0 ? (
                         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
                           <span className="text-[11px] text-[var(--muted)]">
-                            Download official Antigravity releases to <code className="font-mono text-[var(--text)]">.tools/ide-installers</code>
+                            Download official {isCursor ? "Cursor" : "Antigravity"} releases to{" "}
+                            <code className="font-mono text-[var(--text)]">.tools/ide-installers</code>
                           </span>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <HubSingleFilterDropdown
-                              filterKey="p0001-ag-release"
-                              label="GCS Build"
+                              filterKey={isCursor ? "p0001-cursor-release" : "p0001-ag-release"}
+                              label={isCursor ? "Cursor Build" : "GCS Build"}
                               options={releaseOptions}
                               value={selectedReleaseVer}
                               onChange={setSelectedReleaseVer}
@@ -366,21 +854,39 @@ export function AppVersionDetailModal({
                             <HubBulkActionButton
                               icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📥</span>}
                               label={busyAction === `fetch:${selectedReleaseVer}` ? "Downloading..." : "Fetch Release"}
-                              title="Download selected Antigravity release into .tools/ide-installers"
+                              title={`Download selected ${row.product} release into .tools/ide-installers`}
                               tone="emerald"
                               variant="filled"
                               disabled={busy || !selectedReleaseVer}
-                              onClick={() => void onAction("fetch-release", { version: selectedReleaseVer })}
+                              onClick={() =>
+                                void onAction("fetch-release", {
+                                  product: row.product,
+                                  version: selectedReleaseVer,
+                                })
+                              }
                             />
-                            <HubBulkActionButton
-                              icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📥</span>}
-                              label={busyAction === "fetch-all-releases" ? "Archiving..." : "Archive All Public"}
-                              title="Archive all public Antigravity releases from GCS into installer vault (with free-disk safety guard)"
-                              tone="indigo"
-                              variant="filled"
-                              disabled={busy}
-                              onClick={() => void onAction("fetch-all-releases", { limit: 50 })}
-                            />
+                            {isAntigravity ? (
+                              <>
+                                <HubBulkActionButton
+                                  icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>📥</span>}
+                                  label={busyAction === "fetch-all-releases" ? "Archiving..." : "Archive All Public"}
+                                  title="Archive all public Antigravity releases from GCS into installer vault and add latest builds to Start Menu & Tiles"
+                                  tone="indigo"
+                                  variant="filled"
+                                  disabled={busy}
+                                  onClick={() => void onAction("fetch-all-releases", { limit: 0, unpackLatestCount: 3 })}
+                                />
+                                <HubBulkActionButton
+                                  icon={<span className="inline-flex text-[13px] leading-none" aria-hidden>🚀</span>}
+                                  label={busyAction === "sync-start-menu-latest" ? "Adding..." : "Start Menu Latest"}
+                                  title="Unpack latest archived Antigravity builds and pin them to Windows Start Menu & Start Tiles"
+                                  tone="sky"
+                                  variant="filled"
+                                  disabled={busy}
+                                  onClick={() => void onAction("sync-start-menu-latest", { latestCount: 3 })}
+                                />
+                              </>
+                            ) : null}
                           </div>
                         </div>
                       ) : null}
@@ -614,6 +1120,11 @@ export function AppVersionDetailModal({
                     </div>
                   </HubAdmSectionBlock>
                 ) : null}
+                <HubAdmSectionBlock {...deskDetailSectionProps({ id: "desk-app-console", label: "Live Console & History", emoji: "🖥️" })}>
+                  <div className="h-[420px] overflow-hidden rounded-xl border border-white/10">
+                    <DeskOpsRuntimeRail kind="runner" targetId={row.id} targetLabel={row.name} tabActive />
+                  </div>
+                </HubAdmSectionBlock>
               </div>
             </>
           }

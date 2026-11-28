@@ -52,6 +52,7 @@ let stabilityCache = null;
 let lastHistoryWriteMs = 0;
 
 let _nvmlBindings = undefined;
+let _nvapiCore = undefined;
 let _nvapiBindings = undefined;
 let _nvapiDrsBindings = undefined;
 let _wevtBindings = undefined;
@@ -256,8 +257,11 @@ function getNvmlBindings() {
     const UtilStruct = koffi.struct("P0001_NvmlUtil", { gpu: "uint32_t", memory: "uint32_t" });
     const MemStruct = koffi.struct("P0001_NvmlMem", { total: "uint64_t", free: "uint64_t", used: "uint64_t" });
     const b = {
+      _lib: nvml,
+      _structs: { UtilStruct, MemStruct },
+      _init: nvmlInit,
       nvmlGetHandle: nvml.func("int nvmlDeviceGetHandleByIndex_v2(uint32_t index, _Out_ void** device)"),
-      nvmlGetName: nvml.func("int nvmlDeviceGetName(void* device, _Out_ uint8_t* name, uint32_t length)"),
+      nvmlGetName: nvml.func("int nvmlDeviceGetName(void* device, void* name, uint32_t length)"),
       nvmlGetTemp: nvml.func("int nvmlDeviceGetTemperature(void* device, int sensorType, _Out_ uint32_t* temp)"),
       nvmlGetFan: nvml.func("int nvmlDeviceGetFanSpeed(void* device, _Out_ uint32_t* speed)"),
       nvmlGetPower: nvml.func("int nvmlDeviceGetPowerUsage(void* device, _Out_ uint32_t* power)"),
@@ -409,10 +413,10 @@ async function readGpuSensors() {
   return hotSpotC !== null ? { ...gpu, hotSpotC } : gpu;
 }
 
-function getNvapiBindings() {
-  if (_nvapiBindings !== undefined) return _nvapiBindings;
+function getNvapiCore() {
+  if (_nvapiCore !== undefined) return _nvapiCore;
   if (process.platform !== "win32") {
-    _nvapiBindings = null;
+    _nvapiCore = null;
     return null;
   }
   try {
@@ -420,23 +424,49 @@ function getNvapiBindings() {
     const nvapiPath = fs.existsSync("C:\\Windows\\System32\\nvapi64.dll")
       ? "C:\\Windows\\System32\\nvapi64.dll"
       : "nvapi64.dll";
+    // Keep koffi library, QueryInterface, and init proto alive for process lifetime so V8 GC never unloads nvapi64.dll while decoded fn pointers exist.
     const nvapi = koffi.load(nvapiPath);
     const qi = nvapi.func("void* __cdecl nvapi_QueryInterface(uint32_t id)");
     const initPtr = qi(0x0150E828);
+    if (!initPtr) {
+      _nvapiCore = null;
+      return null;
+    }
+    const initProto = koffi.proto("int __cdecl P0001_NvApiCoreInit()");
+    const initFn = koffi.decode(initPtr, initProto);
+    if (initFn() !== 0) {
+      _nvapiCore = null;
+      return null;
+    }
+    _nvapiCore = { koffi, nvapi, qi, initProto, initFn };
+  } catch {
+    _nvapiCore = null;
+  }
+  return _nvapiCore;
+}
+
+function getNvapiBindings() {
+  if (_nvapiBindings !== undefined) return _nvapiBindings;
+  const core = getNvapiCore();
+  if (!core) {
+    _nvapiBindings = null;
+    return null;
+  }
+  try {
+    const { koffi, qi } = core;
     const enumPtr = qi(0xE5AC921F);
     const thermPtr = qi(0x65FE3AAD);
-    if (!initPtr || !enumPtr || !thermPtr) {
+    if (!enumPtr || !thermPtr) {
       _nvapiBindings = null;
       return null;
     }
-    const initFn = koffi.decode(initPtr, koffi.proto("int __cdecl P0001_NvApiInit()"));
-    if (initFn() !== 0) {
-      _nvapiBindings = null;
-      return null;
-    }
+    const enumProto = koffi.proto("int __cdecl P0001_NvApiEnum(void* handles, _Out_ uint32_t* count)");
+    const thermProto = koffi.proto("int __cdecl P0001_NvApiTherm(uintptr_t handle, void* info)");
     _nvapiBindings = {
-      enumFn: koffi.decode(enumPtr, koffi.proto("int __cdecl P0001_NvApiEnum(_Out_ void** handles, _Out_ uint32_t* count)")),
-      thermFn: koffi.decode(thermPtr, koffi.proto("int __cdecl P0001_NvApiTherm(void* handle, _Inout_ uint8_t* info)")),
+      _core: core,
+      _protos: { enumProto, thermProto },
+      enumFn: koffi.decode(enumPtr, enumProto),
+      thermFn: koffi.decode(thermPtr, thermProto),
     };
   } catch {
     _nvapiBindings = null;
@@ -449,13 +479,15 @@ function readGpuHotSpotInProcessNvapi() {
   const b = getNvapiBindings();
   if (!b) return null;
   try {
-    const handles = new Array(64).fill(null);
+    const handlesBuf = Buffer.alloc(64 * 8);
     const count = [0];
-    if (b.enumFn(handles, count) !== 0 || count[0] < 1 || !handles[0]) return null;
+    if (b.enumFn(handlesBuf, count) !== 0 || count[0] < 1) return null;
+    const gpuHandle = handlesBuf.readBigUInt64LE(0);
+    if (!gpuHandle) return null;
     const buf = Buffer.alloc(168);
     buf.writeUInt32LE(0x000200a8 >>> 0, 0);
     buf.writeUInt32LE(3, 4); // bit 0 = Core, bit 1 = Hot Spot
-    if (b.thermFn(handles[0], buf) !== 0) return null;
+    if (b.thermFn(gpuHandle, buf) !== 0) return null;
     const hotSpot = buf.readInt32LE(44) / 256;
     return Number.isFinite(hotSpot) && hotSpot > 10 && hotSpot < 135
       ? Math.round(hotSpot * 10) / 10
@@ -506,18 +538,13 @@ export function parseNvdrsSettingBuffer(buf) {
 
 function getNvapiDrsBindings() {
   if (_nvapiDrsBindings !== undefined) return _nvapiDrsBindings;
-  if (process.platform !== "win32") {
+  const core = getNvapiCore();
+  if (!core) {
     _nvapiDrsBindings = null;
     return null;
   }
   try {
-    const koffi = require("koffi");
-    const nvapiPath = fs.existsSync("C:\\Windows\\System32\\nvapi64.dll")
-      ? "C:\\Windows\\System32\\nvapi64.dll"
-      : "nvapi64.dll";
-    const nvapi = koffi.load(nvapiPath);
-    const qi = nvapi.func("void* __cdecl nvapi_QueryInterface(uint32_t id)");
-    const pInit = qi(0x0150e828);
+    const { koffi, qi } = core;
     const pCreate = qi(0x0694d52e);
     const pLoad = qi(0x375dbd6b);
     const pGlobal = qi(0x617bff9f);
@@ -525,32 +552,29 @@ function getNvapiDrsBindings() {
     const pSet = qi(0x577dd202);
     const pSave = qi(0xfcbc7e14);
     const pDestroy = qi(0xdad9cff8);
-    if (!pInit || !pCreate || !pLoad || !pGlobal || !pGet || !pSet || !pSave || !pDestroy) {
+    if (!pCreate || !pLoad || !pGlobal || !pGet || !pSet || !pSave || !pDestroy) {
       _nvapiDrsBindings = null;
       return null;
     }
-    const initFn = koffi.decode(pInit, koffi.proto("int __cdecl P0001_NvDrsInit()"));
-    if (initFn() !== 0) {
-      _nvapiDrsBindings = null;
-      return null;
-    }
+    const protos = {
+      createSession: koffi.proto("int __cdecl P0001_NvDrsCreate(_Out_ void** ph)"),
+      loadSettings: koffi.proto("int __cdecl P0001_NvDrsLoad(void* h)"),
+      getCurrentGlobalProfile: koffi.proto("int __cdecl P0001_NvDrsGlobal(void* h, _Out_ void** hp)"),
+      getSetting: koffi.proto("int __cdecl P0001_NvDrsGet(void* h, void* hp, uint32_t id, void* st)"),
+      setSetting: koffi.proto("int __cdecl P0001_NvDrsSet(void* h, void* hp, void* st)"),
+      saveSettings: koffi.proto("int __cdecl P0001_NvDrsSave(void* h)"),
+      destroySession: koffi.proto("int __cdecl P0001_NvDrsDestroy(void* h)"),
+    };
     _nvapiDrsBindings = {
-      createSession: koffi.decode(pCreate, koffi.proto("int __cdecl P0001_NvDrsCreate(_Out_ void** ph)")),
-      loadSettings: koffi.decode(pLoad, koffi.proto("int __cdecl P0001_NvDrsLoad(void* h)")),
-      getCurrentGlobalProfile: koffi.decode(
-        pGlobal,
-        koffi.proto("int __cdecl P0001_NvDrsGlobal(void* h, _Out_ void** hp)"),
-      ),
-      getSetting: koffi.decode(
-        pGet,
-        koffi.proto("int __cdecl P0001_NvDrsGet(void* h, void* hp, uint32_t id, _Inout_ uint8_t* st)"),
-      ),
-      setSetting: koffi.decode(
-        pSet,
-        koffi.proto("int __cdecl P0001_NvDrsSet(void* h, void* hp, uint8_t* st)"),
-      ),
-      saveSettings: koffi.decode(pSave, koffi.proto("int __cdecl P0001_NvDrsSave(void* h)")),
-      destroySession: koffi.decode(pDestroy, koffi.proto("int __cdecl P0001_NvDrsDestroy(void* h)")),
+      _core: core,
+      _protos: protos,
+      createSession: koffi.decode(pCreate, protos.createSession),
+      loadSettings: koffi.decode(pLoad, protos.loadSettings),
+      getCurrentGlobalProfile: koffi.decode(pGlobal, protos.getCurrentGlobalProfile),
+      getSetting: koffi.decode(pGet, protos.getSetting),
+      setSetting: koffi.decode(pSet, protos.setSetting),
+      saveSettings: koffi.decode(pSave, protos.saveSettings),
+      destroySession: koffi.decode(pDestroy, protos.destroySession),
     };
   } catch {
     _nvapiDrsBindings = null;
@@ -781,11 +805,12 @@ function getAdvapiRegistryBindings() {
     const koffi = require("koffi");
     const adv = koffi.load("advapi32.dll");
     _advapiDiskBindings = {
+      _lib: adv,
       RegOpenKeyExW: adv.func(
         "uint32_t __stdcall RegOpenKeyExW(uintptr_t hKey, str16 subKey, uint32_t opts, uint32_t sam, _Out_ uintptr_t* phKey)",
       ),
       RegQueryValueExW: adv.func(
-        "uint32_t __stdcall RegQueryValueExW(uintptr_t hKey, str16 valName, void* res, _Out_ uint32_t* type, _Out_ uint8_t* data, _Inout_ uint32_t* size)",
+        "uint32_t __stdcall RegQueryValueExW(uintptr_t hKey, str16 valName, void* res, _Out_ uint32_t* type, void* data, _Inout_ uint32_t* size)",
       ),
       RegCloseKey: adv.func("uint32_t __stdcall RegCloseKey(uintptr_t hKey)"),
     };
@@ -955,10 +980,11 @@ function getWevtBindings() {
     const koffi = require("koffi");
     const wevt = koffi.load("wevtapi.dll");
     _wevtBindings = {
-      EvtQuery: wevt.func("void* __stdcall EvtQuery(void* Session, str16 Path, str16 Query, uint32_t Flags)"),
-      EvtNext: wevt.func("int __stdcall EvtNext(void* ResultSet, uint32_t EventsSize, _Out_ void** Events, uint32_t Timeout, uint32_t Flags, _Out_ uint32_t* Returned)"),
-      EvtRender: wevt.func("int __stdcall EvtRender(void* Context, void* Fragment, uint32_t Flags, uint32_t BufferSize, _Out_ uint8_t* Buffer, _Out_ uint32_t* BufferUsed, _Out_ uint32_t* PropertyCount)"),
-      EvtClose: wevt.func("int __stdcall EvtClose(void* Object)"),
+      _lib: wevt,
+      EvtQuery: wevt.func("uintptr_t __stdcall EvtQuery(void* Session, str16 Path, str16 Query, uint32_t Flags)"),
+      EvtNext: wevt.func("int __stdcall EvtNext(uintptr_t ResultSet, uint32_t EventsSize, void* Events, uint32_t Timeout, uint32_t Flags, _Out_ uint32_t* Returned)"),
+      EvtRender: wevt.func("int __stdcall EvtRender(void* Context, uintptr_t Fragment, uint32_t Flags, uint32_t BufferSize, void* Buffer, _Out_ uint32_t* BufferUsed, _Out_ uint32_t* PropertyCount)"),
+      EvtClose: wevt.func("int __stdcall EvtClose(uintptr_t Object)"),
     };
   } catch {
     _wevtBindings = null;
@@ -998,10 +1024,10 @@ function readSystemStabilityEvents() {
 
   const xpath =
     "*[System[((Provider[@Name='Microsoft-Windows-Kernel-Power'] and EventID=41) or (Provider[@Name='Microsoft-Windows-WHEA-Logger'] and (EventID=17 or EventID=18 or EventID=19)) or (Provider[@Name='Display'] and EventID=4101)) and TimeCreated[timediff(@SystemTime) <= 604800000]]]";
-  let qh = null;
+  let qh = 0n;
   try {
     // EvtQueryChannelPath (0x1) | EvtQueryReverseDirection (0x200)
-    qh = w.EvtQuery(null, "System", xpath, 0x201);
+    qh = BigInt(w.EvtQuery(null, "System", xpath, 0x201) || 0);
     if (!qh) {
       stabilityCache = { at: Date.now(), data: empty };
       return empty;
@@ -1010,13 +1036,15 @@ function readSystemStabilityEvents() {
     let wheaErrors7d = 0;
     let displayTdrs7d = 0;
     const recentEvents = [];
-    const handles = new Array(30).fill(null);
+    const maxEvents = 30;
+    const handlesBuf = Buffer.alloc(maxEvents * 8);
     const ret = [0];
     const buf = Buffer.alloc(16384);
 
-    if (w.EvtNext(qh, 30, handles, 2000, 0, ret) && ret[0] > 0) {
-      for (let i = 0; i < ret[0]; i++) {
-        const h = handles[i];
+    if (w.EvtNext(qh, maxEvents, handlesBuf, 2000, 0, ret) && ret[0] > 0) {
+      const n = Math.min(ret[0], maxEvents);
+      for (let i = 0; i < n; i++) {
+        const h = handlesBuf.readBigUInt64LE(i * 8);
         if (!h) continue;
         try {
           const used = [0];

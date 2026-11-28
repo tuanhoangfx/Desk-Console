@@ -6,15 +6,11 @@ export function jobIsLive(status) {
 }
 
 /**
- * Pulse the Status dot while a pass is running, or while 24/7 sync is on.
- * Manual, Failed, and Stopped stay still. Synced keeps its label — the dot
- * shows the watcher is armed.
+ * Pulse the Status dot only while a pass is actively analyzing or running.
+ * Waiting/Synced/Manual/Failed/Stopped stay crisp and still to avoid idle GPU churn.
  */
 export function jobStatusLive(job) {
-  if (job?.status === "analyzing" || job?.status === "running" || job?.busy) return true;
-  if (job?.status === "error" || job?.status === "stopped" || job?.status === "paused") return false;
-  if (job?.lastResult?.ok === false) return false;
-  return settleSec(job?.settleSec) > 0;
+  return Boolean(job?.status === "analyzing" || job?.status === "running" || job?.busy);
 }
 
 /**

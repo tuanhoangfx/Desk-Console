@@ -4,10 +4,10 @@ import {
   HubDirectoryTableShell,
   HUB_DIRECTORY_ROW_PINNED_CLASS,
   HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS,
-  HUB_DIRECTORY_TABLE_PANE_WRAP_CLASS,
-  buildDirectoryColgroupForShell,
+  buildDirectoryColgroup,
   buildDirectoryColumns,
   hubDirectoryFrameTableClass,
+  useHubScopedFreeze,
   type HubSortDir,
 } from "@tool-workspace/hub-ui";
 import type { AppScreen } from "../../lib/app-screen";
@@ -19,8 +19,10 @@ import {
   type DeskRow,
 } from "./desk-directory-cells";
 import {
+  DESK_STICKY_LEAD_CLASS,
   deskColumnKeysFor,
   deskDirectoryScreenOrClips,
+  deskFreezePrefsFor,
   deskTablePrefsFor,
   type DeskCol,
 } from "./desk-table-prefs";
@@ -42,10 +44,6 @@ type Props = {
   onPinToggle?: (id: string, nextPinned: boolean) => void;
   onRowClick?: (row: DeskRow) => void;
   pageSize: number;
-  /** Inside HubSplitDirectoryPane — pane supplies rounded chrome; catalog uses table wrap. */
-  flushWrap?: boolean;
-  /** P0003 Profiles parity — equal-height rows; pane wrap overflow-y hidden (no thead color seam). */
-  panelFill?: boolean;
   /** Display manual sort OFF — non-interactive headers (P0005 / P0020 SSOT). */
   defaultSortOnly?: boolean;
 };
@@ -65,12 +63,11 @@ export function DeskDirectoryTable({
   onPinToggle,
   onRowClick,
   pageSize,
-  flushWrap = false,
-  panelFill = false,
   defaultSortOnly = false,
 }: Props) {
   const tableScreen = deskDirectoryScreenOrClips(screen);
   const tablePrefs = deskTablePrefsFor(tableScreen);
+  const freezePrefs = deskFreezePrefsFor(tableScreen);
   const [columnTick, setColumnTick] = useState(0);
   useEffect(() => {
     const sync = () => setColumnTick((n) => n + 1);
@@ -101,7 +98,7 @@ export function DeskDirectoryTable({
     [defaultSortOnly, keys, tableScreen],
   );
   const colgroup = useMemo(
-    () => buildDirectoryColgroupForShell(columns, { showSelect: true }),
+    () => buildDirectoryColgroup(columns, { includeSelect: true }),
     [columns],
   );
   const colByKey = useMemo(() => new Map(columns.map((c) => [c.key, c])), [columns]);
@@ -124,34 +121,39 @@ export function DeskDirectoryTable({
     [colByKey, keys, onPinToggle, opsHandlers],
   );
 
-  const paneChrome = Boolean(panelFill || flushWrap);
+  const { rootRef, stickyStyle, scrollWrapClassName, stickyScopeClass } = useHubScopedFreeze({
+    prefs: freezePrefs,
+    columns,
+    scopeClass: DESK_STICKY_LEAD_CLASS[tableScreen],
+    leftMode: "measured",
+  });
 
   return (
-    <HubDirectoryTableShell
-      items={rows}
-      ariaLabel="Desk directory"
-      tableClassName={`${hubDirectoryFrameTableClass()} hub-users-table--desk-directory`}
-      wrapClassName={paneChrome ? HUB_DIRECTORY_TABLE_PANE_WRAP_CLASS : HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS}
-      paginatedShellClassName={paneChrome ? "flex min-h-0 min-w-0 flex-1 flex-col" : undefined}
-      flushWrap={flushWrap}
-      colgroup={colgroup}
-      columns={columns}
-      sortKey={sortKey}
-      sortDir={sortDir}
-      onSort={onSort}
-      getRowKey={getRowKey}
-      getRowClassName={getRowClassName}
-      selectedIds={selectedIds}
-      onToggleSelect={onToggleSelect}
-      onToggleSelectAll={onToggleSelectAll}
-      allVisibleSelected={allVisibleSelected}
-      selectAllLabel="Select all on this page"
-      emptyMessage="No rows."
-      pageSize={pageSize}
-      resetKey={resetKey}
-      onRowClick={onRowClick}
-      padBodyRowsToPageSize={panelFill}
-      renderRowCells={renderRowCells}
-    />
+    <div ref={rootRef} className="min-w-0">
+      {stickyStyle}
+      <HubDirectoryTableShell
+        items={rows}
+        ariaLabel="Desk directory"
+        tableClassName={`${hubDirectoryFrameTableClass()} hub-users-table--desk-directory ${stickyScopeClass}`}
+        wrapClassName={scrollWrapClassName || HUB_DIRECTORY_TABLE_INLINE_WRAP_CLASS}
+        colgroup={colgroup}
+        columns={columns}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={onSort}
+        getRowKey={getRowKey}
+        getRowClassName={getRowClassName}
+        selectedIds={selectedIds}
+        onToggleSelect={onToggleSelect}
+        onToggleSelectAll={onToggleSelectAll}
+        allVisibleSelected={allVisibleSelected}
+        selectAllLabel="Select all on this page"
+        emptyMessage="No rows match the current filters."
+        pageSize={pageSize}
+        resetKey={resetKey}
+        onRowClick={onRowClick}
+        renderRowCells={renderRowCells}
+      />
+    </div>
   );
 }

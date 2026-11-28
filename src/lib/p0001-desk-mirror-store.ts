@@ -427,7 +427,9 @@ function isSameRunnerOperationalState(a: RunnerRow, b: RunnerRow): boolean {
     (a.startPid ?? null) === (b.startPid ?? null) &&
     (a.startStartedAt ?? null) === (b.startStartedAt ?? null) &&
     (a.startExitedAt ?? null) === (b.startExitedAt ?? null) &&
-    (a.startExitCode ?? null) === (b.startExitCode ?? null)
+    (a.startExitCode ?? null) === (b.startExitCode ?? null) &&
+    (a.tunnelUrl ?? null) === (b.tunnelUrl ?? null) &&
+    (a.tunnelState ?? null) === (b.tunnelState ?? null)
   );
 }
 

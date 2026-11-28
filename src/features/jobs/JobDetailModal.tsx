@@ -31,6 +31,7 @@ import { remoteNameFromSpec } from "../../lib/remote-name";
 import { DriveSignInModal } from "../drives/DriveSignInModal";
 import { useDriveAccounts } from "../drives/use-drive-accounts";
 import { JobFolderBrowse } from "./JobFolderBrowse";
+import { JobsRuntimeDetailPanel } from "./JobsMainAndRail";
 import { JobSettingsForm } from "./JobsSettingRail";
 import { DetailLogScopeTitle, logActor, useDetailLogScope } from "../log/DetailLogScope";
 import { jobNoteDirty } from "../../lib/job-detail-dirty.mjs";
@@ -38,6 +39,7 @@ import { navScreenChrome } from "../../lib/nav-structure";
 
 const JOB_SECTION = "p0009-job-detail";
 const FOLDERS_SECTION = "p0009-job-folders";
+const RUNTIME_SECTION = "p0009-job-runtime";
 const LOG_LABEL: Record<string, string> = {
   name: "Name",
   localPath: "Local",
@@ -162,7 +164,7 @@ export function JobDetailModal({ job, onClose, onSaved }: Props) {
       size="detail"
       shellClassName={hubAccountDetailShellClass()}
       scrollRootSelector={HUB_ACCOUNT_DETAIL_MAIN_SCROLL_ROOT}
-      sectionIds={[JOB_SECTION, FOLDERS_SECTION]}
+      sectionIds={[JOB_SECTION, FOLDERS_SECTION, RUNTIME_SECTION]}
       busy={saving}
       toc={
         <HubToolDetailRail title="Navigate" titleEmoji="🧭" className="twofa-adm-rail--toc" scroll={false} ariaLabel="Sections">
@@ -170,6 +172,7 @@ export function JobDetailModal({ job, onClose, onSaved }: Props) {
             items={[
               { id: JOB_SECTION, label: "Job", emoji: HUB_ACCOUNT_DETAIL_JOB_EMOJI },
               { id: FOLDERS_SECTION, label: "Folders", emoji: "💻" },
+              { id: RUNTIME_SECTION, label: "Console & History", emoji: "🖥️" },
             ]}
             scrollRootSelector={HUB_ACCOUNT_DETAIL_MAIN_SCROLL_ROOT}
             admNav
@@ -301,6 +304,9 @@ export function JobDetailModal({ job, onClose, onSaved }: Props) {
                     </div>
                   ) : null}
                   <JobFolderBrowse job={job} onSaved={onSaved} />
+                </HubToolDetailSection>
+                <HubToolDetailSection id={RUNTIME_SECTION} title="Console & History" emoji="🖥️">
+                  <JobsRuntimeDetailPanel jobs={[job]} focusedId={job.id} />
                 </HubToolDetailSection>
               </HubToolDetailSections>
             </>

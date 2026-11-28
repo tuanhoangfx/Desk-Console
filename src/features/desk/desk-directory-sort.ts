@@ -14,8 +14,18 @@ export function compareDeskDirectoryRows(
   if (Boolean(a.pinned) !== Boolean(b.pinned)) {
     return a.pinned ? -1 : 1;
   }
+  if (sortKey === "size") {
+    const cmp = (Number(a.sizeBytes) || 0) - (Number(b.sizeBytes) || 0);
+    return sortDir === "asc" ? cmp : -cmp;
+  }
+  if (sortKey === "ram") {
+    const cmp = (Number(a.ramBytes) || 0) - (Number(b.ramBytes) || 0);
+    return sortDir === "asc" ? cmp : -cmp;
+  }
   const resolveVal = (row: DeskRow): string => {
     if (sortKey === "format") return String(row.clipFormat || "");
+    if (sortKey === "version") return String(row.version || "");
+    if (sortKey === "account") return String(row.account || "");
     if (sortKey === "created") return String(row.createdAt || row.updated || "");
     if (sortKey === "log") return String(row.activityLog?.[0]?.at || row.log || row.updated || "");
     if (sortKey === "run") return String(row.status || "");

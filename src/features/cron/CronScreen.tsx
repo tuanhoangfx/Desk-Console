@@ -9,7 +9,7 @@ import {
 import { deskApi, type TaskRow } from "../../lib/api";
 import { navScreenChrome } from "../../lib/nav-structure";
 import { DeskDirectoryScreen } from "../desk/DeskDirectoryScreen";
-import { DeskOpsRuntimeRail, appendDeskOpsLog } from "../desk/DeskOpsRuntimeRail";
+import { appendDeskOpsLog } from "../desk/desk-ops-session-log";
 import type { DeskOpsAction, DeskOpsCellHandlers, DeskRow } from "../desk/DeskDirectoryTable";
 import { CronCreateModal } from "./CronCreateModal";
 import { CronDetailModal, type CronUpdatePayload } from "./CronDetailModal";
@@ -156,11 +156,6 @@ export function CronScreen({ tabActive = true }: { tabActive?: boolean }) {
   const rows = useMemo(
     () => tasks.map((row) => taskToDeskRow(row, inFlight[row.id])),
     [inFlight, tasks],
-  );
-
-  const selectedRow = useMemo(
-    () => tasks.find((row) => row.id === selectedId) ?? null,
-    [selectedId, tasks],
   );
   const detailRow = useMemo(
     () => tasks.find((row) => row.id === detailId) ?? null,
@@ -358,22 +353,15 @@ export function CronScreen({ tabActive = true }: { tabActive?: boolean }) {
         titleIcon={icon}
         titleIconClass={iconClass}
         sectionRuleLabel="Cron"
+        searchPlaceholder="Search built-in host daemon, Dev-* scheduled task, cadence, last summary…"
         rows={rows}
         tabActive={tabActive}
-        showPeriod={false}
+        showPeriod
         onRowFocus={(id) => {
           setSelectedId(id);
           setDetailId(id);
         }}
         opsHandlers={opsHandlers}
-        sideRail={
-          <DeskOpsRuntimeRail
-            kind="task"
-            targetId={selectedId}
-            targetLabel={selectedRow?.name}
-            tabActive={tabActive}
-          />
-        }
         crudBulk={{
           newTitle: "New Cron task",
           onNew: () => setCreateOpen(true),

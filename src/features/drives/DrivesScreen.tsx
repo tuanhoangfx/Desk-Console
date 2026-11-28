@@ -2,22 +2,25 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   DIRECTORY_SEARCH_CLIENT_FILTER_OPTS,
+  HubDirectoryBulkDetailModal,
   HubDirectoryCatalogBulkBar,
-  HubSplitDirectoryFilterBar,
-  HubSplitDirectoryPane,
-  HubSplitWorkspaceScreen,
-  KpiStrip,
+  HubDirectoryScreen,
   activeHubDirectoryKpiKey,
   buildHubDirectoryStandardKpis,
   buildSearchHaystackIndex,
+  directoryChartBandNode,
   hubDirectoryListResetKey,
   hubDirectoryPeriodRows,
+  isHubPrefVisible,
   matchesHubDirectoryDateFilters,
+  readHubListPrefsCore,
   selectHubDirectoryKpiFilter,
+  subscribeHubListPrefs,
   useDirectorySearchQuery,
   useHubDirectorySelection,
   useHubTablePageSize,
   useWorkspacePeriod,
+  withPinnedFilterDefs,
   type FilterDef,
   type FilterValues,
   type HubDirectoryLifecycleMode,
@@ -28,6 +31,8 @@ import { FolderSyncDirectoryToolbar } from "../../components/FolderSyncDirectory
 import { FolderSyncTabHeader } from "../../components/FolderSyncTabHeader";
 import { FolderSyncTabHeaderActions } from "../../components/FolderSyncTabHeaderActions";
 import { useHostHeaderStats } from "../../hooks/useHostHeaderStats";
+import { useDeskTabActive } from "../../lib/desk-active-screen";
+import { SCREEN_DISPLAY_PREFS } from "../../lib/display-prefs-registry";
 import { applyDrivesDirectoryFilterHints } from "../../lib/folder-sync-directory-column-hints";
 import { remoteNameFromSpec } from "../../lib/remote-name";
 import { navScreenChrome } from "../../lib/nav-structure";
@@ -48,7 +53,7 @@ import {
 } from "../../lib/sync-api";
 import { JobDetailModal } from "../jobs/JobDetailModal";
 import { JobsCreateModal } from "../jobs/JobsCreateModal";
-import { JobsMainAndRail } from "../jobs/JobsMainAndRail";
+import { buildDrivesChartData } from "../jobs/folder-sync-charts";
 import { DriveDetailModal } from "./DriveDetailModal";
 import { DriveSignInModal } from "./DriveSignInModal";
 import { DrivesDirectoryCards } from "./DrivesDirectoryCards";
@@ -94,7 +99,7 @@ const DRIVE_KPI_FILTERS: Record<string, FilterValues> = {
   no_jobs: { jobs: ["none"] },
 };
 
-const DRIVES_FILTERS = [STATUS_FILTER, JOBS_FILTER];
+const BASE_DRIVES_FILTERS = [STATUS_FILTER, JOBS_FILTER];
 
 function nextDriveName(accounts: DriveAccount[]) {
   const used = new Set(accounts.map((account) => account.name));
@@ -132,8 +137,9 @@ function driveDateRow(account: DriveAccount) {
   };
 }
 
-/** Drive accounts that finished Google OAuth. Jobs pick from this list. */
+/** Drive accounts that finished Google OAuth — Layout 1 Directory SSOT (P0020 Services parity). */
 export function DrivesScreen() {
+  const tabActive = useDeskTabActive("drives");
   const { accounts, error, reload } = useDriveAccounts();
   const [jobs, setJobs] = useState<SyncJob[]>(() => readCachedP0001Jobs());
   const [jobsReady, setJobsReady] = useState(() => readCachedP0001Jobs().length > 0);
@@ -141,16 +147,23 @@ export function DrivesScreen() {
   const [filterValues, setFilterValues] = useState<FilterValues>({});
   const [viewMode, setViewMode] = useState<HubViewMode>("table");
   const [lifecycle, setLifecycle] = useState<HubDirectoryLifecycleMode>("live");
-  const period = useWorkspacePeriod("drives");
+  const period = useWorkspacePeriod("drives", "all");
   const drivesChrome = navScreenChrome("drives");
   const [signInName, setSignInName] = useState<string | null>(null);
   const [detailName, setDetailName] = useState<string | null>(null);
+  const [bulkDetailOpen, setBulkDetailOpen] = useState(false);
   const [detailJobId, setDetailJobId] = useState("");
-  const [focusedJobId, setFocusedJobId] = useState("");
   const [createJobRemoteName, setCreateJobRemoteName] = useState<string | null>(null);
   const [jobBusyId, setJobBusyId] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState(readHubListPrefsCore);
   const pageSize = useHubTablePageSize();
   const centerStats = useHostHeaderStats();
+  const display = SCREEN_DISPLAY_PREFS.drives;
+  const defaultKpiKeys = useMemo(() => new Set(display?.defaultKpiKeys ?? []), [display]);
+  const defaultChartKeys = useMemo(() => new Set(display?.defaultChartKeys ?? []), [display]);
+  const defaultFilterKeys = useMemo(() => new Set(display?.defaultFilterKeys ?? ["status", "jobs"]), [display]);
+
+  useEffect(() => subscribeHubListPrefs(() => setPrefs(readHubListPrefsCore())), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,31 +253,16 @@ export function DrivesScreen() {
     });
   }, [inPeriod, search.query, filterValues, haystackIndex]);
 
+  const drivesFilters = useMemo(() => {
+    const visible = BASE_DRIVES_FILTERS.filter((f) => isHubPrefVisible(prefs.hubFilters, defaultFilterKeys, f.key));
+    return withPinnedFilterDefs(BASE_DRIVES_FILTERS, visible, filterValues, ["status", "jobs"]);
+  }, [defaultFilterKeys, filterValues, prefs.hubFilters]);
+
   const selection = useHubDirectorySelection(filtered, (row) => row.name);
   const selectedAccounts = filtered.filter((account) => selection.selectedIds.has(account.name));
   const soleAccount = selectedAccounts.length === 1 ? selectedAccounts[0] : null;
   const detailAccount = withCounts.find((account) => account.name === detailName) || null;
   const detailJob = jobs.find((job) => job.id === detailJobId) || null;
-  const liveJobs = useMemo(() => jobs.filter((job) => !job.deletedAt), [jobs]);
-  const focusedJob = useMemo(
-    () => liveJobs.find((j) => j.id === focusedJobId) || liveJobs[0] || null,
-    [focusedJobId, liveJobs],
-  );
-  const consoleLines = useMemo(() => {
-    const head = error ? [`API error: ${error}`] : [];
-    if (!focusedJob?.lastResult) return head;
-    return [
-      ...head,
-      `# ${focusedJob.name} · ${focusedJob.lastResult.action || "—"} · ${focusedJob.status}`,
-      focusedJob.lastResult.backupDir ? `backup: ${focusedJob.lastResult.backupDir}` : "",
-      focusedJob.lastResult.conflictDir ? `conflicts: ${focusedJob.lastResult.conflictDir}` : "",
-      focusedJob.lastResult.trashPolicy ? `trash: ${focusedJob.lastResult.trashPolicy}` : "",
-      "--- stdout ---",
-      focusedJob.lastResult.stdout || "(empty)",
-      "--- stderr ---",
-      focusedJob.lastResult.stderr || "(empty)",
-    ].filter(Boolean);
-  }, [error, focusedJob]);
 
   async function runBulkDriveNetwork(patch: { proxyUrl?: string; bwlimit?: string }) {
     if (!selectedAccounts.length) return;
@@ -287,32 +285,85 @@ export function DrivesScreen() {
       const data = await fetchJobs();
       setJobs(data.jobs || []);
     } catch {
-      /* the Jobs screen console records the host error on the next visit */
+      /* JobDetailModal console records host result */
     } finally {
       setJobBusyId(null);
     }
   }
 
-  const signedCount = inPeriod.filter((account) => account.authorized).length;
-  const withJobsCount = inPeriod.filter((account) => (account.jobCount || 0) > 0).length;
   const listResetKey = hubDirectoryListResetKey(`${search.query}|${period.range}|${viewMode}|${lifecycle}`, filterValues);
-  const domainKpis: KpiTileData[] = [
-    { prefKey: "signed", label: "Signed in", value: signedCount, emojiGlyph: "✅", tone: "emerald" },
-    { prefKey: "pending", label: "Sign in", value: Math.max(0, inPeriod.length - signedCount), emojiGlyph: "🔑", tone: "amber" },
-    { prefKey: "with_jobs", label: "With jobs", value: jobsReady ? withJobsCount : "—", emojiGlyph: "📁", tone: "sky" },
-    { prefKey: "no_jobs", label: "No jobs", value: jobsReady ? Math.max(0, inPeriod.length - withJobsCount) : "—", emojiGlyph: "📭", tone: "violet" },
-  ];
-  const kpiItems = buildHubDirectoryStandardKpis({
-    entityLabel: "Drive",
-    entityEmoji: "☁️",
-    entityPrefKey: "drive",
-    rows: inPeriod.map(driveDateRow),
-    domain: domainKpis,
-    activeKey: activeHubDirectoryKpiKey("drive", filterValues, DRIVE_KPI_FILTERS),
-    onSelect: (prefKey) => {
-      setFilterValues((current) => selectHubDirectoryKpiFilter(prefKey, "drive", current, DRIVE_KPI_FILTERS));
+
+  const kpiItems = useMemo(() => {
+    if (!tabActive) return [];
+    const signedCount = inPeriod.filter((account) => account.authorized).length;
+    const withJobsCount = inPeriod.filter((account) => (account.jobCount || 0) > 0).length;
+    const domainKpis: KpiTileData[] = [
+      { prefKey: "signed", label: "Signed in", value: signedCount, emojiGlyph: "✅", tone: "emerald" },
+      { prefKey: "pending", label: "Sign in", value: Math.max(0, inPeriod.length - signedCount), emojiGlyph: "🔑", tone: "amber" },
+      { prefKey: "with_jobs", label: "With jobs", value: jobsReady ? withJobsCount : "—", emojiGlyph: "📁", tone: "sky" },
+      { prefKey: "no_jobs", label: "No jobs", value: jobsReady ? Math.max(0, inPeriod.length - withJobsCount) : "—", emojiGlyph: "📭", tone: "violet" },
+    ];
+    const all = buildHubDirectoryStandardKpis({
+      entityLabel: "Drive",
+      entityEmoji: "☁️",
+      entityPrefKey: "drive",
+      rows: inPeriod.map(driveDateRow),
+      domain: domainKpis,
+      activeKey: activeHubDirectoryKpiKey("drive", filterValues, DRIVE_KPI_FILTERS),
+      onSelect: (prefKey) => {
+        setFilterValues((current) => selectHubDirectoryKpiFilter(prefKey, "drive", current, DRIVE_KPI_FILTERS));
+      },
+    });
+    return all.filter((tile) => isHubPrefVisible(prefs.kpi, defaultKpiKeys, tile.prefKey || ""));
+  }, [tabActive, inPeriod, jobsReady, filterValues, prefs.kpi, defaultKpiKeys]);
+
+  const visCharts = useMemo(() => prefs.charts ?? defaultChartKeys, [defaultChartKeys, prefs.charts]);
+  const chartData = useMemo(
+    () => (tabActive ? buildDrivesChartData(filtered, inPeriod) : {}),
+    [tabActive, filtered, inPeriod],
+  );
+  const chartsNode = useMemo(() => {
+    const defs = display?.charts ?? [];
+    if (!tabActive || defs.length === 0) return undefined;
+    return directoryChartBandNode({ visCharts, defs, data: chartData });
+  }, [chartData, display?.charts, tabActive, visCharts]);
+
+  const moreActions = [
+    {
+      key: "signin",
+      label: soleAccount?.authorized ? "Sign in again" : "Sign in",
+      emoji: "🔑",
+      tone: "indigo" as const,
+      disabled: !soleAccount,
+      title: soleAccount ? "Create a Google sign-in link to copy" : "Select one Drive account",
+      onClick: () => {
+        if (soleAccount) setSignInName(soleAccount.name);
+      },
     },
-  });
+    ...(selectedAccounts.length > 0 && lifecycle === "live"
+      ? [
+          {
+            key: "bulk-bwlimit-inherit",
+            label: "Bandwidth: Inherit",
+            emoji: "⚡",
+            tone: "emerald" as const,
+            title: "Use Global System Bandwidth Limit for all selected Drives",
+            onClick: () => void runBulkDriveNetwork({ bwlimit: "" }),
+          },
+          {
+            key: "bulk-proxy-inherit",
+            label: "Proxy: System Default",
+            emoji: "🌐",
+            tone: "sky" as const,
+            title: "Reset Proxy to System Default for all selected Drives",
+            onClick: () => void runBulkDriveNetwork({ proxyUrl: "" }),
+          },
+        ]
+      : []),
+  ];
+
+  const totalCount =
+    lifecycle === "trash" ? withCounts.filter((account) => account.deletedAt).length : inPeriod.length;
 
   return (
     <>
@@ -361,178 +412,160 @@ export function DrivesScreen() {
         onClose={() => setSignInName(null)}
         onSignedIn={() => void reload()}
       />
-      <div className="hub-split-workspace anim-fade flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <HubSplitWorkspaceScreen
-          bodyClassName="folder-sync-workspace-body flex min-h-0 flex-1 overflow-hidden"
-          sectionRuleLabel="Drives"
-          header={
-            <FolderSyncTabHeader
-              screen="drives"
-              ariaLabel="Drives"
-              title="Drives"
-              titleIcon={drivesChrome.icon}
-              titleIconClass={drivesChrome.iconClass}
-              centerStats={centerStats}
-              actions={<FolderSyncTabHeaderActions />}
-            />
-          }
-        >
-          <JobsMainAndRail
-            jobs={liveJobs}
-            focusedId={focusedJob?.id || ""}
-            consoleLines={consoleLines}
-            onSelect={setFocusedJobId}
-            jobsPane={
-              <HubSplitDirectoryPane
-                scroll={false}
-                className="hub-directory-frame hub-directory-frame--panel-fill folder-sync-directory-body stealth-profile-directory-frame"
-                partialPagePad="invisible"
-                filterBar={
-                  <HubSplitDirectoryFilterBar
-                    shortcutScope="drives"
-                    placeholder="Search Drive accounts…"
-                    filters={DRIVES_FILTERS}
-                    query={search.queryInput}
-                    onQueryChange={search.setQueryInput}
-                    queryPending={search.queryPending}
-                    values={filterValues}
-                    onValuesChange={setFilterValues}
-                    directoryViewMode={viewMode}
-                    toolbar={
-                      <FolderSyncDirectoryToolbar
-                        screen="drives"
-                        viewMode={viewMode}
-                        onViewModeChange={setViewMode}
-                        lifecycleMode={lifecycle}
-                        onLifecycleModeChange={setLifecycle}
-                        shown={filtered.length}
-                        total={lifecycle === "trash" ? withCounts.filter((account) => account.deletedAt).length : inPeriod.length}
-                        countLabel="accounts"
-                      />
-                    }
-                    filterSelectionToolbar={{
-                      selectedCount: selection.selectedIds.size,
-                      visibleCount: filtered.length,
-                      noun: "accounts",
-                    }}
-                    row2Actions={
-                      <HubDirectoryCatalogBulkBar
-                        noun="accounts"
-                        visibleCount={filtered.length}
-                        selectedCount={selection.selectedIds.size}
-                        allVisibleSelected={selection.allVisibleSelected}
-                        onToggleSelectAll={selection.toggleSelectAll}
-                        lifecycleMode={lifecycle}
-                        onNew={() => setSignInName("__new__")}
-                        newTitle="Sign in a Google Drive"
-                        onDetail={() => {
-                          if (soleAccount) setDetailName(soleAccount.name);
-                        }}
-                        onBulkDetail={() => {
-                          const first = selectedAccounts[0];
-                          if (first) setDetailName(first.name);
-                        }}
-                        noneTitle="Select one Drive account"
-                        singleTitle="Open Drive Detail Modal"
-                        bulkTitle="Open the first selected Drive account in Detail Modal"
-                        onRestore={() => {
-                          void (async () => {
-                            for (const account of selectedAccounts) await restoreDriveAccount(account.name);
-                            await reload();
-                          })();
-                        }}
-                        onDelete={() => {
-                          if (lifecycle === "trash") {
-                            void (async () => {
-                              for (const account of selectedAccounts) await deleteDriveAccount(account.name);
-                              await reload();
-                            })();
-                          } else {
-                            void (async () => {
-                              for (const account of selectedAccounts) await trashDriveAccount(account.name);
-                              await reload();
-                            })();
-                          }
-                        }}
-                        deleteTitle={
-                          lifecycle === "trash"
-                            ? "Remove the rclone remote. Live jobs that still use it stay blocked."
-                            : "Move selected Drive accounts to Trash. The Google remote stays until Delete forever."
-                        }
-                        moreActions={[
-                          {
-                            key: "signin",
-                            label: soleAccount?.authorized ? "Sign in again" : "Sign in",
-                            emoji: "🔑",
-                            tone: "indigo",
-                            disabled: !soleAccount,
-                            title: soleAccount ? "Create a Google sign-in link to copy" : "Select one Drive account",
-                            onClick: () => {
-                              if (soleAccount) setSignInName(soleAccount.name);
-                            },
-                          },
-                          ...(selectedAccounts.length > 0 && lifecycle === "live"
-                            ? [
-                                {
-                                  key: "bulk-bwlimit-inherit",
-                                  label: "Bandwidth: Inherit",
-                                  emoji: "⚡",
-                                  tone: "emerald" as const,
-                                  title: "Use Global System Bandwidth Limit for all selected Drives",
-                                  onClick: () => void runBulkDriveNetwork({ bwlimit: "" }),
-                                },
-                                {
-                                  key: "bulk-proxy-inherit",
-                                  label: "Proxy: System Default",
-                                  emoji: "🌐",
-                                  tone: "sky" as const,
-                                  title: "Reset Proxy to System Default for all selected Drives",
-                                  onClick: () => void runBulkDriveNetwork({ proxyUrl: "" }),
-                                },
-                              ]
-                            : []),
-                        ]}
-                      />
-                    }
-                  />
-                }
-                kpiBand={<KpiStrip items={kpiItems} />}
-              >
-                {viewMode === "card" ? (
-                  <DrivesDirectoryCards
-                    items={filtered}
-                    selectedIds={selection.selectedIds}
-                    onToggleSelect={selection.toggleSelect}
-                    onOpen={(account) => setDetailName(account.name)}
-                    emptyMessage={error || "No Drive accounts — click New to sign in with Google."}
-                  />
-                ) : (
-                  <DrivesDirectoryTable
-                    items={filtered}
-                    jobsByRemote={jobsByRemote}
-                    selectedIds={selection.selectedIds}
-                    onToggleSelect={selection.toggleSelect}
-                    onToggleSelectAll={selection.toggleSelectAll}
-                    allVisibleSelected={selection.allVisibleSelected}
-                    onRowClick={(account) => {
-                      const firstJob = jobsByRemote[account.name]?.[0];
-                      if (firstJob) setFocusedJobId(firstJob.id);
-                      setDetailName(account.name);
-                    }}
-                    onOpenJob={(id) => {
-                      setFocusedJobId(id);
-                      setDetailJobId(id);
-                    }}
-                    pageSize={pageSize}
-                    resetKey={listResetKey}
-                    emptyMessage={error || "No Drive accounts — click New to sign in with Google."}
-                  />
-                )}
-              </HubSplitDirectoryPane>
-            }
+
+      <HubDirectoryScreen
+        header={
+          <FolderSyncTabHeader
+            screen="drives"
+            ariaLabel="Drives"
+            title="Drives"
+            titleIcon={drivesChrome.icon}
+            titleIconClass={drivesChrome.iconClass}
+            centerStats={centerStats}
+            actions={<FolderSyncTabHeaderActions />}
           />
-        </HubSplitWorkspaceScreen>
-      </div>
+        }
+        kpis={kpiItems.length > 0 ? kpiItems : undefined}
+        charts={chartsNode}
+        sectionRuleLabel="Drives"
+        filters={drivesFilters}
+        query={search.queryInput}
+        onQueryChange={search.setQueryInput}
+        queryPending={search.queryPending}
+        filterValues={filterValues}
+        onFilterValuesChange={setFilterValues}
+        filterPlaceholder="Search Drive accounts…"
+        filterShortcutScope="drives"
+        filterSelectionToolbar={{
+          selectedCount: selection.selectedIds.size,
+          visibleCount: filtered.length,
+          noun: "accounts",
+        }}
+        directoryViewMode={viewMode}
+        filterToolbar={
+          <FolderSyncDirectoryToolbar
+            screen="drives"
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            lifecycleMode={lifecycle}
+            onLifecycleModeChange={setLifecycle}
+            shown={filtered.length}
+            total={totalCount}
+            countLabel="accounts"
+          />
+        }
+        filterRowActions={
+          <HubDirectoryCatalogBulkBar
+            noun="accounts"
+            visibleCount={filtered.length}
+            selectedCount={selection.selectedIds.size}
+            allVisibleSelected={selection.allVisibleSelected}
+            onToggleSelectAll={selection.toggleSelectAll}
+            lifecycleMode={lifecycle}
+            onNew={() => setSignInName("__new__")}
+            newTitle="Sign in a Google Drive"
+            onDetail={() => {
+              if (soleAccount) setDetailName(soleAccount.name);
+            }}
+            onBulkDetail={() => setBulkDetailOpen(true)}
+            noneTitle="Select one Drive account for Detail, or multiple for Bulk Detail"
+            singleTitle="Open Drive Detail Modal"
+            bulkTitle="Open Bulk Detail & batch operations"
+            onRestore={() => {
+              void (async () => {
+                for (const account of selectedAccounts) await restoreDriveAccount(account.name);
+                await reload();
+              })();
+            }}
+            onDelete={() => {
+              if (lifecycle === "trash") {
+                void (async () => {
+                  for (const account of selectedAccounts) await deleteDriveAccount(account.name);
+                  await reload();
+                })();
+              } else {
+                void (async () => {
+                  for (const account of selectedAccounts) await trashDriveAccount(account.name);
+                  await reload();
+                })();
+              }
+            }}
+            deleteTitle={
+              lifecycle === "trash"
+                ? "Remove the rclone remote. Live jobs that still use it stay blocked."
+                : "Move selected Drive accounts to Trash. The Google remote stays until Delete forever."
+            }
+            moreActions={moreActions}
+          />
+        }
+      >
+        {viewMode === "card" ? (
+          <DrivesDirectoryCards
+            items={filtered}
+            selectedIds={selection.selectedIds}
+            onToggleSelect={selection.toggleSelect}
+            onOpen={(account) => setDetailName(account.name)}
+            pageSize={pageSize}
+            resetKey={listResetKey}
+            emptyMessage={error || "No Drive accounts — click New to sign in with Google."}
+          />
+        ) : (
+          <DrivesDirectoryTable
+            items={filtered}
+            jobsByRemote={jobsByRemote}
+            selectedIds={selection.selectedIds}
+            onToggleSelect={selection.toggleSelect}
+            onToggleSelectAll={selection.toggleSelectAll}
+            allVisibleSelected={selection.allVisibleSelected}
+            onRowClick={(account) => setDetailName(account.name)}
+            onOpenJob={(id) => setDetailJobId(id)}
+            pageSize={pageSize}
+            resetKey={listResetKey}
+            emptyMessage={error || "No Drive accounts — click New to sign in with Google."}
+          />
+        )}
+      </HubDirectoryScreen>
+
+      <HubDirectoryBulkDetailModal
+        open={bulkDetailOpen && selectedAccounts.length >= 2}
+        onClose={() => setBulkDetailOpen(false)}
+        entitySingular="account"
+        entityPlural="accounts"
+        headerIcon={drivesChrome.icon}
+        panelTitle="Batch Drive Operations"
+        panelTitleEmoji="☁️"
+        selectedItems={selectedAccounts.map((acc) => ({
+          id: acc.name,
+          label: acc.code ? `${acc.code} · ${acc.displayName || acc.email || acc.name}` : acc.displayName || acc.name,
+          sublabel: `${acc.email || acc.name} · ${acc.jobCount} jobs`,
+          badge: acc.authorized ? "Signed in" : "Sign in",
+          onOpenSingle: () => {
+            setBulkDetailOpen(false);
+            setDetailName(acc.name);
+          },
+        }))}
+        sections={[
+          {
+            id: "batch-ops",
+            label: "Batch Operations",
+            emoji: "⚡",
+            description: `Execute batch actions across ${selectedAccounts.length} selected Drive accounts.`,
+            actions: moreActions.map((act) => ({
+              key: act.key,
+              label: act.label,
+              title: act.title || act.label,
+              tone:
+                act.tone === "emerald"
+                  ? ("emerald" as const)
+                  : act.tone === "sky"
+                    ? ("sky" as const)
+                    : ("indigo" as const),
+              disabled: act.disabled,
+              onClick: act.onClick,
+            })),
+          },
+        ]}
+      />
     </>
   );
 }

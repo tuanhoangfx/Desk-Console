@@ -60,7 +60,9 @@ function hasPackagedAppUpdateYml(app) {
 function readVersionFromPackageJson(pkgPath) {
   try {
     if (!pkgPath || !fs.existsSync(pkgPath)) return "";
-    return String(JSON.parse(fs.readFileSync(pkgPath, "utf8"))?.version || "").trim();
+    const raw = fs.readFileSync(pkgPath, "utf8");
+    if (!raw || raw.includes("\u0000")) return "";
+    return String(JSON.parse(raw)?.version || "").trim();
   } catch {
     return "";
   }
@@ -71,8 +73,9 @@ function isHotPatchFreshForResources(resourcesDir) {
   const hotDir = path.join(resourcesDir, "hot-patch");
   if (!fs.existsSync(hotDir)) return false;
   const hotVer = readVersionFromPackageJson(path.join(hotDir, "package.json"));
+  if (!hotVer) return false;
   const baseVer = readVersionFromPackageJson(path.join(resourcesDir, "app.asar", "package.json"));
-  if (baseVer && hotVer && compareSemver(baseVer, hotVer) > 0) {
+  if (baseVer && compareSemver(baseVer, hotVer) > 0) {
     return false;
   }
   return true;
@@ -109,7 +112,7 @@ function resolveDesktopProductVersion(app, opts = {}) {
       : [hotPatchPkg, asarPkg, altPkg, localParentPkg, localGrandParentPkg];
     for (const candidate of candidates) {
       if (!candidate || !fs.existsSync(candidate)) continue;
-      const ver = String(JSON.parse(fs.readFileSync(candidate, "utf8")).version || "").trim();
+      const ver = readVersionFromPackageJson(candidate);
       if (ver) return ver;
     }
   } catch {
@@ -1059,8 +1062,183 @@ function scheduleStagedAsarSwapOnQuit(opts = {}) {
   }
 }
 
+const UNPACKED_HEAL_EXTENSIONS = new Set([".js", ".cjs", ".mjs", ".json", ".html", ".css"]);
+
+/**
+ * Return true if a text/code file looks empty or contains NUL bytes (typical NTFS Kernel-Power 41 corruption)
+ * or fails JSON syntax parsing for `.json`.
+ */
+function isLikelyCorruptUnpackedCodeFile(filePath) {
+  const ext = path.extname(String(filePath || "")).toLowerCase();
+  if (!UNPACKED_HEAL_EXTENSIONS.has(ext)) return false;
+  try {
+    const st = fs.statSync(filePath);
+    if (!st.isFile()) return false;
+    if (st.size === 0) return true;
+    if (st.size > 4 * 1024 * 1024) return false;
+    const buf = fs.readFileSync(filePath);
+    if (buf.includes(0)) return true;
+    if (ext === ".json") {
+      try {
+        JSON.parse(buf.toString("utf8"));
+      } catch {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function atomicRestoreFileSync(srcPath, destPath) {
+  const data = fs.readFileSync(srcPath);
+  if (!data || data.length === 0 || data.includes(0)) {
+    throw new Error(`Refusing to restore empty or NUL-containing source: ${srcPath}`);
+  }
+  const dir = path.dirname(destPath);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmp = `${destPath}.heal.${process.pid}.${Date.now()}.tmp`;
+  const fd = fs.openSync(tmp, "w", 0o666);
+  try {
+    fs.writeSync(fd, data, 0, data.length, 0);
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  try {
+    if (fs.existsSync(destPath)) {
+      try {
+        fs.chmodSync(destPath, 0o666);
+      } catch {
+        /* ignore */
+      }
+    }
+    fs.renameSync(tmp, destPath);
+  } catch {
+    fs.copyFileSync(tmp, destPath);
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * Scan `<resourcesDir>/app.asar.unpacked` for NUL-filled / 0-byte / corrupt JSON files (from unclean shutdowns)
+ * and atomically restore them from valid copies in `<resourcesDir>/hot-patch`, optional `fallbackRoots`, or `app.asar`.
+ */
+function healCorruptUnpackedFilesSync(opts = {}) {
+  const resourcesDir = opts.resourcesDir || (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
+  if (!resourcesDir) {
+    return { ok: true, skipped: true, scanned: 0, repaired: [], failed: [] };
+  }
+  const unpackedDir = opts.unpackedDir || path.join(resourcesDir, "app.asar.unpacked");
+  if (!fs.existsSync(unpackedDir)) {
+    return { ok: true, skipped: true, scanned: 0, repaired: [], failed: [] };
+  }
+
+  const hotDir =
+    opts.hotPatchDir ||
+    (isHotPatchFreshForResources(resourcesDir) ? path.join(resourcesDir, "hot-patch") : "");
+  const fallbackRoots = Array.isArray(opts.fallbackRoots) ? opts.fallbackRoots.filter(Boolean) : [];
+  const asarDir = opts.useAppAsarFallback === false ? "" : path.join(resourcesDir, "app.asar");
+  const candidateRoots = [hotDir, ...fallbackRoots, asarDir]
+    .filter(Boolean)
+    .filter((dir) => {
+      try {
+        return fs.existsSync(dir);
+      } catch {
+        return false;
+      }
+    });
+
+  const maxScanFiles = Number.isFinite(Number(opts.maxScanFiles)) ? Number(opts.maxScanFiles) : 6000;
+  let scanned = 0;
+  const repaired = [];
+  const failed = [];
+  const stack = [unpackedDir];
+
+  while (stack.length > 0 && scanned < maxScanFiles) {
+    const curDir = stack.pop();
+    let entries;
+    try {
+      entries = fs.readdirSync(curDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (scanned >= maxScanFiles) break;
+      const fullPath = path.join(curDir, entry.name);
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) {
+        if (entry.name === ".bin" || entry.name === ".git") continue;
+        stack.push(fullPath);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!UNPACKED_HEAL_EXTENSIONS.has(ext)) continue;
+      scanned += 1;
+      if (!isLikelyCorruptUnpackedCodeFile(fullPath)) continue;
+
+      const rel = path.relative(unpackedDir, fullPath);
+      const resolvedDest = path.resolve(fullPath);
+      let restored = false;
+      let lastErr = "no valid fallback source found";
+
+      for (const srcRoot of candidateRoots) {
+        const srcPath = path.join(srcRoot, rel);
+        try {
+          if (path.resolve(srcPath) === resolvedDest) continue;
+          if (!fs.existsSync(srcPath)) continue;
+          if (isLikelyCorruptUnpackedCodeFile(srcPath)) continue;
+          atomicRestoreFileSync(srcPath, fullPath);
+          repaired.push({ file: rel.replace(/\\/g, "/"), source: path.basename(srcRoot) });
+          restored = true;
+          break;
+        } catch (err) {
+          lastErr = err instanceof Error ? err.message : String(err);
+        }
+      }
+      if (!restored) {
+        failed.push({ file: rel.replace(/\\/g, "/"), error: lastErr });
+      }
+    }
+  }
+
+  if (repaired.length > 0) {
+    try {
+      console.warn(
+        `[desktop-host-kit] healed ${repaired.length} NUL/corrupt unpacked file(s): ${repaired
+          .map((r) => `${r.file}<-${r.source}`)
+          .join(", ")}`,
+      );
+    } catch {
+      /* ignore log failure */
+    }
+  }
+
+  return {
+    ok: failed.length === 0,
+    skipped: false,
+    scanned,
+    repaired,
+    failed,
+  };
+}
+
 function bindStagedAsarSwapOnWillQuit(app, opts = {}) {
   if (!app || typeof app.on !== "function") return false;
+  if (!app.__hubUnpackedHealChecked && (app.isPackaged || opts.resourcesDir)) {
+    app.__hubUnpackedHealChecked = true;
+    try {
+      healCorruptUnpackedFilesSync(opts);
+    } catch {
+      /* never block app startup */
+    }
+  }
   if (app.__hubStagedAsarSwapBound) return true;
   app.__hubStagedAsarSwapBound = true;
   app.on("will-quit", () => {
@@ -1159,6 +1337,25 @@ function createDesktopHotReloadControlBridge(opts = {}) {
       /* ignore */
     }
 
+    try {
+      const menuPath = fs.existsSync(path.join(electronDir, "lib", "desktop-app-menu.cjs"))
+        ? path.join(electronDir, "lib", "desktop-app-menu.cjs")
+        : path.join(__dirname, "desktop-app-menu.cjs");
+      if (fs.existsSync(menuPath)) {
+        try {
+          delete require.cache[require.resolve(menuPath)];
+        } catch {
+          /* ignore */
+        }
+        const { installDesktopAppMenu } = require(menuPath);
+        if (typeof installDesktopAppMenu === "function") {
+          installDesktopAppMenu();
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
     let hostReloaded = false;
     let hostReloadError = null;
     if (body.reloadHost !== false && typeof onReloadHost === "function") {
@@ -1219,7 +1416,6 @@ function createDesktopHotReloadControlBridge(opts = {}) {
 
     let displayDiagnostics = null;
     let trappedInNonInteractiveS4u = false;
-    let selfExitingForInteractiveRelaunch = false;
     try {
       const { screen } = require("electron");
       const cursorPt = screen?.getCursorScreenPoint ? screen.getCursorScreenPoint() : { x: 0, y: 0 };
@@ -1230,7 +1426,6 @@ function createDesktopHotReloadControlBridge(opts = {}) {
       };
       if (Number(cursorPt?.x ?? 0) < -100000 && (body.showWindow || body.quitIfNonInteractive !== false)) {
         trappedInNonInteractiveS4u = true;
-        selfExitingForInteractiveRelaunch = true;
         removeControlRecord();
         setTimeout(() => {
           try {
@@ -1461,6 +1656,8 @@ module.exports = {
   resolveLocalDistIndexHtml,
   promoteStagedHotPatchDist,
   buildPackagedHostNodeEnv,
+  isLikelyCorruptUnpackedCodeFile,
+  healCorruptUnpackedFilesSync,
   scheduleStagedAsarSwapOnQuit,
   bindStagedAsarSwapOnWillQuit,
   registerDesktopChildProcessCrashRecovery,

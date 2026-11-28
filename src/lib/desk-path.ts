@@ -4,7 +4,7 @@
  * - Electron `file://` + `base: './'` → `index.html?screen=dashboard`
  */
 
-export type AppScreen = "dashboard" | "clips" | "jobs" | "drives" | "runners" | "cron" | "apps";
+export type AppScreen = "dashboard" | "clips" | "jobs" | "drives" | "runners" | "cron" | "apps" | "system";
 
 export const DESK_SCREEN_PATH: Record<AppScreen, string> = {
   dashboard: "/dashboard",
@@ -14,6 +14,7 @@ export const DESK_SCREEN_PATH: Record<AppScreen, string> = {
   runners: "/runners",
   cron: "/cron",
   apps: "/apps",
+  system: "/system",
 };
 
 const LEGACY_SCREEN_MAP: Record<string, AppScreen> = {
@@ -27,7 +28,7 @@ const LEGACY_SCREEN_MAP: Record<string, AppScreen> = {
   apps: "apps",
   tasks: "cron",
   ops: "runners",
-  system: "dashboard",
+  system: "system",
 };
 
 const APP_SCREENS = Object.keys(DESK_SCREEN_PATH) as AppScreen[];
@@ -49,7 +50,8 @@ export function pathnameToAppScreen(pathname: string): AppScreen | null {
   if (normalized === "/apps" || normalized.startsWith("/apps/")) return "apps";
   if (normalized === "/tasks" || normalized.startsWith("/tasks/")) return "cron";
   if (normalized === "/ops" || normalized.startsWith("/ops/")) return "runners";
-  if (normalized === "/system" || normalized.startsWith("/system/")) return "dashboard";
+  if (normalized === "/system" || normalized.startsWith("/system/")) return "system";
+  if (normalized === "/design" || normalized.startsWith("/design/")) return "system";
   return null;
 }
 
@@ -59,7 +61,7 @@ function bareQueryScreen(sp: URLSearchParams): AppScreen | null {
     if (sp.has(id) && (sp.get(id) === "" || sp.get(id) === "1" || sp.get(id) === "true")) return id;
   }
   if (sp.has("tasks") && (sp.get("tasks") === "" || sp.get("tasks") === "1" || sp.get("tasks") === "true")) return "cron";
-  if (sp.has("system") && (sp.get("system") === "" || sp.get("system") === "1" || sp.get("system") === "true")) return "dashboard";
+  if (sp.has("system") && (sp.get("system") === "" || sp.get("system") === "1" || sp.get("system") === "true")) return "system";
   if (sp.has("ops") && (sp.get("ops") === "" || sp.get("ops") === "1")) return "runners";
   if (sp.has("captures") && (sp.get("captures") === "" || sp.get("captures") === "1" || sp.get("captures") === "true")) {
     return "clips";

@@ -1,11 +1,6 @@
-/* P0001 Desk — split profile layout (Clips · Jobs · Drives · Runners · Cron). P0003/P0020 golden parity. */
+/* P0001 Desk — split system workspace (System) + standalone Layout 1 Directory (Jobs · Drives · Clips · Runners · Cron · Apps). */
 
-.hub-main.hub-main--clips,
-.hub-main.hub-main--jobs,
-.hub-main.hub-main--drives,
-.hub-main.hub-main--runners,
-.hub-main.hub-main--cron,
-.hub-main.hub-main--apps {
+.hub-main.hub-main--system {
   padding-bottom: 0;
   scroll-padding-top: 0;
   scrollbar-gutter: auto;
@@ -13,29 +8,14 @@
   overscroll-behavior: none;
 }
 
-.hub-main--clips .hub-split-workspace > div,
-.hub-main--jobs .hub-split-workspace > div,
-.hub-main--drives .hub-split-workspace > div,
-.hub-main--runners .hub-split-workspace > div,
-.hub-main--cron .hub-split-workspace > div,
-.hub-main--apps .hub-split-workspace > div,
-.hub-main--clips .hub-tab-chrome-stack,
-.hub-main--jobs .hub-tab-chrome-stack,
-.hub-main--drives .hub-tab-chrome-stack,
-.hub-main--runners .hub-tab-chrome-stack,
-.hub-main--cron .hub-tab-chrome-stack,
-.hub-main--apps .hub-tab-chrome-stack {
+.hub-main--system .hub-split-workspace > div,
+.hub-main--system .hub-tab-chrome-stack {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
 }
 
-.hub-main--clips .hub-tab-content-zone,
-.hub-main--jobs .hub-tab-content-zone,
-.hub-main--drives .hub-tab-content-zone,
-.hub-main--runners .hub-tab-content-zone,
-.hub-main--cron .hub-tab-content-zone,
-.hub-main--apps .hub-tab-content-zone {
+.hub-main--system .hub-tab-content-zone {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
@@ -44,12 +24,7 @@
   margin-top: 0;
 }
 
-.hub-main--clips .hub-split-workspace .app-tab-header,
-.hub-main--jobs .hub-split-workspace .app-tab-header,
-.hub-main--drives .hub-split-workspace .app-tab-header,
-.hub-main--runners .hub-split-workspace .app-tab-header,
-.hub-main--cron .hub-split-workspace .app-tab-header,
-.hub-main--apps .hub-split-workspace .app-tab-header {
+.hub-main--system .hub-split-workspace .app-tab-header {
   margin-bottom: 0;
 }
 
@@ -58,12 +33,7 @@
   max-width: 16rem;
 }
 
-.hub-main--clips .hub-split-workspace .hub-tab-body-zone--split,
-.hub-main--jobs .hub-split-workspace .hub-tab-body-zone--split,
-.hub-main--drives .hub-split-workspace .hub-tab-body-zone--split,
-.hub-main--runners .hub-split-workspace .hub-tab-body-zone--split,
-.hub-main--cron .hub-split-workspace .hub-tab-body-zone--split,
-.hub-main--apps .hub-split-workspace .hub-tab-body-zone--split {
+.hub-main--system .hub-split-workspace .hub-tab-body-zone--split {
   margin-top: 0;
   display: flex;
   flex: 1 1 0;
@@ -103,8 +73,7 @@
 /*
  * Warm tab switch SSOT — park keep-alive panels without display:none.
  * display:none on ~700-node directories forced 0.5–1.5s reflow (Stealth raf2).
- * Parked panels stay laid out off-flow; active stays in flex.
- * Must override hub-profile-split-layout `.hub-main--* > div:not([hidden])`.
+ * Parked panels stay laid out off-flow; active stays in flow.
  */
 .hub-main {
   position: relative;
@@ -129,15 +98,9 @@
 }
 
 /*
- * Split tabs (Clips/Jobs/Drives/Runners/Cron) — fill pane, clip (panel-fill + rail).
- * Document tabs (Dashboard) — grow with content so `.hub-main` can scroll.
+ * Split tab (System) — fill pane, clip (panel-fill + rail).
  */
-.hub-main.hub-main--clips > .desk-tab-panel--active,
-.hub-main.hub-main--jobs > .desk-tab-panel--active,
-.hub-main.hub-main--drives > .desk-tab-panel--active,
-.hub-main.hub-main--runners > .desk-tab-panel--active,
-.hub-main.hub-main--cron > .desk-tab-panel--active,
-.hub-main.hub-main--apps > .desk-tab-panel--active {
+.hub-main.hub-main--system > .desk-tab-panel--active {
   position: relative;
   z-index: 1;
   display: flex !important;
@@ -149,15 +112,26 @@
   visibility: visible;
 }
 
-.hub-main:not(.hub-main--clips):not(.hub-main--jobs):not(.hub-main--drives):not(.hub-main--runners):not(.hub-main--cron):not(.hub-main--apps) > .desk-tab-panel--active {
+/*
+ * Standalone Layout 1 Directory & Document tabs (Dashboard / Jobs / Drives / Clips / Runners / Cron / Apps) —
+ * grow naturally with content so `.hub-main` scrolls with sticky `HubTabChrome` (P0020 Services SSOT).
+ */
+.hub-main:not(.hub-main--system) > .desk-tab-panel--active {
   position: relative;
   z-index: 1;
   display: flex !important;
-  flex: 1 1 0;
+  flex: 1 0 auto;
   flex-direction: column;
   width: 100%;
-  min-height: 0;
+  height: auto;
+  min-height: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   visibility: visible;
+}
+
+.hub-main:not(.hub-main--system) .hub-tab-chrome-stack,
+.hub-main:not(.hub-main--system) .hub-tab-content-zone {
+  flex: 0 0 auto;
+  overflow: visible;
 }

@@ -43,6 +43,7 @@ function toRow(row: ClipRow): DeskRow {
     createdAt: row.createdAt,
     project: row.project || "",
     clipFormat,
+    clipSource: row.source || "Clipboard",
     pinned: Boolean(row.pinned),
     statusTone: sample ? "online" : "active",
   };

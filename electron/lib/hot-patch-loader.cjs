@@ -107,9 +107,41 @@ function compareSemverSafe(a, b) {
 function readPackageVersionSafe(pkgPath) {
   try {
     if (!pkgPath || !fs.existsSync(pkgPath)) return "";
-    return String(JSON.parse(fs.readFileSync(pkgPath, "utf8"))?.version || "").trim();
+    const raw = fs.readFileSync(pkgPath, "utf8");
+    if (!raw || raw.includes("\u0000")) return "";
+    return String(JSON.parse(raw)?.version || "").trim();
   } catch {
     return "";
+  }
+}
+
+const CORRUPT_CHECK_TEXT_EXT_RE = /\.(?:json|cjs|mjs|js|html|css)$/i;
+
+function isLikelyCorruptTextOrCodeFile(filePath) {
+  try {
+    const st = fs.statSync(filePath);
+    if (!st.isFile()) return true;
+    if (!CORRUPT_CHECK_TEXT_EXT_RE.test(filePath)) return false;
+    if (st.size === 0) return true;
+    const sampleLen = Math.min(st.size, 512);
+    const buf = Buffer.allocUnsafe(sampleLen);
+    const fd = fs.openSync(filePath, "r");
+    let bytesRead = 0;
+    try {
+      bytesRead = fs.readSync(fd, buf, 0, sampleLen, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+    if (bytesRead <= 0) return true;
+    for (let i = 0; i < bytesRead; i += 1) {
+      if (buf[i] === 0) return true;
+    }
+    if (path.basename(filePath).toLowerCase() === "package.json") {
+      JSON.parse(fs.readFileSync(filePath, "utf8"));
+    }
+    return false;
+  } catch {
+    return true;
   }
 }
 
@@ -132,13 +164,23 @@ function removeStaleHotPatchSafely(hotDir) {
   }
 }
 
+function isExplicitHotPatchDirCorrupt(dir) {
+  const pkgPath = path.join(dir, "package.json");
+  if (!fs.existsSync(pkgPath)) return false;
+  return !readPackageVersionSafe(pkgPath);
+}
+
 function resolveHotPatchRoot(opts = {}) {
   const envDir = process.env.HUB_HOT_PATCH_DIR || process.env.STEALTH_HOT_PATCH_DIR;
   if (envDir && fs.existsSync(envDir)) {
-    return path.resolve(envDir);
+    const resolvedEnv = path.resolve(envDir);
+    if (isExplicitHotPatchDirCorrupt(resolvedEnv)) return "";
+    return resolvedEnv;
   }
   if (opts && typeof opts.hotPatchDir === "string" && opts.hotPatchDir && fs.existsSync(opts.hotPatchDir)) {
-    return path.resolve(opts.hotPatchDir);
+    const resolvedOpt = path.resolve(opts.hotPatchDir);
+    if (isExplicitHotPatchDirCorrupt(resolvedOpt)) return "";
+    return resolvedOpt;
   }
   if (
     typeof process.resourcesPath === "string" &&
@@ -148,8 +190,17 @@ function resolveHotPatchRoot(opts = {}) {
     const candidate = path.join(process.resourcesPath, "hot-patch");
     if (fs.existsSync(candidate)) {
       const hotVer = readPackageVersionSafe(path.join(candidate, "package.json"));
+      if (!hotVer) {
+        appendGuardBootLog(
+          "corrupt-hot-patch",
+          new Error(`Quarantining corrupt or unversioned hot-patch directory: ${candidate}`),
+          opts,
+        );
+        removeStaleHotPatchSafely(candidate);
+        return "";
+      }
       const baseVer = readPackageVersionSafe(path.join(process.resourcesPath, "app.asar", "package.json"));
-      if (baseVer && hotVer && compareSemverSafe(baseVer, hotVer) > 0) {
+      if (baseVer && compareSemverSafe(baseVer, hotVer) > 0) {
         removeStaleHotPatchSafely(candidate);
         return "";
       }
@@ -173,7 +224,7 @@ function remapAsarPathToHotPatch(resolvedPath) {
   }
   const candidate = path.join(hotRoot, rel);
   try {
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+    if (fs.existsSync(candidate) && !isLikelyCorruptTextOrCodeFile(candidate)) {
       return candidate;
     }
   } catch {
@@ -185,12 +236,54 @@ function remapAsarPathToHotPatch(resolvedPath) {
 let _hookInstalled = false;
 const _loadedMtimes = new Map();
 
+function remapHotPatchParentToAsar(parent, hotRoot) {
+  if (!parent || typeof parent.filename !== "string") return parent;
+  const fallbackHotRoot =
+    hotRoot ||
+    (typeof process.resourcesPath === "string" && process.resourcesPath
+      ? path.join(process.resourcesPath, "hot-patch")
+      : "");
+  if (fallbackHotRoot) {
+    const resBase = path.dirname(fallbackHotRoot);
+    const asarRoot = path.join(resBase, "app.asar");
+    const normFile = path.resolve(parent.filename);
+    const normHot = path.resolve(fallbackHotRoot);
+    if (
+      normFile.toLowerCase() === normHot.toLowerCase() ||
+      normFile.toLowerCase().startsWith(`${normHot.toLowerCase()}${path.sep}`)
+    ) {
+      const rel = path.relative(normHot, normFile);
+      return { ...parent, filename: path.join(asarRoot, rel) };
+    }
+  }
+  const markerMatch = parent.filename.match(/^(.*)[\\/]hot-patch([\\/].*)?$/i);
+  if (markerMatch) {
+    return { ...parent, filename: path.join(markerMatch[1], "app.asar", markerMatch[2] || "") };
+  }
+  return parent;
+}
+
 function installHotPatchResolveHook() {
   if (_hookInstalled) return;
   _hookInstalled = true;
   const origResolve = Module._resolveFilename;
   Module._resolveFilename = function hotPatchResolveFilename(request, parent, isMain, options) {
-    const resolved = origResolve.call(this, request, parent, isMain, options);
+    let resolved;
+    try {
+      resolved = origResolve.call(this, request, parent, isMain, options);
+    } catch (err) {
+      if (err && err.code === "ERR_INVALID_PACKAGE_CONFIG" && parent) {
+        const hotRoot = resolveHotPatchRoot();
+        const asarParent = remapHotPatchParentToAsar(parent, hotRoot);
+        if (asarParent !== parent) {
+          resolved = origResolve.call(this, request, asarParent, isMain, options);
+        } else {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
     const mapped = remapAsarPathToHotPatch(resolved);
     if (mapped !== resolved) {
       try {
@@ -288,7 +381,7 @@ function resolveHotPatchedDistIndexHtml(defaultDistIndexPath) {
   if (hotRoot) {
     promoteStagedHotPatchDist(hotRoot);
     const hotIndex = path.join(hotRoot, "dist", "index.html");
-    if (fs.existsSync(hotIndex)) return hotIndex;
+    if (fs.existsSync(hotIndex) && !isLikelyCorruptTextOrCodeFile(hotIndex)) return hotIndex;
   }
   return defaultDistIndexPath;
 }
@@ -298,7 +391,8 @@ function resolveHotPatchedDistDir(defaultDistDir) {
   if (hotRoot) {
     promoteStagedHotPatchDist(hotRoot);
     const hotDist = path.join(hotRoot, "dist");
-    if (fs.existsSync(path.join(hotDist, "index.html"))) return hotDist;
+    const hotIndex = path.join(hotDist, "index.html");
+    if (fs.existsSync(hotIndex) && !isLikelyCorruptTextOrCodeFile(hotIndex)) return hotDist;
   }
   return defaultDistDir;
 }
@@ -309,7 +403,7 @@ function resolveHotPatchedEntry(relPath, defaultAbsPath) {
     const normalizedRel = String(relPath).replace(/^[\\/]+/, "");
     const candidate = path.join(hotRoot, normalizedRel);
     try {
-      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      if (fs.existsSync(candidate) && !isLikelyCorruptTextOrCodeFile(candidate)) {
         return candidate;
       }
     } catch {
@@ -322,21 +416,16 @@ function resolveHotPatchedEntry(relPath, defaultAbsPath) {
 function resolveHotPatchedPackageVersion(defaultVersion = "") {
   const hotRoot = resolveHotPatchRoot();
   if (hotRoot) {
-    try {
-      const pkgPath = path.join(hotRoot, "package.json");
-      if (fs.existsSync(pkgPath)) {
-        const ver = String(JSON.parse(fs.readFileSync(pkgPath, "utf8"))?.version || "").trim();
-        if (ver) return ver;
-      }
-    } catch {
-      /* ignore */
-    }
+    const ver = readPackageVersionSafe(path.join(hotRoot, "package.json"));
+    if (ver) return ver;
   }
   return defaultVersion;
 }
 
 module.exports = {
   installEpipeProcessGuard,
+  isLikelyCorruptTextOrCodeFile,
+  removeStaleHotPatchSafely,
   resolveHotPatchRoot,
   promoteStagedHotPatchDist,
   installHotPatchResolveHook,

@@ -220,6 +220,40 @@ function syncPostPublishIfNeeded() {
   }
 }
 
+function cleanStaleHotPatchArtifacts(unpackedDir) {
+  const resDir = path.join(unpackedDir, "resources");
+  if (!fs.existsSync(resDir)) return;
+  const hotPatchDir = path.join(resDir, "hot-patch");
+  const hotNodeModules = path.join(hotPatchDir, "node_modules");
+  try {
+    if (fs.existsSync(hotNodeModules)) {
+      const st = fs.lstatSync(hotNodeModules);
+      if (st.isSymbolicLink()) fs.rmdirSync(hotNodeModules);
+    }
+  } catch {
+    try {
+      fs.unlinkSync(hotNodeModules);
+    } catch {
+      /* ignore */
+    }
+  }
+  for (const target of [
+    hotPatchDir,
+    path.join(resDir, "app.asar.staged"),
+    path.join(resDir, "app.asar.staged.sha256.json"),
+  ]) {
+    try {
+      if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+if (!prepackaged) {
+  cleanStaleHotPatchArtifacts(fallback);
+}
+
 const pack = fs.existsSync(ebCli)
   ? spawnSync(process.execPath, [ebCli, ...ebArgs], { cwd: root, stdio: "inherit", env: packEnv })
   : spawnSync("pnpm", ["exec", "electron-builder", ...ebArgs], { cwd: root, stdio: "inherit", shell: true, env: packEnv });
@@ -248,6 +282,7 @@ if (fs.existsSync(path.join(tmp, "electron.exe")) || fs.existsSync(path.join(fal
     await syncToInstalledDir(fallback);
     process.exit(0);
   }
+  cleanStaleHotPatchArtifacts(fallback);
   const prepackArgs = ebArgs.filter((a) => a !== "--dir").concat(["--prepackaged", fallback]);
   const nsisPack = fs.existsSync(ebCli)
     ? spawnSync(process.execPath, [ebCli, ...prepackArgs], { cwd: root, stdio: "inherit", env: packEnv })

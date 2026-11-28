@@ -51,6 +51,7 @@ const {
   formatElectronWindowTitle,
   attachElectronDevWindowBadge,
 } = require("./lib/electron-dev-badge.cjs");
+const { installDesktopAppMenu, getDesktopWindowChromeOptions } = require("./lib/desktop-app-menu.cjs");
 
 applyDeskDevPaths();
 
@@ -98,6 +99,20 @@ if (!gotLock) {
   console.error(`[desk] another instance holds lock (${isDevIsolated ? "dev" : "prod"}) — exiting`);
   app.quit();
 }
+
+process.on("uncaughtException", (err) => {
+  if (err && (err.code === "EPIPE" || err.code === "ERR_STREAM_DESTROYED" || String(err.message || "").includes("write EPIPE"))) {
+    return;
+  }
+  if (!globalThis.__DESK_MAIN_BOOT_READY__) {
+    try {
+      app.releaseSingleInstanceLock();
+    } catch {
+      /* ignore */
+    }
+    app.exit(1);
+  }
+});
 
 function api(pathname, method = "GET", body, opts = {}) {
   const timeoutMs = Number(opts.timeoutMs) || 1500;
@@ -218,16 +233,24 @@ function bundledRclonePath() {
 
 let hostRespawnTimer = null;
 let ensureHostInflight = null;
+let hostConsecutiveFastExits = 0;
+const HOST_RESPAWN_BACKOFF_MS = [500, 2000, 5000, 15_000, 60_000];
 
 async function ensureHost() {
   if (hostRespawnTimer) {
     clearTimeout(hostRespawnTimer);
     hostRespawnTimer = null;
   }
-  if (await probeHealth()) return true;
+  if (await probeHealth()) {
+    hostConsecutiveFastExits = 0;
+    return true;
+  }
   if (ensureHostInflight) return ensureHostInflight;
   ensureHostInflight = (async () => {
-    if (await probeHealth()) return true;
+    if (await probeHealth()) {
+      hostConsecutiveFastExits = 0;
+      return true;
+    }
     const rclone = bundledRclonePath();
     const dist = distRoot();
     const hostEnv = buildPackagedHostNodeEnv(process.env, {
@@ -236,6 +259,7 @@ async function ensureHost() {
       productRoot: path.join(__dirname, ".."),
       controlFile: hotReloadBridge?.controlFile || "",
     });
+    const spawnedAt = Date.now();
     const child = spawn(process.execPath, [hostEntry()], {
       cwd: hostCwd(),
       detached: false,
@@ -259,12 +283,18 @@ async function ensureHost() {
       errTail = (errTail + String(chunk)).slice(-4000);
     });
     child.on("exit", (code, sig) => {
+      const aliveMs = Date.now() - spawnedAt;
+      if (aliveMs >= 15_000) {
+        hostConsecutiveFastExits = 0;
+      } else {
+        hostConsecutiveFastExits += 1;
+      }
       if (errTail.trim()) {
         try {
           const logFile = path.join(app.getPath("userData"), "host-boot.log");
           fs.appendFileSync(
             logFile,
-            `[${new Date().toISOString()}] exit=${code ?? sig}\n${errTail.trim()}\n\n`,
+            `[${new Date().toISOString()}] exit=${code ?? sig} aliveMs=${aliveMs} streak=${hostConsecutiveFastExits}\n${errTail.trim()}\n\n`,
             "utf8",
           );
         } catch {
@@ -273,16 +303,25 @@ async function ensureHost() {
       }
       if (!app.isQuiting && hostChild === child) {
         if (hostRespawnTimer) clearTimeout(hostRespawnTimer);
+        const backoffIdx = Math.min(
+          Math.max(0, hostConsecutiveFastExits - 1),
+          HOST_RESPAWN_BACKOFF_MS.length - 1,
+        );
+        const delayMs = aliveMs >= 15_000 ? 500 : HOST_RESPAWN_BACKOFF_MS[backoffIdx];
         hostRespawnTimer = setTimeout(() => {
           hostRespawnTimer = null;
           if (!app.isQuiting) void ensureHost();
-        }, 300);
+        }, delayMs);
         hostRespawnTimer.unref?.();
       }
     });
     const deadline = Date.now() + 20_000;
     while (Date.now() < deadline) {
-      if (await probeHealth()) return true;
+      if (hostChild !== child) break;
+      if (await probeHealth()) {
+        hostConsecutiveFastExits = 0;
+        return true;
+      }
       await new Promise((r) => setTimeout(r, 200));
     }
     return probeHealth();
@@ -372,6 +411,7 @@ function createWindow() {
   const icon = appIconPath();
   Menu.setApplicationMenu(null);
   mainWindow = new BrowserWindow({
+    ...getDesktopWindowChromeOptions(),
     width: 1280,
     height: 800,
     title: windowTitle(),
@@ -489,7 +529,7 @@ function createPicker() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      backgroundThrottling: false,
+      backgroundThrottling: true,
     },
   });
   pickerWindow.setAlwaysOnTop(true, "pop-up-menu");
@@ -1281,6 +1321,7 @@ app.whenReady().then(async () => {
     });
   }
   await ensureHost();
+  globalThis.__DESK_MAIN_BOOT_READY__ = true;
   refreshPickerSnapshot();
   createTray();
   registerDesktopUpdaterIpc({
@@ -1300,21 +1341,29 @@ app.whenReady().then(async () => {
       }
     },
   });
-  if (!wantsHiddenStart()) createWindow();
+  installDesktopAppMenu({
+    onReload: () => reloadAllRenderers(),
+    onForceReload: () => reloadAllRenderers(),
+    filterWindow: (win) => win !== pickerWindow,
+  });
+  const hiddenBoot = wantsHiddenStart();
+  if (!hiddenBoot) createWindow();
   await bindShortcuts();
   void handleCliActions(process.argv);
-  // Warm picker in background so first Ctrl+Shift+Q is instant (no Vite cold boot).
-  setTimeout(() => ensurePickerWarm(), 800).unref?.();
-  setTimeout(() => void pollSyncHealthGuard(), 2500).unref?.();
-  setInterval(() => void pollSyncHealthGuard(), 25000).unref?.();
+  // Only pre-warm the 2nd Chromium renderer (`pickerWindow`) on visible launch; hidden tray boot stays single-process lean.
+  if (!hiddenBoot) {
+    setTimeout(() => ensurePickerWarm(), 1500).unref?.();
+  }
+  setTimeout(() => void pollSyncHealthGuard(), 3500).unref?.();
+  setInterval(() => void pollSyncHealthGuard(), 30000).unref?.();
   void pollElectronClipboard();
-  setInterval(() => void pollElectronClipboard(), 900).unref?.();
+  setInterval(() => void pollElectronClipboard(), 1200).unref?.();
   setInterval(() => {
     if (pickerWindow && !pickerWindow.isDestroyed() && pickerWindow.isVisible()) {
       refreshPickerSnapshot();
     }
   }, 2000).unref?.();
-  setInterval(() => rememberForeignForeground(), 300).unref?.();
+  setInterval(() => rememberForeignForeground(), 2500).unref?.();
 });
 
 app.on("window-all-closed", (e) => {

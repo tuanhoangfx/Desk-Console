@@ -16,7 +16,7 @@ import {
   HUB_ACCOUNT_DETAIL_MAIN_SCROLL_CLASS,
   HUB_ACCOUNT_DETAIL_MAIN_SCROLL_ROOT,
 } from "@tool-workspace/hub-ui";
-import { deskApi, type ClipRow } from "../../lib/api";
+import { deskApi, resolveClipImageSrc, type ClipRow } from "../../lib/api";
 import { DeskDetailNoteLogRails } from "../desk/DeskDetailNoteLogRails";
 import { DeskDetailReadonlyField } from "../desk/desk-detail-fields";
 import { DeskStatusKpiLabel } from "../desk/DeskStatusKpiLabel";
@@ -48,25 +48,28 @@ export function ClipDetailModal({ row, onClose }: Props) {
   const smartTag = useMemo(() => detectClipSmartTag(row), [row]);
   const [cloneOpen, setCloneOpen] = useState(false);
   const [cloneBusy, setCloneBusy] = useState(false);
-  const [fullImageDataUrl, setFullImageDataUrl] = useState<string | undefined>(row.imageDataUrl);
+  const [fullText, setFullText] = useState<string>(row.text);
+  const [fullImageSrc, setFullImageSrc] = useState<string>(() => resolveClipImageSrc(row));
 
   useEffect(() => {
-    setFullImageDataUrl(row.imageDataUrl);
-    if (!row.imageDataUrl && (row.hasImage || row.contentType === "image")) {
+    setFullText(row.text);
+    setFullImageSrc(resolveClipImageSrc(row));
+    if (row.textTruncated) {
       let active = true;
       void deskApi
         .clip(row.id)
         .then((res) => {
-          if (active && res?.row?.imageDataUrl) {
-            setFullImageDataUrl(res.row.imageDataUrl);
-          }
+          if (!active || !res?.row) return;
+          if (typeof res.row.text === "string") setFullText(res.row.text);
+          const nextImg = resolveClipImageSrc(res.row);
+          if (nextImg) setFullImageSrc(nextImg);
         })
         .catch(() => undefined);
       return () => {
         active = false;
       };
     }
-  }, [row.id, row.imageDataUrl, row.hasImage, row.contentType]);
+  }, [row]);
 
   async function executeClone(count: number) {
     if (cloneBusy) return;
@@ -75,9 +78,9 @@ export function ClipDetailModal({ row, onClose }: Props) {
       for (let i = 1; i <= count; i++) {
         const cloneName = count === 1 ? `${title} (Copy)` : `${title} (Copy ${i})`;
         if (sample) {
-          await deskApi.saveSample(row.text, cloneName);
+          await deskApi.saveSample(fullText, cloneName);
         } else {
-          await deskApi.saveClip(row.text);
+          await deskApi.saveClip(fullText);
         }
       }
       setCloneOpen(false);
@@ -149,19 +152,19 @@ export function ClipDetailModal({ row, onClose }: Props) {
                       <HubDirectoryReadonlyCopyText value={row.name || ""} />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Text" headerEmoji="📝">
-                      <HubDirectoryReadonlyCopyText value={row.text} multilineHover />
+                      <HubDirectoryReadonlyCopyText value={fullText} multilineHover />
                     </DeskDetailReadonlyField>
                     <DeskDetailReadonlyField label="Clip id" headerEmoji="🆔">
                       <HubCrmDetailVaultIdBadge id={row.id} title="Copy clip ID" />
                     </DeskDetailReadonlyField>
                   </div>
-                  {fullImageDataUrl ? (
+                  {fullImageSrc ? (
                     <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3">
                       <div className="mb-1.5 text-xs font-medium text-slate-400">
                         🖼️ Image Preview {row.imageWidth && row.imageHeight ? `(${row.imageWidth}×${row.imageHeight})` : ""}
                       </div>
                       <img
-                        src={fullImageDataUrl}
+                        src={fullImageSrc}
                         alt={title}
                         className="max-h-72 max-w-full rounded-lg border border-white/10 bg-black/50 object-contain"
                       />

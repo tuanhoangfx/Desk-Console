@@ -19,6 +19,7 @@ import {
 } from "@tool-workspace/hub-ui";
 import type { TaskRow } from "../../lib/api";
 import { DeskDetailNoteLogRails } from "../desk/DeskDetailNoteLogRails";
+import { DeskOpsRuntimeRail } from "../desk/DeskOpsRuntimeRail";
 import { DeskDetailReadonlyField } from "../desk/desk-detail-fields";
 import { DeskStatusKpiLabel } from "../desk/DeskStatusKpiLabel";
 import { DESK_STATUS_KPI_EMOJI } from "../desk/desk-directory-stickers";
@@ -34,6 +35,7 @@ import {
 const CRON_DETAIL_TOC = [
   { id: "desk-cron-status", label: "Schedule & Status", emoji: "🕒" },
   { id: "desk-cron-identity", label: "Identity & Action", emoji: "⚡" },
+  { id: "desk-cron-console", label: "Console & History", emoji: "🖥️" },
 ] as const;
 
 type SchedulePresetOption = {
@@ -388,6 +390,11 @@ export function CronDetailModal({ row, busy = false, onRun, onToggleEnable, onUp
                       disabled={busy || saving}
                       onClick={() => onToggleEnable(row.id, isDisabled)}
                     />
+                  </div>
+                </HubAdmSectionBlock>
+                <HubAdmSectionBlock {...deskDetailSectionProps({ id: "desk-cron-console", label: "Live Console & History", emoji: "🖥️" })}>
+                  <div className="h-[420px] overflow-hidden rounded-xl border border-white/10">
+                    <DeskOpsRuntimeRail kind="task" targetId={row.id} targetLabel={row.name} tabActive />
                   </div>
                 </HubAdmSectionBlock>
               </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayCircle } from "lucide-react";
-import { emitHubAppLog } from "@tool-workspace/hub-ui";
+import { emitHubAppLog, type HubDirectoryBulkMoreAction } from "@tool-workspace/hub-ui";
 import { deskApi, type RunnerRow } from "../../lib/api";
 import {
   hydrateP0001RunnersMirror,
@@ -9,7 +9,7 @@ import {
 } from "../../lib/p0001-desk-mirror-store";
 import { useDeskLive } from "../../lib/use-desk-live";
 import { useDeskTabActive } from "../../lib/desk-active-screen";
-import { appendDeskOpsLog, DeskOpsRuntimeRail } from "../desk/DeskOpsRuntimeRail";
+import { appendDeskOpsLog } from "../desk/desk-ops-session-log";
 import { DeskDirectoryScreen } from "../desk/DeskDirectoryScreen";
 import { useDeskOpsFocus } from "../desk/use-desk-ops-focus";
 import type { DeskOpsAction, DeskRow } from "../desk/desk-directory-cells";
@@ -38,6 +38,9 @@ function toRow(row: RunnerRow): DeskRow {
   return {
     id: row.id,
     name: runnerLabel(row),
+    project: row.code,
+    stack: row.stack || (row.kind === "worker" ? "Node Host API" : "Vite SPA"),
+    pinned: Boolean(row.toolRoot),
     status: row.up ? "Up" : "Down",
     extra: row.kind === "worker" ? "host API" : `vite :${row.port}`,
     log: summary,
@@ -56,6 +59,8 @@ function toRow(row: RunnerRow): DeskRow {
     opsStartExitedAt: row.startExitedAt,
     opsStartExitCode: row.startExitCode,
     opsStartStartedAt: row.startStartedAt,
+    tunnelUrl: row.tunnelUrl ?? null,
+    tunnelState: row.tunnelState ?? null,
   };
 }
 
@@ -104,10 +109,9 @@ export function RunnersScreen() {
     initialRows: () => rawRef.current.map(toRow),
     hydrate: hydrateRunners,
     rowStableKey: (row) =>
-      `${row.id}:${row.opsUp}:${row.status}:${row.opsStartExitCode ?? ""}:${row.opsStartExitedAt ?? ""}`,
+      `${row.id}:${row.opsUp}:${row.status}:${row.opsStartExitCode ?? ""}:${row.opsStartExitedAt ?? ""}:${row.tunnelUrl ?? ""}:${row.tunnelState ?? ""}`,
   });
-  const { focusedId, setFocusedId } = useDeskOpsFocus(rows, tabActive);
-  const focusedLabel = useMemo(() => rows.find((row) => row.id === focusedId)?.name, [focusedId, rows]);
+  const { setFocusedId } = useDeskOpsFocus(rows, tabActive);
   const detailRunner = useMemo(
     () => rawRef.current.find((row) => row.id === detailId) ?? null,
     [detailId, rows],
@@ -276,14 +280,87 @@ export function RunnersScreen() {
     [withAction],
   );
 
+  const toggleShareOne = useCallback(
+    (id: string) => {
+      const raw = rawRef.current.find((row) => row.id === id);
+      if (!raw || !raw.up) return;
+      void (async () => {
+        try {
+          const res = await deskApi.runnerTunnel(raw.id, "toggle");
+          if (res.active && res.url && typeof navigator !== "undefined" && navigator.clipboard) {
+            await navigator.clipboard.writeText(res.url).catch(() => {});
+          }
+          appendDeskOpsLog(
+            res.active && res.url ? `[${raw.code}] share preview -> ${res.url}` : `[${raw.code}] share preview stopped`,
+            "info",
+            "runners",
+          );
+          emitHubAppLog({
+            scope: "P0001",
+            screen: "runners",
+            kind: "update",
+            message: res.active && res.url ? `share ${raw.code} ${res.url}` : `stop share ${raw.code}`,
+          });
+          refreshBurst();
+        } catch (err) {
+          appendDeskOpsLog(
+            `[${raw.code}] share error: ${err instanceof Error ? err.message : String(err)}`,
+            "error",
+            "runners",
+          );
+        }
+      })();
+    },
+    [refreshBurst],
+  );
+
   const opsHandlers = useMemo(
     () => ({
       onRun: runOne,
       onStop: stopOne,
       onFocus: setFocusedId,
+      onToggleShare: toggleShareOne,
       pendingIds,
     }),
-    [pendingIds, runOne, setFocusedId, stopOne],
+    [pendingIds, runOne, setFocusedId, stopOne, toggleShareOne],
+  );
+
+  const moreActions = useCallback(
+    ({ ids, hasSelection }: { ids: string[]; hasSelection: boolean }): HubDirectoryBulkMoreAction[] => [
+      {
+        key: "start",
+        label: "Start",
+        emoji: "▶️",
+        tone: "emerald",
+        disabled: !hasSelection,
+        onClick: () => run(ids, "start"),
+      },
+      {
+        key: "stop",
+        label: "Stop",
+        emoji: "⏹️",
+        tone: "rose",
+        disabled: !hasSelection,
+        onClick: () => run(ids, "stop"),
+      },
+      {
+        key: "restart",
+        label: "Restart",
+        emoji: "🔄",
+        tone: "amber",
+        disabled: !hasSelection,
+        onClick: () => run(ids, "restart"),
+      },
+      {
+        key: "recover",
+        label: "Recover",
+        emoji: "🛠️",
+        disabled: !hasSelection,
+        onClick: () => run(ids, "recover"),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
 
   return (
@@ -291,25 +368,28 @@ export function RunnersScreen() {
       <DeskDirectoryScreen
         screen="runners"
         tabActive={tabActive}
-        showPeriod={false}
+        showPeriod
         title="Runners"
         titleIcon={PlayCircle}
         titleIconClass="text-amber-300"
         sectionRuleLabel="Runners"
+        searchPlaceholder="Search product code (P0001–P0026), port, Vite UI, host API worker…"
         rows={displayRows}
         onRowFocus={handleRowFocus}
         opsHandlers={opsHandlers}
-        sideRail={
-          <DeskOpsRuntimeRail kind="runner" targetId={focusedId} targetLabel={focusedLabel} tabActive={tabActive} />
-        }
-        bulkActions={[
-          { label: "Start", tone: "emerald", onClick: (ids) => run(ids, "start") },
-          { label: "Stop", tone: "rose", onClick: (ids) => run(ids, "stop") },
-          { label: "Restart", tone: "amber", onClick: (ids) => run(ids, "restart") },
-          { label: "Detail", onClick: (ids) => openDetail(ids) },
-        ]}
+        crudBulk={{
+          onDetail: openDetail,
+          detailTitle: "Open Runner Detail & Live Console",
+          moreActions,
+        }}
       />
-      {detailRunner ? <RunnerDetailModal row={detailRunner} onClose={() => setDetailId(null)} /> : null}
+      {detailRunner ? (
+        <RunnerDetailModal
+          row={detailRunner}
+          onToggleShare={() => toggleShareOne(detailRunner.id)}
+          onClose={() => setDetailId(null)}
+        />
+      ) : null}
     </>
   );
 }
